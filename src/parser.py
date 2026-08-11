@@ -24,6 +24,28 @@ Internal (canonical) schema after normalize():
 
 Any column not recognized by COLUMN_ALIASES (e.g. "ignore" placeholder
 columns some exports include) is simply dropped.
+
+Column matching is primarily by header name (case/whitespace-insensitive),
+so it doesn't care what order the columns are in. As a fallback for files
+whose headers don't match anything in COLUMN_ALIASES (or have no usable
+headers at all), positions are also mapped against the exact column order
+HR confirmed the DailyAttendance export uses:
+
+    1. Date
+    2. EmpNo         -> emp_code
+    3. EmpName       -> emp_name
+    4. Company
+    5. Category
+    6. Department
+    7. (ignore)
+    8. (ignore)
+    9. Shift
+    10. InTime       -> time_in
+    11. OutTime      -> time_out
+    12. Total        -> work_hours
+    13+. (ignore — everything after Total)
+
+See POSITIONAL_COLUMNS below.
 """
 from __future__ import annotations
 
@@ -54,6 +76,15 @@ COLUMN_ALIASES = {
     ],
     "status": ["attendance", "status", "attendance status", "att status"],
 }
+
+# Positional fallback: column 1 = date, column 2 = emp_code, etc., matching
+# the exact order HR sends (see module docstring). `None` marks a column to
+# ignore. Only used when header-name matching (COLUMN_ALIASES) can't find
+# the required columns — see _build_rename_map(..., positional_fallback=True).
+POSITIONAL_COLUMNS = [
+    "date", "emp_code", "emp_name", "company", "category", "department",
+    None, None, "shift", "time_in", "time_out", "work_hours",
+]
 
 STATUS_LABELS = {
     "P": "Present",
@@ -91,6 +122,20 @@ def _build_rename_map(columns) -> dict:
     return rename
 
 
+def _build_positional_rename_map(columns) -> dict:
+    """Fallback for files whose headers don't match COLUMN_ALIASES: map by
+    position using POSITIONAL_COLUMNS (date, empno, empname, company,
+    category, department, ignore, ignore, shift, intime, outtime, total)."""
+    rename = {}
+    for i, col in enumerate(columns):
+        if i >= len(POSITIONAL_COLUMNS):
+            break
+        canon = POSITIONAL_COLUMNS[i]
+        if canon:
+            rename[col] = canon
+    return rename
+
+
 def load_file(uploaded_file) -> pd.DataFrame:
     """Load an uploaded CSV/XLSX/XLSM file (Streamlit UploadedFile, path, or
     file-like object) into a raw DataFrame, trying every sheet for xlsx and
@@ -123,12 +168,23 @@ def load_file(uploaded_file) -> pd.DataFrame:
 def normalize(df: pd.DataFrame) -> pd.DataFrame:
     """Rename columns to the canonical schema and coerce types."""
     rename = _build_rename_map(df.columns)
-    missing_required = {"emp_code", "emp_name", "date"} - set(rename.values())
+    required = {"emp_code", "emp_name", "date"}
+    if required - set(rename.values()):
+        # Header names didn't match anything recognized — fall back to the
+        # confirmed column order (Date, EmpNo, EmpName, Company, Category,
+        # Department, ignore, ignore, Shift, InTime, OutTime, Total).
+        positional_rename = _build_positional_rename_map(df.columns)
+        if not (required - set(positional_rename.values())):
+            rename = positional_rename
+
+    missing_required = required - set(rename.values())
     if missing_required:
         raise ValueError(
             "Could not find required column(s): "
             f"{', '.join(sorted(missing_required))}. "
-            "Expected an eSSL-style export with Employee Code/Name and Date columns."
+            "Expected an eSSL-style export with Employee Code/Name and Date columns "
+            "(or the column order Date, EmpNo, EmpName, Company, Category, "
+            "Department, ignore, ignore, Shift, InTime, OutTime, Total)."
         )
 
     out = df.rename(columns=rename)
