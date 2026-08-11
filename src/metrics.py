@@ -42,7 +42,7 @@ def employee_summary(daily: pd.DataFrame, working_days: int) -> pd.DataFrame:
     if daily.empty:
         return pd.DataFrame(
             columns=[
-                "emp_code", "emp_name", "department", "designation",
+                "emp_code", "emp_name", "department", "designation", "category", "company",
                 "working_days", "present_days", "absent_days",
                 "paid_holiday_days", "comp_off_days", "personal_leave_days",
                 "total_work_hours", "avg_work_hours", "total_ot_hours",
@@ -50,7 +50,12 @@ def employee_summary(daily: pd.DataFrame, working_days: int) -> pd.DataFrame:
             ]
         )
 
-    grp = daily.groupby(["emp_code", "emp_name", "department", "designation"], dropna=False)
+    group_cols = ["emp_code", "emp_name", "department", "designation"]
+    for optional_col in ("category", "company"):
+        if optional_col in daily.columns:
+            group_cols.append(optional_col)
+
+    grp = daily.groupby(group_cols, dropna=False)
 
     def summarize(g: pd.DataFrame) -> pd.Series:
         present = int((g["status"] == STATUS_PRESENT).sum())

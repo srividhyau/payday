@@ -14,6 +14,11 @@ class Department(models.Model):
 class Employee(models.Model):
     code = models.CharField(max_length=30, unique=True)
     name = models.CharField(max_length=150)
+    company = models.CharField(max_length=150, blank=True)
+    category = models.CharField(
+        max_length=100, blank=True,
+        help_text="Broad category from the attendance export, e.g. Staff/Helper/Worker.",
+    )
     department = models.ForeignKey(
         Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="employees"
     )

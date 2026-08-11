@@ -40,15 +40,22 @@ def import_dataframe(daily_df, file_name: str = "") -> UploadBatch:
 
         emp = emp_cache.get(row.emp_code)
         if emp is None:
+            company = getattr(row, "company", "")
+            category = getattr(row, "category", "")
             emp, created = Employee.objects.get_or_create(
                 code=row.emp_code,
-                defaults={"name": row.emp_name, "department": dept, "designation": row.designation},
+                defaults={
+                    "name": row.emp_name, "department": dept, "designation": row.designation,
+                    "company": company, "category": category,
+                },
             )
             if not created:
                 emp.name = row.emp_name
                 emp.department = dept
                 emp.designation = row.designation
-                emp.save(update_fields=["name", "department", "designation"])
+                emp.company = company
+                emp.category = category
+                emp.save(update_fields=["name", "department", "designation", "company", "category"])
             emp_cache[row.emp_code] = emp
 
         AttendanceRecord.objects.update_or_create(

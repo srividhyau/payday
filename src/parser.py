@@ -10,6 +10,8 @@ internal schema.
 Internal (canonical) schema after normalize():
     emp_code       - employee code / id (str)
     emp_name       - employee name (str)
+    company        - company/entity name (str, optional)
+    category       - broad employee category, e.g. Staff/Helper/Worker (str, optional)
     department     - department name (str)
     designation    - job title (str, optional)
     date           - attendance date (datetime64[ns], normalized to midnight)
@@ -19,6 +21,9 @@ Internal (canonical) schema after normalize():
     work_hours     - hours worked that day (float)
     ot_hours       - overtime hours that day (float)
     status         - single/short code: P, A, PH, CO, PL, WO, H (str)
+
+Any column not recognized by COLUMN_ALIASES (e.g. "ignore" placeholder
+columns some exports include) is simply dropped.
 """
 from __future__ import annotations
 
@@ -30,15 +35,19 @@ import pandas as pd
 # Maps canonical column name -> list of header variants seen in the wild
 # (lowercased, whitespace-insensitive match).
 COLUMN_ALIASES = {
-    "emp_code": ["employee code", "empcode", "emp code", "employee id", "emp id", "code"],
+    "emp_code": ["employee code", "empcode", "emp code", "employee id", "emp id", "code", "empno", "emp no"],
     "emp_name": ["employee name", "empname", "emp name", "name"],
+    "company": ["company"],
+    "category": ["category"],
     "department": ["department", "dept"],
     "designation": ["designation", "title", "role"],
     "date": ["date", "attendance date", "attendancedate", "punch date"],
     "shift": ["shift"],
     "time_in": ["in", "in time", "intime", "punch in", "first in"],
     "time_out": ["out", "out time", "outtime", "punch out", "last out"],
-    "work_hours": ["work_hours", "work hours", "workhours", "worked hours", "duration", "hours"],
+    "work_hours": [
+        "work_hours", "work hours", "workhours", "worked hours", "duration", "hours", "total",
+    ],
     "ot_hours": [
         "total-ot-hours", "total ot hours", "ot hours", "ot_hours", "overtime",
         "overtime hours",
@@ -132,8 +141,11 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
         out["department"] = out["department"].fillna("Unassigned").astype(str).str.strip()
     else:
         out["department"] = "Unassigned"
-    if "designation" not in out.columns:
-        out["designation"] = ""
+    for col in ("designation", "company", "category"):
+        if col not in out.columns:
+            out[col] = ""
+        else:
+            out[col] = out[col].fillna("").astype(str).str.strip()
 
     out["date"] = pd.to_datetime(out["date"], errors="coerce").dt.normalize()
     out = out.dropna(subset=["date"])

@@ -46,6 +46,8 @@ def load_daily_data() -> pd.DataFrame:
         "employee__name",
         "employee__department__name",
         "employee__designation",
+        "employee__category",
+        "employee__company",
         "date",
         "shift",
         "time_in",
@@ -63,6 +65,8 @@ def load_daily_data() -> pd.DataFrame:
             "employee__name": "emp_name",
             "employee__department__name": "department",
             "employee__designation": "designation",
+            "employee__category": "category",
+            "employee__company": "company",
         }
     )
     df["department"] = df["department"].fillna("Unassigned")
@@ -127,21 +131,25 @@ if daily.empty:
 # --- Filters -----------------------------------------------------------
 min_date, max_date = daily["date"].min(), daily["date"].max()
 departments = sorted(daily["department"].dropna().unique().tolist())
+categories = sorted(c for c in daily.get("category", pd.Series(dtype=str)).dropna().unique().tolist() if c)
 
-col_a, col_b = st.columns([2, 3])
+date_range = st.date_input(
+    "Period", value=(min_date.date(), max_date.date()),
+    min_value=min_date.date(), max_value=max_date.date(),
+)
+col_a, col_b = st.columns([1, 1])
 with col_a:
-    date_range = st.date_input(
-        "Period", value=(min_date.date(), max_date.date()),
-        min_value=min_date.date(), max_value=max_date.date(),
-    )
-with col_b:
     dept_filter = st.multiselect("Departments", departments, default=departments)
+with col_b:
+    cat_filter = st.multiselect("Categories", categories, default=categories) if categories else []
 
 if isinstance(date_range, tuple) and len(date_range) == 2:
     start, end = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
     daily = daily[(daily["date"] >= start) & (daily["date"] <= end)]
 if dept_filter:
     daily = daily[daily["department"].isin(dept_filter)]
+if cat_filter:
+    daily = daily[daily["category"].isin(cat_filter)]
 
 working_days = manual_working_days or metrics.infer_working_days(daily)
 holidays = metrics.holiday_dates(daily)
