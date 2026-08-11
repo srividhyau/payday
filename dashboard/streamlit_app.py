@@ -1,10 +1,10 @@
 """
-Payday - Attendance Dashboard (reads from the Django database)
+Payday - Attendance Dashboard
 
-HR uploads DailyAttendance exports through the Django app (/upload/), which
-parses and persists them to SQLite. This Streamlit app reads that same
-database and renders the attendance dashboard on top of it, so data
-accumulates across months instead of being re-uploaded every session.
+Upload a DailyAttendance export here to preview it instantly, and optionally
+save it to the Django database so it persists across sessions (same database
+the Django /upload/ page and admin use). The dashboard always renders from
+whatever's currently loaded: the database, an ad-hoc upload, or sample data.
 
 Run with: streamlit run dashboard/streamlit_app.py
 (Run `python manage.py migrate` at least once first.)
@@ -26,15 +26,16 @@ import django  # noqa: E402
 
 django.setup()
 
+from attendance.importer import import_dataframe  # noqa: E402
 from attendance.models import AttendanceRecord  # noqa: E402
-from src import metrics  # noqa: E402
+from src import metrics, parser  # noqa: E402
 
 st.set_page_config(page_title="Payday - Attendance Dashboard", layout="wide")
 
 st.title("Payday — Attendance Dashboard")
 st.caption(
-    "Reads attendance data uploaded via the Django app. "
-    "Upload new DailyAttendance exports at the /upload/ page."
+    "Upload a DailyAttendance export from the eSSL fingerprint system, or load "
+    "what's already been saved to the database."
 )
 
 
@@ -69,27 +70,57 @@ def load_daily_data() -> pd.DataFrame:
     return df
 
 
+# --- Sidebar: data source ---------------------------------------------------
 with st.sidebar:
-    st.header("Data source")
+    st.header("1. Upload")
+    uploaded = st.file_uploader(
+        "DailyAttendance export (.xlsx, .xlsm, or .csv)",
+        type=["xlsx", "xlsm", "xls", "csv"],
+    )
+    save_to_db = st.checkbox(
+        "Save this upload to the database", value=True,
+        help="Unchecked = preview only, nothing is stored. Checked = upserted into "
+        "the same database the Django /upload/ page and admin use.",
+    )
+    if uploaded is not None:
+        try:
+            raw_df = parser.load_file(uploaded)
+            uploaded_daily = parser.normalize(raw_df)
+            if save_to_db:
+                batch = import_dataframe(uploaded_daily, file_name=uploaded.name)
+                st.success(f"Saved {batch.row_count} rows ({batch.period_start} to {batch.period_end}).")
+                load_daily_data.clear()
+            else:
+                st.info(f"Previewing {len(uploaded_daily)} rows (not saved).")
+        except Exception as e:
+            st.error(f"Couldn't read that file: {e}")
+            uploaded_daily = None
+    else:
+        uploaded_daily = None
+
+    st.divider()
     if st.button("Refresh from database"):
         load_daily_data.clear()
     use_sample = st.checkbox("Use sample data instead (demo)", value=False)
 
-    st.header("Working days")
+    st.header("2. Working days")
     override_working_days = st.checkbox("Manually set working days for the period", value=False)
     manual_working_days = None
     if override_working_days:
         manual_working_days = st.number_input("Working days", min_value=1, max_value=31, value=26)
 
-daily = pd.read_csv("sample_data/sample_daily_attendance.csv") if use_sample else load_daily_data()
-if use_sample:
-    from src import parser
-    daily = parser.normalize(daily)
+# --- Choose data source: fresh upload (preview) > sample > database --------
+if uploaded_daily is not None and not save_to_db:
+    daily = uploaded_daily
+elif use_sample:
+    daily = parser.normalize(pd.read_csv("sample_data/sample_daily_attendance.csv"))
+else:
+    daily = load_daily_data()
 
 if daily.empty:
     st.info(
-        "No attendance data yet. Upload a DailyAttendance export at the Django app's "
-        "/upload/ page (`python manage.py runserver`), or check 'Use sample data' to preview."
+        "No attendance data yet. Upload a DailyAttendance export in the sidebar, "
+        "or check 'Use sample data' to preview the dashboard."
     )
     st.stop()
 
@@ -113,13 +144,18 @@ if dept_filter:
     daily = daily[daily["department"].isin(dept_filter)]
 
 working_days = manual_working_days or metrics.infer_working_days(daily)
+holidays = metrics.holiday_dates(daily)
 
 emp_summary = metrics.employee_summary(daily, working_days)
 dept_summary = metrics.department_summary(emp_summary)
 kpi = metrics.kpis(emp_summary)
 
-# --- KPI cards -----------------------------------------------------------
-st.subheader(f"Summary — {daily['date'].min():%d %b} to {daily['date'].max():%d %b} ({working_days} working days)")
+# --- Summary panel (Working Days / Holiday, like the top of Month_Attendance) --
+st.subheader(f"Summary — {daily['date'].min():%d %b} to {daily['date'].max():%d %b}")
+s1, s2 = st.columns([1, 3])
+s1.metric("Working Days", working_days)
+s2.markdown("**Holiday**: " + (", ".join(holidays) if holidays else "none flagged in this data"))
+
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Headcount", kpi["headcount"])
 k2.metric("Avg. attendance", f"{kpi['avg_attendance_pct']}%")
@@ -138,36 +174,27 @@ with c2:
 
 st.divider()
 
-# --- Employee-wise table ---------------------------------------------------
-st.subheader("Employee-wise attendance")
-st.dataframe(
-    emp_summary.rename(columns={
-        "emp_code": "Emp Code", "emp_name": "Name", "department": "Department",
-        "designation": "Designation", "working_days": "Working Days",
-        "present_days": "Present", "absent_days": "Absent",
-        "paid_holiday_days": "Paid Holiday", "comp_off_days": "Comp Off",
-        "personal_leave_days": "Personal Leave", "total_work_hours": "Total Hours",
-        "avg_work_hours": "Avg Hours/Day", "total_ot_hours": "OT Hours",
-        "attendance_pct": "Attendance %",
-    }),
-    use_container_width=True,
-    hide_index=True,
-)
+# --- Employee-wise table, grouped by department (Row Labels style) ---------
+st.subheader("Employee-wise attendance — by department")
+grouped_summary = metrics.department_grouped_summary(emp_summary)
+st.dataframe(grouped_summary, use_container_width=True, hide_index=True, height=min(600, 40 + 35 * len(grouped_summary)))
 
 st.divider()
 
-# --- Date x Employee heatmap-style pivot -----------------------------------
-st.subheader("Daily work-hours pivot")
-pivot = metrics.date_by_employee_pivot(daily, value="work_hours")
-st.dataframe(pivot, use_container_width=True, hide_index=True)
+# --- Date x Employee pivot, grouped by department (Month_Attendance style) --
+st.subheader("Daily work-hours pivot — by department")
+grouped_pivot = metrics.department_grouped_pivot(daily)
+st.dataframe(grouped_pivot, use_container_width=True, hide_index=True, height=min(600, 40 + 35 * len(grouped_pivot)))
 
 # --- Export -----------------------------------------------------------
 st.divider()
+flat_pivot = metrics.date_by_employee_pivot(daily, value="work_hours")
 buf = io.BytesIO()
 with pd.ExcelWriter(buf, engine="openpyxl") as writer:
     emp_summary.to_excel(writer, sheet_name="Employee Summary", index=False)
     dept_summary.to_excel(writer, sheet_name="Department Summary", index=False)
-    pivot.to_excel(writer, sheet_name="Daily Hours Pivot", index=False)
+    grouped_pivot.to_excel(writer, sheet_name="Month_Attendance Style", index=False)
+    flat_pivot.to_excel(writer, sheet_name="Daily Hours Pivot", index=False)
 st.download_button(
     "Download summary (.xlsx)",
     data=buf.getvalue(),

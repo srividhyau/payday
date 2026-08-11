@@ -6,13 +6,15 @@ database to render the attendance dashboard, replacing the old
 pivot-table/Power-Query workbook for turning the eSSL fingerprint system's
 DailyAttendance export into a monthly attendance view.
 
-- **Django** — HR uploads a DailyAttendance export at `/upload/`, which gets
-  parsed and persisted to SQLite (re-uploads upsert by employee+date, so
-  multiple monthly files accumulate without duplicating rows). Data can also
-  be browsed/edited in the Django admin.
-- **Streamlit** — reads that same database and renders the dashboard: KPIs,
-  employee-wise attendance, department breakdown, and a date × employee
-  hours pivot.
+- **Upload** — either through the Streamlit sidebar (instant preview, with
+  an option to also save it) or the Django `/upload/` page. Both parse the
+  file the same way and upsert by employee+date, so re-uploads or
+  overlapping months don't duplicate rows. Data can also be browsed/edited
+  in the Django admin.
+- **Streamlit** — renders the dashboard: KPIs, a department breakdown, an
+  employee-wise attendance table, and a date × employee hours pivot — both
+  of the latter two grouped by department with subtotal rows, matching the
+  "Row Labels" hierarchy of the original `Month_Attendance` pivot table.
 
 ## Run it
 
@@ -23,12 +25,12 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser   # optional, for the Django admin
 
-python manage.py runserver         # Django: upload page + admin, http://localhost:8000/upload/
-streamlit run dashboard/streamlit_app.py   # Streamlit: dashboard, in a separate terminal
+streamlit run dashboard/streamlit_app.py   # dashboard + upload, http://localhost:8501
+python manage.py runserver                 # optional: admin + a second upload page, in another terminal
 ```
 
-To try it without real data: `python manage.py import_attendance sample_data/sample_daily_attendance.csv`,
-or check "Use sample data" in the Streamlit sidebar.
+To try it without real data: check "Use sample data" in the Streamlit
+sidebar, or `python manage.py import_attendance sample_data/sample_daily_attendance.csv`.
 
 ## What it does
 
@@ -36,8 +38,11 @@ or check "Use sample data" in the Streamlit sidebar.
   headers like `Employee Code`/`EmpCode`, `In`/`In Time`, `Work_Hours`, etc.)
 - Computes, per employee: working days, present days, absent days, total &
   average work hours, overtime hours, and attendance %.
-- Shows a department breakdown and a date × employee daily-hours pivot
-  (the equivalent of the old `Month_Attendance` pivot table).
+- Shows a department breakdown, plus department-grouped employee and
+  date × employee views (subtotal row per department, employees nested
+  below — the `Month_Attendance` pivot-table layout).
+- Shows the Working Days / Holiday summary strip from the top of the
+  original sheet.
 - Lets you export the computed summary back out as an `.xlsx`.
 
 ## Data handling — important

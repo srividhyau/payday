@@ -115,6 +115,70 @@ def date_by_employee_pivot(daily: pd.DataFrame, value: str = "work_hours") -> pd
     return pivot.reset_index()
 
 
+def department_grouped_pivot(daily: pd.DataFrame) -> pd.DataFrame:
+    """Date x employee work-hours pivot, grouped under a department subtotal
+    row — like the "Row Labels" hierarchy (department, then its employees)
+    in the original Month_Attendance pivot table."""
+    if daily.empty:
+        return pd.DataFrame()
+
+    date_cols = sorted(daily["date"].unique())
+    col_labels = [pd.Timestamp(d).strftime("%d-%b") for d in date_cols]
+
+    per_emp = daily.pivot_table(
+        index=["department", "emp_code", "emp_name"], columns="date", values="work_hours", aggfunc="sum"
+    ).reindex(columns=date_cols, fill_value=0.0)
+
+    rows = []
+    for dept in sorted(per_emp.index.get_level_values("department").unique()):
+        dept_block = per_emp.xs(dept, level="department")
+        dept_total = dept_block.sum(axis=0)
+        rows.append(["▸ " + dept, "", *[round(v, 1) for v in dept_total.values]])
+        for (emp_code, emp_name), vals in dept_block.iterrows():
+            rows.append([f"    {emp_name}", emp_code, *[round(v, 1) for v in vals.values]])
+
+    return pd.DataFrame(rows, columns=["Row Labels", "Emp Code", *col_labels])
+
+
+def department_grouped_summary(emp_summary: pd.DataFrame) -> pd.DataFrame:
+    """Employee summary table grouped under a department subtotal row,
+    matching the department -> employees hierarchy of the original sheet."""
+    if emp_summary.empty:
+        return pd.DataFrame()
+
+    metric_cols = [
+        "working_days", "present_days", "absent_days", "paid_holiday_days",
+        "comp_off_days", "personal_leave_days", "total_work_hours", "total_ot_hours",
+    ]
+    rows = []
+    for dept in sorted(emp_summary["department"].unique()):
+        block = emp_summary[emp_summary["department"] == dept]
+        totals = block[metric_cols].sum()
+        avg_pct = round(block["attendance_pct"].mean(), 1)
+        rows.append(
+            ["▸ " + dept, "", *[round(v, 1) for v in totals.values], avg_pct]
+        )
+        for _, r in block.iterrows():
+            rows.append(
+                [f"    {r['emp_name']}", r["emp_code"], *[r[c] for c in metric_cols], r["attendance_pct"]]
+            )
+
+    columns = [
+        "Row Labels", "Emp Code", "Working Days", "Present", "Absent", "Paid Holiday",
+        "Comp Off", "Personal Leave", "Total Hours", "OT Hours", "Attendance %",
+    ]
+    return pd.DataFrame(rows, columns=columns)
+
+
+def holiday_dates(daily: pd.DataFrame) -> list:
+    """Dates flagged Holiday (status 'H') for at least one employee — shown
+    in the summary panel the way the original sheet listed them."""
+    if daily.empty or "status" not in daily.columns:
+        return []
+    dates = daily.loc[daily["status"] == STATUS_HOLIDAY, "date"].dropna().unique()
+    return sorted(pd.Timestamp(d).strftime("%d-%b") for d in dates)
+
+
 def kpis(emp_summary: pd.DataFrame) -> dict:
     if emp_summary.empty:
         return {"headcount": 0, "avg_attendance_pct": 0.0, "total_ot_hours": 0.0, "total_absent_days": 0}
