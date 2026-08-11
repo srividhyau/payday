@@ -184,26 +184,29 @@ with c2:
 
 st.divider()
 
-# --- Employee-wise table, grouped by department (Row Labels style) ---------
-st.subheader("Employee-wise attendance — by department")
-grouped_summary = metrics.department_grouped_summary(emp_summary)
-st.dataframe(grouped_summary, use_container_width=True, hide_index=True, height=min(600, 40 + 35 * len(grouped_summary)))
+# --- Month_Attendance-style view: Row Labels + day columns (heatmap) + summary --
+st.subheader("Month Attendance")
+st.caption(
+    "Work Days = present days. \"Full OT\" = days with any logged OT hours "
+    "(the original sheet didn't document its exact definition — adjust "
+    "FULL_OT_MIN_HOURS in src/metrics.py if this should be a higher bar)."
+)
+month_view, day_labels = metrics.month_attendance_view(daily)
+if not month_view.empty:
+    styled = metrics.style_month_attendance(month_view, day_labels)
+    st.dataframe(styled, use_container_width=True, hide_index=True, height=min(700, 40 + 35 * len(month_view)))
 
 st.divider()
-
-# --- Date x Employee pivot, grouped by department (Month_Attendance style) --
-st.subheader("Daily work-hours pivot — by department")
-grouped_pivot = metrics.department_grouped_pivot(daily)
-st.dataframe(grouped_pivot, use_container_width=True, hide_index=True, height=min(600, 40 + 35 * len(grouped_pivot)))
 
 # --- Export -----------------------------------------------------------
-st.divider()
+grouped_summary = metrics.department_grouped_summary(emp_summary)
 flat_pivot = metrics.date_by_employee_pivot(daily, value="work_hours")
 buf = io.BytesIO()
 with pd.ExcelWriter(buf, engine="openpyxl") as writer:
     emp_summary.to_excel(writer, sheet_name="Employee Summary", index=False)
     dept_summary.to_excel(writer, sheet_name="Department Summary", index=False)
-    grouped_pivot.to_excel(writer, sheet_name="Month_Attendance Style", index=False)
+    month_view.to_excel(writer, sheet_name="Month_Attendance", index=False)
+    grouped_summary.to_excel(writer, sheet_name="Employee Summary (grouped)", index=False)
     flat_pivot.to_excel(writer, sheet_name="Daily Hours Pivot", index=False)
 st.download_button(
     "Download summary (.xlsx)",

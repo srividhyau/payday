@@ -175,6 +175,90 @@ def department_grouped_summary(emp_summary: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+def month_attendance_view(daily: pd.DataFrame) -> tuple:
+    """Single wide table matching the original Month_Attendance pivot sheet:
+    department subtotal rows with indented employees below, one column per
+    day-of-month with the day's work hours, and summary columns on the
+    right (Work Days = present days, CompOff, Full OT, Paid Holiday,
+    Personal Leave).
+
+    "Full OT" is the count of days with any logged OT hours (ot_hours > 0)
+    — the original workbook didn't document its exact definition, so this
+    is the closest reasonable read; adjust FULL_OT_MIN_HOURS below if HR's
+    definition differs.
+
+    Returns (table, day_columns) — day_columns lists which columns are the
+    per-day hours, so callers can style/colour just those.
+    """
+    FULL_OT_MIN_HOURS = 0.0  # a day counts as "Full OT" if ot_hours > this
+
+    if daily.empty:
+        return pd.DataFrame(), []
+
+    dates = sorted(daily["date"].unique())
+    single_month = len({(pd.Timestamp(d).year, pd.Timestamp(d).month) for d in dates}) == 1
+    day_labels = [str(pd.Timestamp(d).day) for d in dates] if single_month else [
+        pd.Timestamp(d).strftime("%d-%b") for d in dates
+    ]
+
+    hours_pivot = daily.pivot_table(
+        index=["department", "emp_code", "emp_name"], columns="date", values="work_hours", aggfunc="sum"
+    ).reindex(columns=dates, fill_value=0.0)
+
+    def emp_counts(g: pd.DataFrame) -> dict:
+        return {
+            "Work Days": int((g["status"] == STATUS_PRESENT).sum()),
+            "CompOff": int((g["status"] == STATUS_COMP_OFF).sum()),
+            "Full OT": int((g["ot_hours"] > FULL_OT_MIN_HOURS).sum()),
+            "Paid Holiday": int((g["status"] == STATUS_PAID_HOLIDAY).sum()),
+            "Personal Leave": int((g["status"] == STATUS_PERSONAL_LEAVE).sum()),
+        }
+
+    per_emp_counts = {
+        key: emp_counts(g) for key, g in daily.groupby(["department", "emp_code", "emp_name"])
+    }
+
+    summary_cols = ["Work Days", "CompOff", "Full OT", "Paid Holiday", "Personal Leave"]
+    rows = []
+    for dept in sorted(hours_pivot.index.get_level_values("department").unique()):
+        dept_block = hours_pivot.xs(dept, level="department")
+        dept_keys = [k for k in per_emp_counts if k[0] == dept]
+        dept_totals = {c: sum(per_emp_counts[k][c] for k in dept_keys) for c in summary_cols}
+        rows.append(
+            ["▸ " + dept, "", *[None] * len(day_labels), *[dept_totals[c] for c in summary_cols]]
+        )
+        for (emp_code, emp_name), vals in dept_block.iterrows():
+            counts = per_emp_counts[(dept, emp_code, emp_name)]
+            day_vals = [round(v, 1) if v > 0 else None for v in vals.values]
+            rows.append(
+                [f"    {emp_code} - {emp_name}", emp_code, *day_vals, *[counts[c] for c in summary_cols]]
+            )
+
+    columns = ["Row Labels", "Emp Code", *day_labels, *summary_cols]
+    table = pd.DataFrame(rows, columns=columns)
+    return table, day_labels
+
+
+def style_month_attendance(table: pd.DataFrame, day_labels: list):
+    """Pandas Styler for month_attendance_view(): green-yellow-red heatmap
+    on the day-hours columns (blank cells stay blank), and a shaded
+    background on department subtotal rows — matching the original
+    workbook's conditional formatting."""
+    is_dept_row = table["Row Labels"].str.startswith("▸")
+
+    def shade_dept_rows(row):
+        if is_dept_row.loc[row.name]:
+            return ["background-color: #FCE4D6"] * len(row)
+        return [""] * len(row)
+
+    styler = table.style.apply(shade_dept_rows, axis=1)
+    if day_labels:
+        styler = styler.background_gradient(
+            subset=day_labels, cmap="RdYlGn", vmin=0, vmax=10, axis=None
+        )
+    return styler.format(precision=1, na_rep="")
+
+
 def holiday_dates(daily: pd.DataFrame) -> list:
     """Dates flagged Holiday (status 'H') for at least one employee — shown
     in the summary panel the way the original sheet listed them."""
