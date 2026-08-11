@@ -1,58 +1,96 @@
 """
-Payday - Attendance Dashboard
+Payday - Attendance Dashboard (reads from the Django database)
 
-Upload a DailyAttendance export from the eSSL fingerprint system and get an
-attendance dashboard equivalent to the old MonthlyAttendance / Month_Attendance
-/ Summary pivot-table workbook: KPIs, an employee-wise rollup, a date x
-employee heatmap, and a department breakdown.
+HR uploads DailyAttendance exports through the Django app (/upload/), which
+parses and persists them to SQLite. This Streamlit app reads that same
+database and renders the attendance dashboard on top of it, so data
+accumulates across months instead of being re-uploaded every session.
 
-Run with: streamlit run app.py
+Run with: streamlit run dashboard/streamlit_app.py
+(Run `python manage.py migrate` at least once first.)
 """
 import io
+import os
+import sys
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from src import metrics, parser
+# --- Wire up Django so we can use its ORM from this standalone script -----
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+import django  # noqa: E402
+
+django.setup()
+
+from attendance.models import AttendanceRecord  # noqa: E402
+from src import metrics  # noqa: E402
 
 st.set_page_config(page_title="Payday - Attendance Dashboard", layout="wide")
 
 st.title("Payday — Attendance Dashboard")
 st.caption(
-    "Upload the DailyAttendance export from the eSSL fingerprint system to "
-    "generate the monthly attendance rollup."
+    "Reads attendance data uploaded via the Django app. "
+    "Upload new DailyAttendance exports at the /upload/ page."
 )
 
-with st.sidebar:
-    st.header("1. Upload")
-    uploaded = st.file_uploader(
-        "DailyAttendance export (.xlsx, .xlsm, or .csv)",
-        type=["xlsx", "xlsm", "xls", "csv"],
-    )
-    use_sample = st.checkbox("Use sample data instead", value=uploaded is None)
 
-    st.header("2. Working days")
+@st.cache_data(ttl=60)
+def load_daily_data() -> pd.DataFrame:
+    rows = AttendanceRecord.objects.select_related("employee", "employee__department").values(
+        "employee__code",
+        "employee__name",
+        "employee__department__name",
+        "employee__designation",
+        "date",
+        "shift",
+        "time_in",
+        "time_out",
+        "work_hours",
+        "ot_hours",
+        "status",
+    )
+    df = pd.DataFrame.from_records(rows)
+    if df.empty:
+        return df
+    df = df.rename(
+        columns={
+            "employee__code": "emp_code",
+            "employee__name": "emp_name",
+            "employee__department__name": "department",
+            "employee__designation": "designation",
+        }
+    )
+    df["department"] = df["department"].fillna("Unassigned")
+    df["date"] = pd.to_datetime(df["date"])
+    return df
+
+
+with st.sidebar:
+    st.header("Data source")
+    if st.button("Refresh from database"):
+        load_daily_data.clear()
+    use_sample = st.checkbox("Use sample data instead (demo)", value=False)
+
+    st.header("Working days")
     override_working_days = st.checkbox("Manually set working days for the period", value=False)
     manual_working_days = None
     if override_working_days:
         manual_working_days = st.number_input("Working days", min_value=1, max_value=31, value=26)
 
-if uploaded is None and not use_sample:
-    st.info("Upload a DailyAttendance file, or check 'Use sample data' in the sidebar to preview the dashboard.")
-    st.stop()
-
-try:
-    if use_sample:
-        raw_df = pd.read_csv("sample_data/sample_daily_attendance.csv")
-    else:
-        raw_df = parser.load_file(uploaded)
-    daily = parser.normalize(raw_df)
-except Exception as e:
-    st.error(f"Couldn't read that file: {e}")
-    st.stop()
+daily = pd.read_csv("sample_data/sample_daily_attendance.csv") if use_sample else load_daily_data()
+if use_sample:
+    from src import parser
+    daily = parser.normalize(daily)
 
 if daily.empty:
-    st.warning("No valid attendance rows found in the file.")
+    st.info(
+        "No attendance data yet. Upload a DailyAttendance export at the Django app's "
+        "/upload/ page (`python manage.py runserver`), or check 'Use sample data' to preview."
+    )
     st.stop()
 
 # --- Filters -----------------------------------------------------------

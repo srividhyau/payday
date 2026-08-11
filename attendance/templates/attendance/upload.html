@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payday — Upload Attendance</title>
+    <style>
+        body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif; max-width: 640px; margin: 3rem auto; color: #1a1a1a; }
+        h1 { font-size: 1.4rem; }
+        form { margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #ddd; border-radius: 8px; }
+        button { background: #1a1a1a; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+        .msg { padding: 0.6rem 0.9rem; border-radius: 6px; margin-bottom: 0.5rem; }
+        .msg.success { background: #e6f4ea; color: #1e7e34; }
+        .msg.error { background: #fdecea; color: #b3261e; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        a { color: #1a1a1a; }
+    </style>
+</head>
+<body>
+    <h1>Payday — Upload Daily Attendance</h1>
+    <p>Upload the DailyAttendance export from the eSSL fingerprint system. Re-uploading a file (or one covering overlapping dates) updates existing records instead of duplicating them.</p>
+
+    {% for message in messages %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Upload &amp; Import</button>
+    </form>
+
+    <p>View the dashboard in Streamlit (separate process): <code>streamlit run dashboard/streamlit_app.py</code></p>
+    <p>Browse/edit imported data in the <a href="/admin/">Django admin</a>.</p>
+
+    <h2>Recent uploads</h2>
+    <table>
+        <tr><th>File</th><th>Uploaded</th><th>Period</th><th>Rows</th></tr>
+        {% for batch in batches %}
+        <tr>
+            <td>{{ batch.file_name }}</td>
+            <td>{{ batch.uploaded_at }}</td>
+            <td>{{ batch.period_start }} → {{ batch.period_end }}</td>
+            <td>{{ batch.row_count }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">No uploads yet.</td></tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
