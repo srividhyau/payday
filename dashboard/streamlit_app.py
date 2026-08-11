@@ -47,6 +47,7 @@ def load_daily_data() -> pd.DataFrame:
         "employee__department__name",
         "employee__designation",
         "employee__category",
+        "employee__subcategory",
         "employee__company",
         "date",
         "shift",
@@ -66,6 +67,7 @@ def load_daily_data() -> pd.DataFrame:
             "employee__department__name": "department",
             "employee__designation": "designation",
             "employee__category": "category",
+            "employee__subcategory": "subcategory",
             "employee__company": "company",
         }
     )

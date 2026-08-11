@@ -42,7 +42,7 @@ def employee_summary(daily: pd.DataFrame, working_days: int) -> pd.DataFrame:
     if daily.empty:
         return pd.DataFrame(
             columns=[
-                "emp_code", "emp_name", "department", "designation", "category", "company",
+                "emp_code", "emp_name", "department", "designation", "category", "subcategory", "company",
                 "working_days", "present_days", "absent_days",
                 "paid_holiday_days", "comp_off_days", "personal_leave_days",
                 "total_work_hours", "avg_work_hours", "total_ot_hours",
@@ -51,7 +51,7 @@ def employee_summary(daily: pd.DataFrame, working_days: int) -> pd.DataFrame:
         )
 
     group_cols = ["emp_code", "emp_name", "department", "designation"]
-    for optional_col in ("category", "company"):
+    for optional_col in ("category", "subcategory", "company"):
         if optional_col in daily.columns:
             group_cols.append(optional_col)
 

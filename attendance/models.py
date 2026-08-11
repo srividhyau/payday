@@ -19,6 +19,7 @@ class Employee(models.Model):
         max_length=100, blank=True,
         help_text="Broad category from the attendance export, e.g. Staff/Helper/Worker.",
     )
+    subcategory = models.CharField(max_length=100, blank=True)
     department = models.ForeignKey(
         Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="employees"
     )

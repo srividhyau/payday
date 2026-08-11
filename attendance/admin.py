@@ -11,7 +11,7 @@ class DepartmentAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ("code", "name", "department", "category", "company", "designation")
+    list_display = ("code", "name", "department", "category", "subcategory", "company", "designation")
     list_filter = ("department", "category")
     search_fields = ("code", "name")
 

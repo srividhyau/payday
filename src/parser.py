@@ -11,8 +11,9 @@ Internal (canonical) schema after normalize():
     emp_code       - employee code / id (str)
     emp_name       - employee name (str)
     company        - company/entity name (str, optional)
-    category       - broad employee category, e.g. Staff/Helper/Worker (str, optional)
     department     - department name (str)
+    category       - broad employee category, e.g. Staff/Helper/Worker (str, optional)
+    subcategory    - finer-grained category, if any (str, optional)
     designation    - job title (str, optional)
     date           - attendance date (datetime64[ns], normalized to midnight)
     shift          - shift code, e.g. "GS" (str, optional)
@@ -22,8 +23,8 @@ Internal (canonical) schema after normalize():
     ot_hours       - overtime hours that day (float)
     status         - single/short code: P, A, PH, CO, PL, WO, H (str)
 
-Any column not recognized by COLUMN_ALIASES (e.g. "ignore" placeholder
-columns some exports include) is simply dropped.
+Any column not recognized by COLUMN_ALIASES (e.g. "-" placeholder columns
+some exports include) is simply dropped.
 
 Column matching is primarily by header name (case/whitespace-insensitive),
 so it doesn't care what order the columns are in. As a fallback for files
@@ -31,19 +32,20 @@ whose headers don't match anything in COLUMN_ALIASES (or have no usable
 headers at all), positions are also mapped against the exact column order
 HR confirmed the DailyAttendance export uses:
 
-    1. Date
-    2. EmpNo         -> emp_code
-    3. EmpName       -> emp_name
-    4. Company
-    5. Category
-    6. Department
-    7. (ignore)
-    8. (ignore)
-    9. Shift
-    10. InTime       -> time_in
-    11. OutTime      -> time_out
-    12. Total        -> work_hours
-    13+. (ignore — everything after Total)
+    1. date
+    2. empno         -> emp_code
+    3. empname       -> emp_name
+    4. company
+    5. department
+    6. category
+    7. subcategory
+    8. -  (ignore)
+    9. -  (ignore)
+    10. shift
+    11. intime       -> time_in
+    12. outtime      -> time_out
+    13. hours        -> work_hours
+    14-19. -  (ignore — everything after hours)
 
 See POSITIONAL_COLUMNS below.
 """
@@ -61,6 +63,7 @@ COLUMN_ALIASES = {
     "emp_name": ["employee name", "empname", "emp name", "name"],
     "company": ["company"],
     "category": ["category"],
+    "subcategory": ["subcategory", "sub category", "sub-category", "subcat"],
     "department": ["department", "dept"],
     "designation": ["designation", "title", "role"],
     "date": ["date", "attendance date", "attendancedate", "punch date"],
@@ -80,9 +83,9 @@ COLUMN_ALIASES = {
 # Positional fallback: column 1 = date, column 2 = emp_code, etc., matching
 # the exact order HR sends (see module docstring). `None` marks a column to
 # ignore. Only used when header-name matching (COLUMN_ALIASES) can't find
-# the required columns — see _build_rename_map(..., positional_fallback=True).
+# the required columns — see _build_positional_rename_map().
 POSITIONAL_COLUMNS = [
-    "date", "emp_code", "emp_name", "company", "category", "department",
+    "date", "emp_code", "emp_name", "company", "department", "category", "subcategory",
     None, None, "shift", "time_in", "time_out", "work_hours",
 ]
 
@@ -125,7 +128,8 @@ def _build_rename_map(columns) -> dict:
 def _build_positional_rename_map(columns) -> dict:
     """Fallback for files whose headers don't match COLUMN_ALIASES: map by
     position using POSITIONAL_COLUMNS (date, empno, empname, company,
-    category, department, ignore, ignore, shift, intime, outtime, total)."""
+    department, category, subcategory, ignore, ignore, shift, intime,
+    outtime, hours)."""
     rename = {}
     for i, col in enumerate(columns):
         if i >= len(POSITIONAL_COLUMNS):
@@ -171,8 +175,8 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
     required = {"emp_code", "emp_name", "date"}
     if required - set(rename.values()):
         # Header names didn't match anything recognized — fall back to the
-        # confirmed column order (Date, EmpNo, EmpName, Company, Category,
-        # Department, ignore, ignore, Shift, InTime, OutTime, Total).
+        # confirmed column order (date, empno, empname, company, department,
+        # category, subcategory, -, -, shift, intime, outtime, hours).
         positional_rename = _build_positional_rename_map(df.columns)
         if not (required - set(positional_rename.values())):
             rename = positional_rename
@@ -183,8 +187,8 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
             "Could not find required column(s): "
             f"{', '.join(sorted(missing_required))}. "
             "Expected an eSSL-style export with Employee Code/Name and Date columns "
-            "(or the column order Date, EmpNo, EmpName, Company, Category, "
-            "Department, ignore, ignore, Shift, InTime, OutTime, Total)."
+            "(or the column order date, empno, empname, company, department, "
+            "category, subcategory, -, -, shift, intime, outtime, hours)."
         )
 
     out = df.rename(columns=rename)
@@ -197,7 +201,7 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
         out["department"] = out["department"].fillna("Unassigned").astype(str).str.strip()
     else:
         out["department"] = "Unassigned"
-    for col in ("designation", "company", "category"):
+    for col in ("designation", "company", "category", "subcategory"):
         if col not in out.columns:
             out[col] = ""
         else:
