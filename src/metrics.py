@@ -225,17 +225,21 @@ def month_attendance_view(daily: pd.DataFrame) -> tuple:
         dept_keys = [k for k in per_emp_counts if k[0] == dept]
         dept_totals = {c: sum(per_emp_counts[k][c] for k in dept_keys) for c in summary_cols}
         rows.append(
-            ["▸ " + dept, "", *[None] * len(day_labels), *[dept_totals[c] for c in summary_cols]]
+            ["▸ " + dept, "", *[float("nan")] * len(day_labels), *[dept_totals[c] for c in summary_cols]]
         )
         for (emp_code, emp_name), vals in dept_block.iterrows():
             counts = per_emp_counts[(dept, emp_code, emp_name)]
-            day_vals = [round(v, 1) if v > 0 else None for v in vals.values]
+            day_vals = [round(v, 1) if v > 0 else float("nan") for v in vals.values]
             rows.append(
                 [f"    {emp_code} - {emp_name}", emp_code, *day_vals, *[counts[c] for c in summary_cols]]
             )
 
     columns = ["Row Labels", "Emp Code", *day_labels, *summary_cols]
     table = pd.DataFrame(rows, columns=columns)
+    # Force the day columns to a proper float dtype (they'd otherwise end up
+    # as 'object' from being built via a list of mixed rows), so NaN is
+    # handled consistently by the Styler instead of rendering as "None".
+    table[day_labels] = table[day_labels].astype(float)
     return table, day_labels
 
 
@@ -256,7 +260,8 @@ def style_month_attendance(table: pd.DataFrame, day_labels: list):
         styler = styler.background_gradient(
             subset=day_labels, cmap="RdYlGn", vmin=0, vmax=10, axis=None
         )
-    return styler.format(precision=1, na_rep="")
+        styler = styler.format(precision=1, na_rep="", subset=day_labels)
+    return styler
 
 
 def holiday_dates(daily: pd.DataFrame) -> list:
