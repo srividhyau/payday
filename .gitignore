@@ -1,0 +1,21 @@
+# Real HR data - never commit actual employee/attendance/payroll exports
+/data/
+*.xlsm
+*.xlsx
+*.xls
+!sample_data/*.xlsx
+!sample_data/*.xlsm
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+.DS_Store
