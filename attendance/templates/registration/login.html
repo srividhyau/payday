@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payday — Login</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .card {
+            width: 100%;
+            max-width: 340px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.75rem 1.75rem 1.5rem;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--navy);
+            margin-bottom: 1.25rem;
+        }
+        .brand .logo { width: 24px; height: 24px; flex: none; }
+        h1 { font-size: 1.05rem; margin: 0 0 1.1rem; letter-spacing: -0.01em; color: var(--navy); }
+        form p { margin: 0 0 1rem; }
+        form label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.3rem; }
+        form input {
+            display: block; width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #ccc;
+            border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            background: var(--navy); color: var(--yellow); font-weight: 600; border: none;
+            padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+            transition: background .15s ease;
+        }
+        button:hover { background: var(--navy-deep); }
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem; background: #fdecea; color: #b3261e; }
+        .errorlist { list-style: none; margin: 0.3rem 0 0; padding: 0; color: #b3261e; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="brand">
+            <svg class="logo" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" fill="#002f66" />
+                <path d="M12 2a5 5 0 0 1 0 10 5 5 0 0 0 0 10 10 10 0 0 1 0-20z" fill="#fde047" />
+                <circle cx="12" cy="7" r="1.7" fill="#002f66" />
+                <circle cx="12" cy="17" r="1.7" fill="#fde047" />
+            </svg>
+            Payday
+        </div>
+        <h1>Sign in</h1>
+
+        {% if form.non_field_errors %}
+            <div class="msg">{{ form.non_field_errors.0 }}</div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <input type="hidden" name="next" value="{{ next }}">
+            <button type="submit">Sign in</button>
+        </form>
+    </div>
+</body>
+</html>

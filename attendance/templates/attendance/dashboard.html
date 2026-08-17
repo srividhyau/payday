@@ -50,6 +50,12 @@
             transition: background .15s ease, color .15s ease;
         }
         .topbar nav a:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav button {
+            color: var(--navy); background: none; border: none; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; font-family: inherit;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
 
         h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
         h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
@@ -488,7 +494,14 @@
 <body>
     <header class="topbar">
         <a href="{% url 'home' %}" class="brand">Payday</a>
-        <nav><a href="{% url 'upload' %}">Upload</a><a href="{% url 'calendar' %}">Holiday Calendar</a></nav>
+        <nav>
+            <a href="{% url 'upload' %}">Upload</a>
+            <a href="{% url 'calendar' %}">Holiday Calendar</a>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit">Logout ({{ user.username }})</button>
+            </form>
+        </nav>
     </header>
     <div class="page">
 

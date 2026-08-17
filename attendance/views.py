@@ -5,6 +5,7 @@ from datetime import timedelta
 import pandas as pd
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 from src import metrics
@@ -19,12 +20,14 @@ from .models import AttendanceRecord, MonthLock, SpecialDay, UploadBatch
 _DOW_LABELS = {0: "M", 1: "T", 2: "W", 3: "TH", 4: "F", 5: "S", 6: "SU"}
 
 
+@login_required
 def home_view(request):
     """Landing page — the app's root URL. Just a branded splash with links
     into the three real pages (Upload, Attendance, Holiday Calendar)."""
     return render(request, "attendance/home.html")
 
 
+@login_required
 def upload_view(request):
     if request.method == "POST":
         form = UploadForm(request.POST, request.FILES)
@@ -68,6 +71,7 @@ def _load_daily_data() -> pd.DataFrame:
     return df
 
 
+@login_required
 def dashboard_view(request):
     """Server-rendered Month Attendance dashboard: KPIs, department
     breakdown, holiday calendar, and the day x employee hours grid.
@@ -283,6 +287,7 @@ def _build_month_weeks(year, month, special_map, today):
     ]
 
 
+@login_required
 def calendar_view(request):
     """Company-wide Holiday / Paid Holiday / Comp Off calendar. Click a day
     to set/clear its type — each change is its own POST + redirect back to
@@ -334,6 +339,7 @@ def _month_is_locked(date_str: str, view: str) -> bool:
     return MonthLock.objects.filter(year=d.year, month=d.month, view=view).exists()
 
 
+@login_required
 def edit_record_view(request):
     """HR correction for a single employee/date cell — fixes a missed punch
     (time_in/time_out) and/or sets the shift code (GS/M-OT/E-OT/ME-OT/
@@ -374,6 +380,7 @@ def edit_record_view(request):
     return redirect(next_url)
 
 
+@login_required
 def bulk_set_shift_view(request):
     """Sets the shift code for every employee on one date at once, and/or
     the company-wide calendar day type (Holiday/Paid Holiday/Comp Off) for
@@ -415,6 +422,7 @@ def bulk_set_shift_view(request):
     return redirect(next_url)
 
 
+@login_required
 def toggle_month_lock_view(request):
     """Locks or unlocks one calendar month's attendance data for one of
     the three dashboard views (All/Missed Punch/OT View) independently,

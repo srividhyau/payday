@@ -38,6 +38,18 @@
     color: #57530c;
   }
   .top-nav a:hover { background: rgba(15, 23, 42, 0.12); color: #14213d; }
+  .top-nav button {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #57530c;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .top-nav button:hover { background: rgba(15, 23, 42, 0.12); color: #14213d; }
   .top-nav .nav-brand {
     display: flex; align-items: center; gap: 8px;
     font-size: 1.15rem; font-weight: 700; color: #14213d;
@@ -113,6 +125,10 @@
         <a href="{% url 'upload' %}">Upload</a>
         <a href="{% url 'dashboard' %}">Attendance</a>
         <a href="{% url 'calendar' %}">Holiday Calendar</a>
+        <form method="post" action="{% url 'logout' %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit">Logout ({{ user.username }})</button>
+        </form>
     </nav>
     <div class="landing">
         <svg class="logo" viewBox="0 0 24 24">
