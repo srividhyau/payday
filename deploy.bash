@@ -20,9 +20,9 @@ PROJECT_DIR="/root/workspace/payday"              # where the Django project liv
 REPO_URL=""                                    # git repo URL, leave blank if code is already on the server
 DEPLOY_USER="root"                           # non-root user that owns/runs the app
 DOMAIN="payday.app.mvindustrial.in"                 # subdomain to serve
-DJANGO_WSGI_MODULE="payday.wsgi:application"   # <project_folder>.wsgi:application
+DJANGO_WSGI_MODULE="config.wsgi:application"   # <project_folder>.wsgi:application
 GUNICORN_PORT="8000"
-GUNICORN_WORKERS="3"
+GUNICORN_WORKERS="2"
 ENABLE_SSL="yes"                               # "yes" to run certbot automatically, "no" to skip
 # -------------------------------------------------------
 
