@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AttendanceRecord, Department, Employee, UploadBatch
+from .models import AttendanceRecord, Department, Employee, MonthLock, SpecialDay, UploadBatch
 
 
 @admin.register(Department)
@@ -28,3 +28,16 @@ class AttendanceRecordAdmin(admin.ModelAdmin):
     list_filter = ("status", "employee__department", "batch")
     search_fields = ("employee__code", "employee__name")
     date_hierarchy = "date"
+
+
+@admin.register(SpecialDay)
+class SpecialDayAdmin(admin.ModelAdmin):
+    list_display = ("date", "day_type", "name")
+    list_filter = ("day_type",)
+    date_hierarchy = "date"
+
+
+@admin.register(MonthLock)
+class MonthLockAdmin(admin.ModelAdmin):
+    list_display = ("year", "month", "locked_at")
+    list_filter = ("year",)

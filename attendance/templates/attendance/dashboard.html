@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payday — Attendance</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --accent: var(--navy);
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 2rem;
+            background: var(--yellow);
+            border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; }
+        .topbar nav a {
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav a:hover { background: var(--navy); color: var(--yellow); }
+
+        h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
+        h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+        .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
+        .caption:last-child { margin-bottom: 0; }
+        .caption a { color: var(--navy); text-decoration: none; font-weight: 600; }
+        .caption a:hover { text-decoration: underline; }
+
+        .empty-state {
+            background: var(--surface);
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 2.5rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.35rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .kpis { display: flex; gap: 1rem; margin-top: 1rem; }
+        .kpi {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 1.1rem;
+            min-width: 140px;
+            background: linear-gradient(180deg, #fafbff 0%, #ffffff 100%);
+        }
+        .kpi .label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+        .kpi .value { font-size: 1.5rem; font-weight: 700; color: var(--accent); margin-top: 0.15rem; }
+        .kpi.kpi-alert .value { color: #d32f2f; }
+
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+        table.simple { border-collapse: collapse; width: 100%; }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
+        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple tbody tr:last-child td { border-bottom: none; }
+        table.simple tbody tr:hover td { background: #fafbff; }
+
+        .legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin: 0.6rem 0 1rem; font-size: 0.8rem; }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--text-muted);
+            background: var(--bg);
+            padding: 0.25rem 0.6rem 0.25rem 0.4rem;
+            border-radius: 999px;
+        }
+        .legend .swatch {
+            display: inline-block;
+            width: 0.8rem;
+            height: 0.8rem;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .view-switch-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .view-switch {
+            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            overflow: hidden;
+            background: var(--bg);
+            padding: 3px;
+        }
+        .view-switch .view-btn {
+            padding: 0.4rem 1rem;
+            font-size: 0.82rem;
+            border: none;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background .15s ease, color .15s ease;
+        }
+        .view-switch .view-btn:hover { color: var(--text); }
+        .view-switch .view-btn.active { background: var(--navy); color: var(--yellow); font-weight: 600; }
+        .view-switch .view-btn.active:hover { background: var(--navy); }
+        .tab-lock-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0.4rem;
+            line-height: 1;
+            cursor: pointer;
+            border-radius: 999px;
+            padding: 0.25rem;
+            background: var(--surface);
+            box-shadow: 0 1px 2px rgba(16,24,40,0.15);
+        }
+        .tab-lock-icon:hover { transform: scale(1.12); }
+        .tab-lock-icon svg { display: block; }
+        .tab-lock-icon .icon-locked { color: #dc2626; }
+        .tab-lock-icon .icon-unlocked { color: #16a34a; }
+
+        /* --- Month Attendance grid --- */
+        .grid-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; }
+        table.month {
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 0.8rem;
+        }
+        table.month th, table.month td {
+            border: 1px solid #666;
+            padding: 0.3rem 0.35rem;
+            text-align: center;
+            white-space: nowrap;
+        }
+        table.month col.label-col { width: 100px; }
+        table.month col.day-col { width: 34px; }
+        table.month col.summary-col { width: 82px; }
+
+        table.month th {
+            background: #fafafa;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            /* overflow-wrap (not word-break) so it only splits mid-word as a
+               last resort, preferring to break at the space between words
+               like "Paid Holiday". */
+            white-space: normal;
+            overflow-wrap: break-word;
+            line-height: 1.15;
+            vertical-align: bottom;
+        }
+        table.month td.label {
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background: #fff;
+        }
+        table.month th.label {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            background: #fafafa;
+        }
+        table.month tr.dept td { background: #FCE4D6; }
+        table.month td.dept-header {
+            /* spans the full row (colspan), so it doesn't need to be sticky or
+               constrained to the label column's width like employee rows */
+            position: static;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: visible;
+            text-overflow: clip;
+            cursor: pointer;
+            user-select: none;
+        }
+        table.month tr.dept:hover td { filter: brightness(0.97); }
+        table.month .toggle-icon { display: inline-block; width: 0.9em; }
+        /* Punch in/out tooltip: a real title="" attribute can't be styled
+           at all (it's the browser's native OS tooltip), so this uses
+           data-tooltip + a ::after pseudo-element instead to get a bigger,
+           bold, bright yellow label on hover. */
+        table.month td[data-tooltip] { cursor: help; position: relative; }
+        table.month td[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 6px;
+            background: #FFEB3B;
+            color: #1a1a1a;
+            font-weight: 700;
+            font-size: 0.95rem;
+            white-space: pre;
+            max-width: none;
+            text-align: center;
+            padding: 0.35rem 0.7rem;
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        table.month td.heat-red { background: {{ heat_colors.red }}; }
+        table.month td.heat-green { background: {{ heat_colors.green }}; }
+        table.month td.heat-mid { background: {{ heat_colors.mid }}; }
+        table.month td.heat-high { background: {{ heat_colors.high }}; }
+        table.month td.heat-veryhigh { background: {{ heat_colors.veryhigh }}; }
+        table.month td.punch-issue { background: #FF4D4D !important; }
+
+        /* Same colors as the Holiday Calendar, applied to day cells whose
+           status was set by that calendar (a plain Holiday or Comp Off, or
+           a Paid Holiday the employee didn't work — if they worked it, the
+           cell keeps its normal heat-map color to show the OT instead). */
+        table.month td.special-H { background: #D6D6D6; }
+        table.month td.special-PH { background: #4FB3A9; }
+        table.month td.special-CO { background: #F5A85C; }
+
+        /* Header gets a lighter tint of the same color, just enough to flag
+           the column — the full-strength color stays on the data cells,
+           where it correctly steps aside for the heat-map color on any day
+           someone actually worked (see special_status_map in views.py). */
+        table.month th.special-H { background: #ececec; }
+        table.month th.special-PH { background: #d3ece9; }
+        table.month th.special-CO { background: #fce3c9; }
+
+        /* Thicker border on the whole special-day column (header + every
+           cell below it) so it reads as a distinct column at a glance. */
+        table.month td.special-H, table.month td.special-PH, table.month td.special-CO,
+        table.month th.special-H, table.month th.special-PH, table.month th.special-CO {
+            border-left: 2px solid #555;
+            border-right: 2px solid #555;
+        }
+        table.month th.special-H, table.month th.special-PH, table.month th.special-CO {
+            border-top: 2px solid #555;
+        }
+        table.month tbody tr:last-child td.special-H,
+        table.month tbody tr:last-child td.special-PH,
+        table.month tbody tr:last-child td.special-CO {
+            border-bottom: 2px solid #555;
+        }
+
+        table.month td.summary-highlight { background: #FFF9B0; }
+        table.month tr.dept td.summary-highlight { background: #FCE4D6; }
+        /* Day cells with logged OT hours that day — bold red text, on top
+           of whatever background (heat-map/special-day) already applies. */
+        table.month td.ot-day { font-weight: 700; color: #D32F2F; }
+
+        /* Shift-code flag: a thick colored stripe down the cell's left
+           edge, independent of the cell's background — so the hour-based
+           heat color / special-day color and the shift code are both
+           visible in the same cell at once. Uses a ::before overlay
+           rather than the border-left property itself, because
+           special-day columns already use border-left — an overlay avoids
+           that property collision instead of one silently winning. */
+        table.month td.editable-cell { position: relative; }
+        table.month td.shift-flag-M-OT::before,
+        table.month td.shift-flag-E-OT::before,
+        table.month td.shift-flag-ME-OT::before,
+        table.month td.shift-flag-Full-OT::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 4px;
+        }
+        table.month td.shift-flag-M-OT::before { background: #2E7D32; }
+        table.month td.shift-flag-E-OT::before { background: #800000; }
+        table.month td.shift-flag-ME-OT::before { background: #EF6C00; }
+        table.month td.shift-flag-Full-OT::before { background: #1565C0; }
+
+        /* "Show only missed punch cases": every day cell except the red
+           ones goes fully blank — no heat color, no text — so the red
+           flags are the only thing left visible in the grid. Holiday/Paid
+           Holiday/Comp Off cells keep their background though (so a
+           missed punch can still be read in context of a holiday), and
+           the shift-flag stripe (a ::before overlay, not this background)
+           is untouched either way. */
+        table.month.issues-only td:not(.punch-issue):not(.label):not(.special-H):not(.special-PH):not(.special-CO) {
+            background: transparent !important;
+            color: transparent;
+        }
+        table.month.issues-only td.special-H:not(.punch-issue),
+        table.month.issues-only td.special-PH:not(.punch-issue),
+        table.month.issues-only td.special-CO:not(.punch-issue) {
+            color: transparent;
+        }
+
+        /* "Show OT view": same idea as issues-only, but for shift-based OT
+           — every cell without a shift flag goes blank, EXCEPT a GS day
+           whose punches (or a worked Holiday/Paid Holiday/Comp Off) look
+           like they should have had an OT shift code (see
+           metrics.suggest_shift_code), or any House Keeping GS day at all
+           (that department has no fixed schedule, so every day's time is
+           relevant there — see gs_show_time in views.py). These stay
+           visible showing In/Out time on two lines instead (see
+           swapCellValues in the script); the suggestion stripe (below)
+           only appears when there's an actual suggestion, so a House
+           Keeping day under 8.5h shows its time with no color. The JS
+           swaps shift-flagged cells' numbers from worked hours to
+           shift-based OT hours, replicating the old standalone /ot/ page
+           inside this grid. */
+        table.month.ot-view td.editable-cell:not(.label):not(.shift-flag-M-OT):not(.shift-flag-E-OT):not(.shift-flag-ME-OT):not(.shift-flag-Full-OT):not(.gs-show-time) {
+            background: transparent !important;
+            color: transparent;
+        }
+        /* Cells showing In/Out time stay visible in OT view, but their
+           hour-based heat-map background doesn't apply here — only the
+           suggestion stripe (below) carries background meaning. The
+           stripe itself only shows in OT view — unlike a real shift-flag,
+           a suggestion has no business being visible in All/Missed Punch. */
+        table.month.ot-view td.editable-cell.gs-show-time {
+            background: transparent !important;
+        }
+        /* A day with a real OT shift actually set (not just suggested)
+           gets a solid yellow background in OT view, so it reads clearly
+           as "this one's confirmed" — everything else (plain GS) stays
+           background-free. The shift-flag stripe still shows on top for
+           which OT type it is. */
+        table.month.ot-view td.editable-cell.shift-flag-M-OT,
+        table.month.ot-view td.editable-cell.shift-flag-E-OT,
+        table.month.ot-view td.editable-cell.shift-flag-ME-OT,
+        table.month.ot-view td.editable-cell.shift-flag-Full-OT {
+            background: #FFF9B0 !important;
+            color: #1a1a1a;
+        }
+        table.month.ot-view td.gs-suggest-M-OT::before,
+        table.month.ot-view td.gs-suggest-E-OT::before,
+        table.month.ot-view td.gs-suggest-ME-OT::before,
+        table.month.ot-view td.gs-suggest-Full-OT::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 4px;
+        }
+        table.month.ot-view td.gs-suggest-M-OT::before { background: #2E7D32; }
+        table.month.ot-view td.gs-suggest-E-OT::before { background: #800000; }
+        table.month.ot-view td.gs-suggest-ME-OT::before { background: #EF6C00; }
+        table.month.ot-view td.gs-suggest-Full-OT::before { background: #1565C0; }
+
+        /* Missed Punch and OT views both drop the 5 summary columns (Work
+           Days, Comp Off, Time Off, Paid Holiday, Personal Leave) — OT
+           view shows a single Total OT column instead. */
+        table.month.issues-only col.summary-col-cell,
+        table.month.issues-only th.summary-col-cell,
+        table.month.issues-only td.summary-col-cell,
+        table.month.ot-view col.summary-col-cell,
+        table.month.ot-view th.summary-col-cell,
+        table.month.ot-view td.summary-col-cell {
+            display: none;
+        }
+        table.month col.ot-total-col,
+        table.month th.ot-total-col,
+        table.month td.ot-total-col {
+            display: none;
+        }
+        table.month.ot-view col.ot-total-col { display: table-column; }
+        table.month.ot-view th.ot-total-col,
+        table.month.ot-view td.ot-total-col {
+            display: table-cell;
+        }
+
+        table.month td.editable-cell { cursor: pointer; }
+        table.month th.editable-header { cursor: pointer; }
+        table.month th.editable-header:hover { filter: brightness(0.95); }
+        table.month.locked td.editable-cell,
+        table.month.locked th.editable-header {
+            cursor: not-allowed;
+        }
+        table.month.locked th.editable-header:hover { filter: none; }
+        table.month th .dow { display: block; font-size: 0.65rem; font-weight: 400; color: #888; line-height: 1; margin-bottom: 0.25rem; }
+
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.85rem; max-width: 500px; }
+        .msg.success { background: #e6f4ea; color: #1e7e34; }
+        .msg.error { background: #fdecea; color: #b3261e; }
+
+        .month-nav { display: flex; align-items: center; gap: 0.9rem; margin: 0 0 1.25rem; }
+        .month-nav .nav-arrow {
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 1rem;
+            width: 2rem;
+            height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            transition: background .15s ease, color .15s ease;
+        }
+        .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
+        .month-nav .edit-calendar-link { color: var(--navy); font-size: 0.85rem; font-weight: 600; text-decoration: none; margin-left: 0.25rem; }
+        .month-nav .edit-calendar-link:hover { text-decoration: underline; }
+        .lock-banner {
+            background: #fdecea;
+            color: #b3261e;
+            border: 1px solid #f3c6c1;
+            border-radius: 8px;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.85rem;
+            margin: -0.5rem 0 1rem;
+        }
+
+        /* Click-to-edit popup for a single day cell — fixes a missed punch
+           and/or sets the shift code. One shared modal reused for every
+           cell (rather than a form per cell) so the grid doesn't bloat. */
+        .edit-overlay {
+            position: fixed; inset: 0; background: rgba(17,17,20,0.45);
+            backdrop-filter: blur(2px);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .edit-overlay.open { display: flex; }
+        /* The Month Attendance grid's hover tooltip must not show through
+           the popup while it's open — it sits behind the overlay, but its
+           ::after content still has its own z-index, so suppress it
+           explicitly rather than relying on stacking order alone. */
+        body.modal-open table.month td[data-tooltip]:hover::after { display: none; }
+        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 300px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+        .edit-modal h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+        .edit-modal .edit-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.9rem; }
+        .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
+        .edit-modal input, .edit-modal select {
+            display: block; width: 100%; margin-top: 0.25rem; padding: 0.45rem 0.6rem;
+            border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
+            transition: border-color .15s ease;
+        }
+        .edit-modal input:focus, .edit-modal select:focus { outline: none; border-color: var(--accent); }
+        .edit-modal input:disabled { background: #f0f0f0; color: #999; }
+        .edit-modal .edit-staff-note { font-size: 0.75rem; color: #999; margin: -0.3rem 0 0.6rem; }
+        .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
+        .edit-modal button {
+            padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
+            background: #fff; cursor: pointer; font-size: 0.85rem; transition: background .15s ease;
+        }
+        .edit-modal button:hover { background: var(--bg); }
+        .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
+        .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a href="{% url 'home' %}" class="brand">Payday</a>
+        <nav><a href="{% url 'upload' %}">Upload</a><a href="{% url 'calendar' %}">Holiday Calendar</a></nav>
+    </header>
+    <div class="page">
+
+    {% for message in messages %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+
+    {% if has_data %}
+    <div class="month-nav">
+        <a href="?date={{ prev_date }}&view={{ current_view }}" class="nav-arrow">&larr;</a>
+        <h1>{{ month_name }} {{ year }}</h1>
+        <a href="?date={{ next_date }}&view={{ current_view }}" class="nav-arrow">&rarr;</a>
+        <a href="{% url 'calendar' %}" class="edit-calendar-link">Edit holiday calendar →</a>
+    </div>
+    {% if is_locked %}
+        <p class="lock-banner">🔒 {{ current_view_label }} is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>
+    {% endif %}
+    {% endif %}
+
+    {% if not has_data %}
+        <p class="empty-state">No attendance data yet. Upload a DailyAttendance export first.</p>
+    {% elif empty %}
+        <p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p>
+    {% else %}
+        <div class="card">
+            <div class="kpis">
+                <div class="kpi"><div class="label">Headcount</div><div class="value">{{ kpi.headcount }}</div></div>
+                <div class="kpi"><div class="label">Working Days</div><div class="value">{{ working_days }}</div></div>
+                <div class="kpi"><div class="label">Holidays</div><div class="value">{{ holidays|length }}</div></div>
+                <div class="kpi"><div class="label">Paid Holidays</div><div class="value">{{ paid_holidays|length }}</div></div>
+                <div class="kpi"><div class="label">Comp Off</div><div class="value">{{ comp_offs|length }}</div></div>
+                <div class="kpi"><div class="label">Avg. attendance</div><div class="value">{{ kpi.avg_attendance_pct }}%</div></div>
+                <div class="kpi kpi-alert"><div class="label">Missed out punches</div><div class="value">{{ missed_punch_count }}</div></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>By department</h2>
+            <div class="dept-view" data-view="all">
+                <div class="table-wrap">
+                    <table class="simple">
+                        <tr>
+                            <th>Department</th><th>Headcount</th><th>Avg. attendance %</th>
+                            <th>Top attendance</th><th>Lowest attendance</th><th>Leave &gt; 4 days</th>
+                        </tr>
+                        {% for d in dept_summary %}
+                        <tr>
+                            <td>{{ d.department }}</td>
+                            <td>{{ d.headcount }}</td>
+                            <td>{{ d.avg_attendance_pct }}</td>
+                            <td>{% for p in d.top %}{{ p.emp_name }} ({{ p.attendance_pct }}%){% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                            <td>{% for p in d.worst %}{{ p.emp_name }} ({{ p.attendance_pct }}%){% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                            <td>{% for p in d.high_leave %}{{ p.emp_name }} ({{ p.absent_days|floatformat:0 }}){% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+            <div class="dept-view" data-view="issues" style="display:none;">
+                <div class="table-wrap">
+                    <table class="simple">
+                        <tr><th>Department</th><th>Employees</th></tr>
+                        {% for d in dept_missed_punch %}
+                        <tr>
+                            <td>{{ d.department }}</td>
+                            <td>{% for p in d.people %}{{ p.emp_name }} ({{ p.count }}){% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2">No missed punches this month.</td></tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+            <div class="dept-view" data-view="ot" style="display:none;">
+                <div class="table-wrap">
+                    <table class="simple">
+                        <tr><th>Department</th><th>Headcount (with OT)</th><th>Most OT</th><th>Least OT</th><th>Total OT hours</th></tr>
+                        {% for d in dept_ot_summary %}
+                        <tr>
+                            <td>{{ d.department }}</td>
+                            <td>{{ d.headcount }}</td>
+                            <td>{{ d.top_name }} ({{ d.top_hours }}h)</td>
+                            <td>{{ d.lowest_name }} ({{ d.lowest_hours }}h)</td>
+                            <td>{{ d.total_hours }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5">No shift-based OT this month.</td></tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Month Attendance</h2>
+            <p class="caption">Click any day cell to fix a missed punch or set its shift code (e.g. M-OT/E-OT/ME-OT/Full-OT for the Overtime view). Click a date's column header to set that shift for everyone that day (Staff excluded).</p>
+            <div class="legend">
+                <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.red }}"></span>0.5–5h</span>
+                <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.green }}"></span>5–9.5h</span>
+                <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.mid }}"></span>9.5–10.5h</span>
+                <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.high }}"></span>10.5–11.5h</span>
+                <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.veryhigh }}"></span>&gt;11.5h (heavy OT)</span>
+                <span class="legend-item"><span class="swatch" style="background:#FF4D4D"></span>Missed punch</span>
+                <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
+                <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
+                <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #2E7D32"></span>M-OT shift</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT shift</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT shift</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #1565C0"></span>Full-OT shift</span>
+            </div>
+            <div class="view-switch-row">
+                <div class="view-switch">
+                    <a href="?date={{ current_date }}&view=all" class="view-btn{% if current_view == 'all' %} active{% endif %}" data-view="all">All
+                        <span class="tab-lock-icon" data-view="all" data-label="All" data-action="{% if lock_status.all %}unlock{% else %}lock{% endif %}" title="{% if lock_status.all %}Unlock{% else %}Lock{% endif %} All">{% if lock_status.all %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+                    </a>
+                    <a href="?date={{ current_date }}&view=issues" class="view-btn{% if current_view == 'issues' %} active{% endif %}" data-view="issues">Missed Punch
+                        <span class="tab-lock-icon" data-view="issues" data-label="Missed Punch" data-action="{% if lock_status.issues %}unlock{% else %}lock{% endif %}" title="{% if lock_status.issues %}Unlock{% else %}Lock{% endif %} Missed Punch">{% if lock_status.issues %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+                    </a>
+                    <a href="?date={{ current_date }}&view=ot" class="view-btn{% if current_view == 'ot' %} active{% endif %}" data-view="ot">OT View
+                        <span class="tab-lock-icon" data-view="ot" data-label="OT View" data-action="{% if lock_status.ot %}unlock{% else %}lock{% endif %}" title="{% if lock_status.ot %}Unlock{% else %}Lock{% endif %} OT View">{% if lock_status.ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+                    </a>
+                </div>
+            </div>
+            <div class="grid-scroll">
+                <table class="month">
+                    <colgroup>
+                        <col class="label-col">
+                        {% for d in day_labels %}<col class="day-col">{% endfor %}
+                        {% for c in summary_cols %}<col class="summary-col summary-col-cell">{% endfor %}
+                        <col class="summary-col ot-total-col">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th class="label"></th>
+                            {% for d in day_headers %}<th class="editable-header {% if d.special %}special-{{ d.special }}{% endif %}" data-date="{{ d.date_iso }}" data-day-type="{{ d.special }}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
+                            {% for c in summary_cols %}<th class="summary-col-cell">{{ c }}</th>{% endfor %}
+                            <th class="ot-total-col">Total OT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in table_rows %}
+                        <tr class="{% if row.is_dept %}dept{% endif %}">
+                            {% if row.is_dept %}
+                                <td class="label dept-header" colspan="{{ total_cols }}" title="{{ row.label|slice:'2:' }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
+                            {% else %}
+                                <td class="label" title="{{ row.label }}">{{ row.label }}</td>
+                            {% for cell in row.day_cells %}
+                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{{ cell.value }}</td>
+                            {% endfor %}
+                            {% for value in row.summary_cells %}
+                                <td class="summary-highlight summary-col-cell">{{ value }}</td>
+                            {% endfor %}
+                                <td class="summary-highlight ot-total-col">{{ row.total_ot }}</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="edit-overlay" id="editOverlay">
+            <div class="edit-modal">
+                <h3>Edit attendance</h3>
+                <p class="edit-meta"><span id="editEmpLabel"></span> — <span id="editDateLabel"></span></p>
+                <form method="post" action="{% url 'edit_record' %}" id="editForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="emp_code" id="editEmpCode">
+                    <input type="hidden" name="date" id="editDate">
+                    <input type="hidden" name="view" value="{{ current_view }}">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <label>Time In
+                        <input type="text" name="time_in" id="editTimeIn" placeholder="HH:MM">
+                    </label>
+                    <label>Time Out
+                        <input type="text" name="time_out" id="editTimeOut" placeholder="HH:MM">
+                    </label>
+                    <label id="editShiftLabel">Shift
+                        <input type="text" name="shift" id="editShift" list="shiftOptions" placeholder="GS">
+                        <datalist id="shiftOptions">
+                            <option value="GS">
+                            <option value="M-OT">
+                            <option value="E-OT">
+                            <option value="ME-OT">
+                            <option value="Full-OT">
+                        </datalist>
+                    </label>
+                    <p class="edit-staff-note" id="editStaffNote" style="display:none;">Shift isn't editable for Staff — they're excluded from shift-based OT (see Time Off instead).</p>
+                    <div class="edit-actions">
+                        <button type="button" id="editCancel">Cancel</button>
+                        <button type="submit">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="edit-overlay" id="bulkOverlay">
+            <div class="edit-modal">
+                <h3>Set date</h3>
+                <p class="edit-meta"><span id="bulkDateLabel"></span></p>
+                <form method="post" action="{% url 'bulk_set_shift' %}" id="bulkForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="date" id="bulkDate">
+                    <input type="hidden" name="view" value="{{ current_view }}">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <label>Shift (all employees except Staff)
+                        <input type="text" name="shift" id="bulkShift" list="shiftOptions" placeholder="GS">
+                    </label>
+                    <label>Calendar day type
+                        <select name="day_type" id="bulkDayType">
+                            <option value="">— none —</option>
+                            {% for code, label in day_types %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <div class="edit-actions">
+                        <button type="button" id="bulkCancel">Cancel</button>
+                        <button type="submit">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="edit-overlay" id="lockOverlay">
+            <div class="edit-modal">
+                <h3 id="lockModalTitle">Lock view</h3>
+                <p class="edit-meta" id="lockModalMeta">Enter the PIN to lock/unlock this view for {{ month_name }} {{ year }}.</p>
+                <form method="post" action="{% url 'toggle_month_lock' %}" id="lockForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="year" value="{{ year }}">
+                    <input type="hidden" name="month" value="{{ month }}">
+                    <input type="hidden" name="view" id="lockView" value="{{ current_view }}">
+                    <input type="hidden" name="action" id="lockAction" value="{% if is_locked %}unlock{% else %}lock{% endif %}">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <label>PIN
+                        <input type="password" name="pin" id="lockPin" inputmode="numeric" autocomplete="off">
+                    </label>
+                    <div class="edit-actions">
+                        <button type="button" id="lockCancel">Cancel</button>
+                        <button type="submit" id="lockSubmit">{% if is_locked %}Unlock{% else %}Lock{% endif %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    {% endif %}
+    </div>
+    <script>
+        var isMonthLocked = {{ is_locked|yesno:"true,false" }};
+        if (isMonthLocked) {
+            var monthTable = document.querySelector('table.month');
+            if (monthTable) monthTable.classList.add('locked');
+        }
+
+        var editOverlay = document.getElementById('editOverlay');
+        if (editOverlay) {
+            document.querySelectorAll('table.month td.editable-cell').forEach(function (cell) {
+                cell.addEventListener('click', function () {
+                    if (isMonthLocked || !cell.dataset.emp || !cell.dataset.date) return;
+                    document.getElementById('editEmpCode').value = cell.dataset.emp;
+                    document.getElementById('editDate').value = cell.dataset.date;
+                    document.getElementById('editEmpLabel').textContent = cell.dataset.emp;
+                    document.getElementById('editDateLabel').textContent = cell.dataset.date;
+                    document.getElementById('editTimeIn').value = cell.dataset.in || '';
+                    document.getElementById('editTimeOut').value = cell.dataset.out || '';
+                    var isStaff = cell.dataset.staff === '1';
+                    var shiftInput = document.getElementById('editShift');
+                    shiftInput.value = cell.dataset.shift || '';
+                    shiftInput.disabled = isStaff;
+                    document.getElementById('editStaffNote').style.display = isStaff ? 'block' : 'none';
+                    editOverlay.classList.add('open');
+                    document.body.classList.add('modal-open');
+                });
+            });
+            // Only Cancel/Save close the popup — no click-outside or
+            // mouse-move dismissal, so it doesn't disappear while filling
+            // in the form.
+            document.getElementById('editCancel').addEventListener('click', function () {
+                editOverlay.classList.remove('open');
+                document.body.classList.remove('modal-open');
+            });
+        }
+
+        var bulkOverlay = document.getElementById('bulkOverlay');
+        if (bulkOverlay) {
+            document.querySelectorAll('table.month th.editable-header').forEach(function (th) {
+                th.addEventListener('click', function () {
+                    if (isMonthLocked || !th.dataset.date) return;
+                    document.getElementById('bulkDate').value = th.dataset.date;
+                    document.getElementById('bulkDateLabel').textContent = th.dataset.date;
+                    document.getElementById('bulkShift').value = '';
+                    document.getElementById('bulkDayType').value = th.dataset.dayType || '';
+                    bulkOverlay.classList.add('open');
+                    document.body.classList.add('modal-open');
+                });
+            });
+            document.getElementById('bulkCancel').addEventListener('click', function () {
+                bulkOverlay.classList.remove('open');
+                document.body.classList.remove('modal-open');
+            });
+        }
+
+        var currentView = '{{ current_view|default:"all" }}';
+
+        function employeeRowsOf(deptRow) {
+            var rows = [];
+            var sib = deptRow.nextElementSibling;
+            while (sib && !sib.classList.contains('dept')) {
+                rows.push(sib);
+                sib = sib.nextElementSibling;
+            }
+            return rows;
+        }
+
+        function rowHasIssue(row) {
+            return row.querySelector('td.punch-issue') !== null;
+        }
+
+        function rowHasShiftFlag(row) {
+            return row.querySelector('td[class*="shift-flag-"], td.gs-show-time') !== null;
+        }
+
+        function toHHMM(value) {
+            var parts = (value || '').split(':');
+            return parts.length >= 2 ? parts[0] + ':' + parts[1] : (value || '—');
+        }
+
+        function formatInOut(cell) {
+            return toHHMM(cell.dataset.in) + '\n' + toHHMM(cell.dataset.out);
+        }
+
+        function swapCellValues(showOt) {
+            document.querySelectorAll('table.month td.editable-cell[class*="shift-flag-"]').forEach(function (cell) {
+                cell.textContent = showOt ? (cell.dataset.shiftOt || '') : (cell.dataset.value || '');
+            });
+            document.querySelectorAll('table.month td.editable-cell.gs-show-time').forEach(function (cell) {
+                if (showOt) {
+                    cell.textContent = formatInOut(cell);
+                    cell.style.whiteSpace = 'pre-line';
+                } else {
+                    cell.textContent = cell.dataset.value || '';
+                    cell.style.whiteSpace = '';
+                }
+            });
+        }
+
+        function refreshVisibility() {
+            var issuesOn = currentView === 'issues';
+            var otOn = currentView === 'ot';
+            document.querySelector('table.month').classList.toggle('issues-only', issuesOn);
+            document.querySelector('table.month').classList.toggle('ot-view', otOn);
+            swapCellValues(otOn);
+            document.querySelectorAll('.legend-hours').forEach(function (el) {
+                el.style.display = otOn ? 'none' : '';
+            });
+            document.querySelectorAll('.dept-view').forEach(function (el) {
+                el.style.display = el.dataset.view === currentView ? '' : 'none';
+            });
+            document.querySelectorAll('table.month tr.dept').forEach(function (deptRow) {
+                var collapsed = deptRow.classList.contains('collapsed');
+                var employees = employeeRowsOf(deptRow);
+                var deptHasIssue = employees.some(rowHasIssue);
+                var deptHasShiftFlag = employees.some(rowHasShiftFlag);
+                employees.forEach(function (row) {
+                    var hideByIssues = issuesOn && !rowHasIssue(row);
+                    var hideByOt = otOn && !rowHasShiftFlag(row);
+                    row.style.display = (collapsed || hideByIssues || hideByOt) ? 'none' : '';
+                });
+                var hideDeptByIssues = issuesOn && !deptHasIssue;
+                var hideDeptByOt = otOn && !deptHasShiftFlag;
+                deptRow.style.display = (hideDeptByIssues || hideDeptByOt) ? 'none' : '';
+            });
+        }
+
+        document.querySelectorAll('table.month tr.dept').forEach(function (deptRow) {
+            deptRow.querySelector('td.label').addEventListener('click', function () {
+                var collapsed = deptRow.classList.toggle('collapsed');
+                deptRow.querySelector('.toggle-icon').textContent = collapsed ? '▸' : '▾';
+                refreshVisibility();
+            });
+        });
+
+        // The All/Missed Punch/OT View tabs are now real links (?view=...)
+        // so the choice survives a reload/back-button and can be shared —
+        // the active tab and currentView above are set server-side. Only
+        // the cell-blanking/row-hiding still needs to run once on load.
+        refreshVisibility();
+
+        var lockOverlay = document.getElementById('lockOverlay');
+        var tabLockIcons = document.querySelectorAll('.tab-lock-icon');
+        if (lockOverlay && tabLockIcons.length) {
+            tabLockIcons.forEach(function (icon) {
+                icon.addEventListener('click', function (e) {
+                    // The icon sits inside the tab <a> so it shares its
+                    // background (transparent, or navy when active) — but
+                    // that means a click would otherwise also follow the
+                    // tab's link and switch views, so stop it here.
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var action = icon.dataset.action;
+                    var label = icon.dataset.label;
+                    document.getElementById('lockView').value = icon.dataset.view;
+                    document.getElementById('lockAction').value = action;
+                    document.getElementById('lockModalTitle').textContent =
+                        (action === 'unlock' ? 'Unlock ' : 'Lock ') + label;
+                    document.getElementById('lockModalMeta').textContent =
+                        'Enter the PIN to ' + action + ' the ' + label + ' view.';
+                    document.getElementById('lockSubmit').textContent = action === 'unlock' ? 'Unlock' : 'Lock';
+                    document.getElementById('lockPin').value = '';
+                    lockOverlay.classList.add('open');
+                    document.body.classList.add('modal-open');
+                });
+            });
+            document.getElementById('lockCancel').addEventListener('click', function () {
+                lockOverlay.classList.remove('open');
+                document.body.classList.remove('modal-open');
+            });
+        }
+    </script>
+</body>
+</html>

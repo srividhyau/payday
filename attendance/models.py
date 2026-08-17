@@ -80,3 +80,61 @@ class AttendanceRecord(models.Model):
 
     def __str__(self):
         return f"{self.employee.code} {self.date} {self.status}"
+
+
+class MonthLock(models.Model):
+    """Marks one calendar month's attendance as frozen for one of the
+    dashboard's three views (All/Missed Punch/OT View) — each view is
+    locked/unlocked independently, even though they share the same
+    underlying grid, so e.g. OT View can stay locked after payroll while
+    Missed Punch remains open for corrections. Locking/unlocking both
+    require the PIN (see settings.ATTENDANCE_LOCK_PIN) — there's no user
+    login in this app, so the PIN is the only gate. Presence of a row for
+    (year, month, view) means that view is locked for that month."""
+
+    VIEW_ALL = "all"
+    VIEW_ISSUES = "issues"
+    VIEW_OT = "ot"
+    VIEW_CHOICES = [
+        (VIEW_ALL, "All"),
+        (VIEW_ISSUES, "Missed Punch"),
+        (VIEW_OT, "OT View"),
+    ]
+
+    year = models.IntegerField()
+    month = models.IntegerField()
+    view = models.CharField(max_length=10, choices=VIEW_CHOICES, default=VIEW_ALL)
+    locked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["year", "month", "view"], name="unique_month_view_lock"),
+        ]
+
+    def __str__(self):
+        return f"{self.year}-{self.month:02d} ({self.get_view_display()}) locked"
+
+
+class SpecialDay(models.Model):
+    """A company-wide calendar entry — applies to every employee on that
+    date. Set up on the /calendar/ page and overlaid onto attendance data
+    before metrics are computed (see src/metrics.apply_special_days)."""
+
+    HOLIDAY = "H"
+    PAID_HOLIDAY = "PH"
+    COMP_OFF = "CO"
+    TYPE_CHOICES = [
+        (HOLIDAY, "Holiday"),
+        (PAID_HOLIDAY, "Paid Holiday"),
+        (COMP_OFF, "Comp Off"),
+    ]
+
+    date = models.DateField(unique=True)
+    day_type = models.CharField(max_length=2, choices=TYPE_CHOICES)
+    name = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ["date"]
+
+    def __str__(self):
+        return f"{self.date} ({self.get_day_type_display()})"

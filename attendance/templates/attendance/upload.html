@@ -4,48 +4,136 @@
     <meta charset="UTF-8">
     <title>Payday — Upload Attendance</title>
     <style>
-        body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif; max-width: 640px; margin: 3rem auto; color: #1a1a1a; }
-        h1 { font-size: 1.4rem; }
-        form { margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #ddd; border-radius: 8px; }
-        button { background: #1a1a1a; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
-        .msg { padding: 0.6rem 0.9rem; border-radius: 6px; margin-bottom: 0.5rem; }
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { max-width: 760px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 2rem;
+            background: var(--yellow);
+            border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; }
+        .topbar nav a {
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav a:hover { background: var(--navy); color: var(--yellow); }
+
+        h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
+        h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+        .caption { color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }
+        .caption a { color: var(--navy); font-weight: 600; text-decoration: none; }
+        .caption a:hover { text-decoration: underline; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.35rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        form p { margin: 0 0 1rem; }
+        form label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.3rem; }
+        form input[type="file"] {
+            display: block; width: 100%; padding: 0.5rem; border: 1px solid #ccc;
+            border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
+        }
+        button {
+            background: var(--navy); color: var(--yellow); font-weight: 600; border: none;
+            padding: 0.55rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+            transition: background .15s ease;
+        }
+        button:hover { background: var(--navy-deep); }
+
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.85rem; }
         .msg.success { background: #e6f4ea; color: #1e7e34; }
         .msg.error { background: #fdecea; color: #b3261e; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
-        a { color: #1a1a1a; }
+
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+        table.simple { border-collapse: collapse; width: 100%; }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
+        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple tbody tr:last-child td { border-bottom: none; }
+        table.simple tbody tr:hover td { background: #fafbff; }
     </style>
 </head>
 <body>
-    <h1>Payday — Upload Daily Attendance</h1>
-    <p>Upload the DailyAttendance export from the eSSL fingerprint system. Re-uploading a file (or one covering overlapping dates) updates existing records instead of duplicating them.</p>
+    <header class="topbar">
+        <a href="{% url 'home' %}" class="brand">Payday</a>
+        <nav>
+            <a href="{% url 'dashboard' %}">Attendance</a>
+            <a href="{% url 'calendar' %}">Holiday Calendar</a>
+        </nav>
+    </header>
+    <div class="page">
+        <h1>Upload Daily Attendance</h1>
+        <p class="caption">Upload the DailyAttendance export from the eSSL fingerprint system. Re-uploading a file (or one covering overlapping dates) updates existing records instead of duplicating them.</p>
 
-    {% for message in messages %}
-        <div class="msg {{ message.tags }}">{{ message }}</div>
-    {% endfor %}
-
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Upload &amp; Import</button>
-    </form>
-
-    <p>View the dashboard in Streamlit (separate process): <code>streamlit run dashboard/streamlit_app.py</code></p>
-    <p>Browse/edit imported data in the <a href="/admin/">Django admin</a>.</p>
-
-    <h2>Recent uploads</h2>
-    <table>
-        <tr><th>File</th><th>Uploaded</th><th>Period</th><th>Rows</th></tr>
-        {% for batch in batches %}
-        <tr>
-            <td>{{ batch.file_name }}</td>
-            <td>{{ batch.uploaded_at }}</td>
-            <td>{{ batch.period_start }} → {{ batch.period_end }}</td>
-            <td>{{ batch.row_count }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4">No uploads yet.</td></tr>
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
-    </table>
+
+        <div class="card">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit">Upload &amp; Import</button>
+            </form>
+        </div>
+
+        <p class="caption">View <a href="{% url 'dashboard' %}">attendance</a>, or set up the <a href="{% url 'calendar' %}">Holiday Calendar</a> (Holidays, Paid Holidays, Comp Off). Browse/edit imported data in the <a href="/admin/">Django admin</a>.</p>
+
+        <div class="card">
+            <h2>Recent uploads</h2>
+            <div class="table-wrap">
+                <table class="simple">
+                    <tr><th>File</th><th>Uploaded</th><th>Period</th><th>Rows</th></tr>
+                    {% for batch in batches %}
+                    <tr>
+                        <td>{{ batch.file_name }}</td>
+                        <td>{{ batch.uploaded_at }}</td>
+                        <td>{{ batch.period_start }} → {{ batch.period_end }}</td>
+                        <td>{{ batch.row_count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">No uploads yet.</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

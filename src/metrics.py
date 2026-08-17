@@ -11,6 +11,8 @@ MonthlyAttendance / Month_Attendance / Summary pivot-table workbook:
 """
 from __future__ import annotations
 
+import datetime
+
 import pandas as pd
 
 STATUS_PRESENT = "P"
@@ -22,23 +24,74 @@ STATUS_WEEK_OFF = "WO"
 STATUS_HOLIDAY = "H"
 
 
+def work_day_credit(work_hours) -> float:
+    """Weights a single day's attendance credit from its work_hours,
+    matching the source workbook's Attendance formula: <=3h counts as
+    Absent (0 credit), <=5.5h as a Half day (0.5 credit), otherwise a
+    full Present (1 credit). Used instead of counting status == "P" so a
+    day marked Present with only a couple of logged hours doesn't count
+    as a full work day."""
+    if work_hours is None or pd.isna(work_hours):
+        return 0.0
+    work_hours = float(work_hours)
+    if work_hours <= 3:
+        return 0.0
+    if work_hours <= 5.5:
+        return 0.5
+    return 1.0
+
+
+def recompute_from_punch(time_in: str, time_out: str) -> tuple[float, str]:
+    """Recomputes work_hours and a status code (A/HD/P) from a corrected
+    in/out punch pair — used when HR manually fixes a missed punch via the
+    dashboard's edit popup. Mirrors work_day_credit's own thresholds
+    (<=3h Absent, <=5.5h Half Day, otherwise Present)."""
+    t_in, t_out = _parse_time_str(time_in), _parse_time_str(time_out)
+    if t_in is None or t_out is None:
+        return 0.0, STATUS_ABSENT
+    minutes = _minutes_between(t_in, t_out)
+    if minutes < 0:
+        minutes += 24 * 60  # overnight shift
+    hours = round(minutes / 60, 2)
+    if hours <= 3:
+        status = STATUS_ABSENT
+    elif hours <= 5.5:
+        status = "HD"
+    else:
+        status = STATUS_PRESENT
+    return hours, status
+
+
 def infer_working_days(daily: pd.DataFrame) -> int:
     """Default working-day count: distinct dates present in the file that
-    aren't universally marked Week Off/Holiday across employees. Callers can
+    aren't a day off. A date counts as off if every employee is marked Week
+    Off that day (WO can legitimately vary per employee), or if *any*
+    employee is marked Holiday that day (H only ever comes from the
+    company-wide SpecialDay calendar — apply_special_days only sets it for
+    employees who didn't work, so one person working through a Holiday
+    shouldn't stop it counting as a day off for everyone else). Callers can
     override this (the original sheet allowed manual entry, e.g. 26 or 27)."""
     if daily.empty:
         return 0
-    all_off_per_date = daily.groupby("date")["status"].apply(
-        lambda s: s.isin([STATUS_WEEK_OFF, STATUS_HOLIDAY]).all()
+    off_per_date = daily.groupby("date")["status"].apply(
+        lambda s: (s == STATUS_WEEK_OFF).all() or (s == STATUS_HOLIDAY).any()
     )
     all_dates = daily["date"].nunique()
-    off_dates = int(all_off_per_date.sum())
+    off_dates = int(off_per_date.sum())
     working_days = all_dates - off_dates
     return working_days if working_days > 0 else all_dates
 
 
-def employee_summary(daily: pd.DataFrame, working_days: int) -> pd.DataFrame:
-    """One row per employee: the attendance-sheet-style rollup."""
+def employee_summary(
+    daily: pd.DataFrame, working_days: int, shift_ot_map: dict | None = None
+) -> pd.DataFrame:
+    """One row per employee: the attendance-sheet-style rollup.
+
+    shift_ot_map, if given, maps emp_code -> total shift-based OT hours
+    (see overtime_view) for the period, and overrides total_ot_hours so it
+    matches the /ot/ page's calculation instead of the raw ot_hours
+    column. Pass None to keep the raw-column total (e.g. for Staff, who
+    are excluded from shift-based OT entirely)."""
     if daily.empty:
         return pd.DataFrame(
             columns=[
@@ -58,12 +111,17 @@ def employee_summary(daily: pd.DataFrame, working_days: int) -> pd.DataFrame:
     grp = daily.groupby(group_cols, dropna=False)
 
     def summarize(g: pd.DataFrame) -> pd.Series:
-        present = int((g["status"] == STATUS_PRESENT).sum())
+        present = round(float(_work_day_credit_series(g).sum()), 1)
         paid_holiday = int((g["status"] == STATUS_PAID_HOLIDAY).sum())
         comp_off = int((g["status"] == STATUS_COMP_OFF).sum())
         personal_leave = int((g["status"] == STATUS_PERSONAL_LEAVE).sum())
-        accounted = present + paid_holiday + comp_off + personal_leave
-        absent = max(working_days - accounted, 0)
+        # Personal Leave = TotalWorkingDays - (Paid_Holidays + Working_Days +
+        # Comp_Off) — matches the source workbook exactly. Holiday isn't
+        # subtracted again here because infer_working_days() already drops
+        # Holiday dates out of working_days itself, so subtracting
+        # holiday_days too would double-count that exclusion.
+        accounted = present + paid_holiday + comp_off
+        absent = max(round(working_days - accounted, 1), 0)
         total_hours = float(g["work_hours"].sum())
         avg_hours = float(g.loc[g["work_hours"] > 0, "work_hours"].mean() or 0.0)
         ot_hours = float(g["ot_hours"].sum())
@@ -84,6 +142,10 @@ def employee_summary(daily: pd.DataFrame, working_days: int) -> pd.DataFrame:
         )
 
     result = grp.apply(summarize, include_groups=False).reset_index()
+    if shift_ot_map is not None:
+        result["total_ot_hours"] = (
+            result["emp_code"].map(shift_ot_map).fillna(0.0).round(2)
+        )
     return result.sort_values("department").reset_index(drop=True)
 
 
@@ -101,6 +163,100 @@ def department_summary(emp_summary: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
         .sort_values("headcount", ascending=False)
     )
+
+
+def department_attendance_extremes(emp_summary: pd.DataFrame, n: int = 2) -> dict:
+    """For each department, the n employees with the highest and n with the
+    lowest attendance_pct — e.g. for a "top / bottom performers" callout
+    next to the department summary table. Each value is
+    {"top": [...], "worst": [...]}, worst-first, as {"emp_name", "attendance_pct"} dicts."""
+    if emp_summary.empty:
+        return {}
+    result = {}
+    for dept, block in emp_summary.groupby("department"):
+        ranked = block.sort_values("attendance_pct", ascending=False)
+        result[dept] = {
+            "top": ranked.head(n)[["emp_name", "attendance_pct"]].to_dict("records"),
+            "worst": ranked.tail(n).iloc[::-1][["emp_name", "attendance_pct"]].to_dict("records"),
+        }
+    return result
+
+
+def department_high_leave(emp_summary: pd.DataFrame, threshold: int = 4) -> dict:
+    """For each department, employees whose absent_days exceeds threshold —
+    a "watch list" callout next to the department summary table. Uses
+    absent_days rather than personal_leave_days because real eSSL exports
+    tend to only ever use the P/A status codes in practice — PH/CO/PL/WO/H
+    show up as zero, so personal_leave_days alone misses real leave-taking.
+    Maps department -> [{"emp_name", "absent_days"}, ...], highest first."""
+    if emp_summary.empty:
+        return {}
+    result = {}
+    for dept, block in emp_summary.groupby("department"):
+        flagged = block[block["absent_days"] > threshold].sort_values(
+            "absent_days", ascending=False
+        )
+        result[dept] = flagged[["emp_name", "absent_days"]].to_dict("records")
+    return result
+
+
+def department_missed_punch_summary(daily: pd.DataFrame, issues: set) -> list:
+    """Departments with at least one missed-out-punch case (see
+    punch_issues), each with a total count and the individual employees
+    (name + their own count) behind it — for the "By department" panel's
+    Missed Punch view. Highest department count first, employees within a
+    department highest count first."""
+    if not issues or daily.empty:
+        return []
+    emp_dept = dict(daily[["emp_code", "department"]].drop_duplicates().values)
+    emp_name = dict(daily[["emp_code", "emp_name"]].drop_duplicates().values)
+    dept_counts: dict = {}
+    emp_counts: dict = {}
+    for emp_code, _ in issues:
+        dept = emp_dept.get(emp_code, "Unassigned")
+        dept_counts[dept] = dept_counts.get(dept, 0) + 1
+        emp_counts[emp_code] = emp_counts.get(emp_code, 0) + 1
+
+    rows = []
+    for dept, total in dept_counts.items():
+        people = sorted(
+            (
+                {"emp_name": emp_name.get(emp_code, emp_code), "count": count}
+                for emp_code, count in emp_counts.items()
+                if emp_dept.get(emp_code) == dept
+            ),
+            key=lambda p: -p["count"],
+        )
+        rows.append({"department": dept, "missed_count": total, "people": people})
+    return sorted(rows, key=lambda row: -row["missed_count"])
+
+
+def department_ot_summary(shift_ot_table: pd.DataFrame) -> list:
+    """Per-department shift-based OT rollup — headcount with any OT, who
+    logged the most/least, and the department total — for the "By
+    department" panel's OT View. Highest total first."""
+    if shift_ot_table.empty:
+        return []
+    per_emp = (
+        shift_ot_table.groupby(["department", "emp_code", "emp_name"])["total_ot_hours"]
+        .sum()
+        .reset_index()
+    )
+    rows = []
+    for dept, group in per_emp.groupby("department"):
+        group = group.sort_values("total_ot_hours", ascending=False)
+        top = group.iloc[0]
+        lowest = group.iloc[-1]
+        rows.append({
+            "department": dept,
+            "headcount": len(group),
+            "top_name": top["emp_name"],
+            "top_hours": round(float(top["total_ot_hours"]), 2),
+            "lowest_name": lowest["emp_name"],
+            "lowest_hours": round(float(lowest["total_ot_hours"]), 2),
+            "total_hours": round(float(group["total_ot_hours"].sum()), 2),
+        })
+    return sorted(rows, key=lambda row: -row["total_hours"])
 
 
 def date_by_employee_pivot(daily: pd.DataFrame, value: str = "work_hours") -> pd.DataFrame:
@@ -175,25 +331,31 @@ def department_grouped_summary(emp_summary: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
-def month_attendance_view(daily: pd.DataFrame) -> tuple:
+def month_attendance_view(daily: pd.DataFrame, working_days: int | None = None) -> tuple:
     """Single wide table matching the original Month_Attendance pivot sheet:
-    department subtotal rows with indented employees below, one column per
-    day-of-month with the day's work hours, and summary columns on the
-    right (Work Days = present days, CompOff, Full OT, Paid Holiday,
-    Personal Leave).
+    a department label row (grouping only, no aggregated values) followed
+    by its employees indented below, one column per day-of-month with the
+    day's work hours, and summary columns on the right (Work Days = present
+    days, CompOff, Time Off, Paid Holiday, Personal Leave).
 
-    "Full OT" is the count of days with any logged OT hours (ot_hours > 0)
-    — the original workbook didn't document its exact definition, so this
-    is the closest reasonable read; adjust FULL_OT_MIN_HOURS below if HR's
-    definition differs.
+    "Time Off" is credited per day using the same tiered thresholds as
+    Work Days (work_day_credit: <=3h -> 0, <=5.5h -> half day, >5.5h ->
+    full day), applied to ot_hours instead of work_hours, then summed —
+    and only for employees whose subcategory is "Staff" (everyone else
+    shows blank, this metric doesn't apply to them).
+
+    "Personal Leave" = working_days - (Paid Holiday + Work Days + Comp
+    Off), same formula as employee_summary()'s absent_days. working_days
+    defaults to infer_working_days(daily) if not given explicitly.
 
     Returns (table, day_columns) — day_columns lists which columns are the
     per-day hours, so callers can style/colour just those.
     """
-    FULL_OT_MIN_HOURS = 0.0  # a day counts as "Full OT" if ot_hours > this
-
     if daily.empty:
         return pd.DataFrame(), []
+
+    if working_days is None:
+        working_days = infer_working_days(daily)
 
     dates = sorted(daily["date"].unique())
     single_month = len({(pd.Timestamp(d).year, pd.Timestamp(d).month) for d in dates}) == 1
@@ -206,26 +368,30 @@ def month_attendance_view(daily: pd.DataFrame) -> tuple:
     ).reindex(columns=dates, fill_value=0.0)
 
     def emp_counts(g: pd.DataFrame) -> dict:
+        is_staff = "subcategory" in g.columns and (g["subcategory"] == "Staff").any()
+        time_off = round(float(g["ot_hours"].apply(work_day_credit).sum()), 1) if is_staff else ""
+        work_days = round(float(_work_day_credit_series(g).sum()), 1)
+        comp_off = int((g["status"] == STATUS_COMP_OFF).sum())
+        paid_holiday = int((g["status"] == STATUS_PAID_HOLIDAY).sum())
+        personal_leave = max(round(working_days - (work_days + paid_holiday + comp_off), 1), 0)
         return {
-            "Work Days": int((g["status"] == STATUS_PRESENT).sum()),
-            "CompOff": int((g["status"] == STATUS_COMP_OFF).sum()),
-            "Full OT": int((g["ot_hours"] > FULL_OT_MIN_HOURS).sum()),
-            "Paid Holiday": int((g["status"] == STATUS_PAID_HOLIDAY).sum()),
-            "Personal Leave": int((g["status"] == STATUS_PERSONAL_LEAVE).sum()),
+            "Work Days": work_days,
+            "Comp Off": comp_off or "",
+            "Time Off": time_off,
+            "Paid Holiday": paid_holiday or "",
+            "Personal Leave": personal_leave,
         }
 
     per_emp_counts = {
         key: emp_counts(g) for key, g in daily.groupby(["department", "emp_code", "emp_name"])
     }
 
-    summary_cols = ["Work Days", "CompOff", "Full OT", "Paid Holiday", "Personal Leave"]
+    summary_cols = ["Work Days", "Comp Off", "Time Off", "Paid Holiday", "Personal Leave"]
     rows = []
     for dept in sorted(hours_pivot.index.get_level_values("department").unique()):
         dept_block = hours_pivot.xs(dept, level="department")
-        dept_keys = [k for k in per_emp_counts if k[0] == dept]
-        dept_totals = {c: sum(per_emp_counts[k][c] for k in dept_keys) for c in summary_cols}
         rows.append(
-            ["▸ " + dept, "", *[float("nan")] * len(day_labels), *[dept_totals[c] for c in summary_cols]]
+            ["▸ " + dept, "", *[float("nan")] * len(day_labels), *[""] * len(summary_cols)]
         )
         for (emp_code, emp_name), vals in dept_block.iterrows():
             counts = per_emp_counts[(dept, emp_code, emp_name)]
@@ -237,31 +403,152 @@ def month_attendance_view(daily: pd.DataFrame) -> tuple:
     columns = ["Row Labels", "Emp Code", *day_labels, *summary_cols]
     table = pd.DataFrame(rows, columns=columns)
     # Force the day columns to a proper float dtype (they'd otherwise end up
-    # as 'object' from being built via a list of mixed rows), so NaN is
-    # handled consistently by the Styler instead of rendering as "None".
+    # as 'object' from being built via a list of mixed rows).
     table[day_labels] = table[day_labels].astype(float)
     return table, day_labels
 
 
-def style_month_attendance(table: pd.DataFrame, day_labels: list):
-    """Pandas Styler for month_attendance_view(): green-yellow-red heatmap
-    on the day-hours columns (blank cells stay blank), and a shaded
-    background on department subtotal rows — matching the original
-    workbook's conditional formatting."""
-    is_dept_row = table["Row Labels"].str.startswith("▸")
+def _punch_missing(value: str) -> bool:
+    """The eSSL export uses an all-zero time ("00:00", "0:00", "00:00:00",
+    ...) as its placeholder for "no punch recorded", same as a genuinely
+    empty string. Checked digit-by-digit since the export isn't consistent
+    about the leading zero or whether seconds are included."""
+    v = (value or "").strip()
+    if not v:
+        return True
+    digits = v.replace(":", "")
+    return digits != "" and set(digits) == {"0"}
 
-    def shade_dept_rows(row):
-        if is_dept_row.loc[row.name]:
-            return ["background-color: #FCE4D6"] * len(row)
-        return [""] * len(row)
 
-    styler = table.style.apply(shade_dept_rows, axis=1)
-    if day_labels:
-        styler = styler.background_gradient(
-            subset=day_labels, cmap="RdYlGn", vmin=0, vmax=10, axis=None
+def clean_punch_time(value: str) -> str:
+    """Public wrapper around _punch_missing — returns "" for a missing/
+    all-zero punch placeholder ("0:00" etc.), otherwise the stripped
+    value. Use this anywhere a raw time_in/time_out is about to be shown
+    or handed to the browser, so "0:00" never displays as if it were a
+    real punch time."""
+    return "" if _punch_missing(value) else (value or "").strip()
+
+
+def punch_time_labels(daily: pd.DataFrame, ot_hours_map: dict | None = None) -> dict:
+    """Maps (emp_code, date) -> "IN - HH:MM:SS\\nOUT - HH:MM:SS\\nHRS - N\\n
+    SHIFT - X\\nOT - Nh" text (one field per line — see the tooltip's
+    `white-space: pre-line` in dashboard.html), so callers can label/
+    tooltip the month_attendance_view() day cells with punch times, worked
+    hours, shift code, and OT hours without cluttering the heatmap grid
+    itself. emp_code alone is enough to key on since Employee.code is
+    unique across departments. Skips days with no punch at all (plain
+    absence); says "missing" for whichever side is missing on a one-sided
+    punch.
+
+    ot_hours_map, if given, overrides the raw ot_hours column — pass
+    overtime_view()'s per-record total_ot_hours (keyed the same way) so
+    the label reflects the actual shift-based OT calculation rather than
+    whatever the source file happened to report."""
+    labels = {}
+    for row in daily.itertuples(index=False):
+        in_missing = _punch_missing(row.time_in)
+        out_missing = _punch_missing(row.time_out)
+        if in_missing and out_missing:
+            continue
+        time_in = "missing" if in_missing else row.time_in.strip()
+        time_out = "missing" if out_missing else row.time_out.strip()
+        shift = row.shift.strip() if isinstance(row.shift, str) and row.shift.strip() else "—"
+        hrs = round(float(row.work_hours), 1) if pd.notna(row.work_hours) else 0.0
+        key = (row.emp_code, row.date)
+        if ot_hours_map is not None:
+            ot_hours = round(float(ot_hours_map.get(key, 0.0)), 1)
+        else:
+            ot_hours = round(float(row.ot_hours), 1) if pd.notna(row.ot_hours) else 0.0
+        labels[key] = (
+            f"IN - {time_in}\nOUT - {time_out}\nHRS - {hrs}\nSHIFT - {shift}\nOT - {ot_hours}h"
         )
-        styler = styler.format(precision=1, na_rep="", subset=day_labels)
-    return styler
+    return labels
+
+
+def punch_issues(daily: pd.DataFrame) -> set:
+    """Set of (emp_code, date) with a real in-punch but a missing
+    out-punch — "forgot to clock out" — distinct from a plain absence
+    where both are missing. Doesn't flag the reverse (missing in-punch,
+    real out-punch), which is rare and treated as not actionable here."""
+    issues = set()
+    for row in daily.itertuples(index=False):
+        if not _punch_missing(row.time_in) and _punch_missing(row.time_out):
+            issues.add((row.emp_code, row.date))
+    return issues
+
+
+HEAT_COLORS = {
+    "red": "#F1A9A9",  # light red — 0.5-5h, a very short day
+    "green": "#D4EDDA",  # soft sage — 5-9.5h, normal range
+    "mid": "#FFE8A1",  # warm gold — 9.5-10.5h, expected full day + some OT
+    "high": "#E8C4E8",  # dusty plum — 10.5-11.5h, heavy OT
+    "veryhigh": "#C9B8E8",  # lavender — past 11.5h, a darker/more saturated heavy-OT flag
+}
+
+
+def hours_heat_band(value) -> str | None:
+    """Discrete hours heat-map band matching the original workbook's
+    conditional formatting."""
+    if value == "" or value is None or pd.isna(value):
+        return None
+    value = float(value)
+    if value < 0.5:
+        return None
+    if value < 5:
+        return "red"
+    if value < 9.5:
+        return "green"
+    if value <= 10.5:
+        return "mid"
+    if value <= 11.5:
+        return "high"
+    return "veryhigh"
+
+
+def apply_special_days(daily: pd.DataFrame, special_days: dict) -> pd.DataFrame:
+    """Overlays a company-wide Holiday/Paid Holiday/Comp Off calendar (see
+    the SpecialDay model) onto the daily attendance DataFrame before
+    metrics are computed. special_days maps date -> "H"/"PH"/"CO".
+
+    All three types apply to everyone on that date, unconditionally —
+    status is overridden regardless of whether the employee actually came
+    in, so Working Days / Paid Holiday / Comp Off counts always credit the
+    whole company for that date, matching the source workbook.
+
+    Separately, anyone who *did* work that day gets it folded into
+    ot_hours (so Time Off picks it up) and flagged via the "special_worked"
+    column. Callers use that flag for two things the status override alone
+    can't express: excluding the day from Work Days credit (it counts as
+    OT instead), and — in the Django dashboard grid — showing the real
+    heat-map color for that cell instead of the flat special-day color,
+    since status says "H"/"PH"/"CO" either way.
+    """
+    daily = daily.copy()
+    daily["special_worked"] = False
+    if daily.empty or not special_days:
+        return daily
+    for raw_date, day_type in special_days.items():
+        if day_type not in (STATUS_HOLIDAY, STATUS_PAID_HOLIDAY, STATUS_COMP_OFF):
+            continue
+        mask = daily["date"] == pd.Timestamp(raw_date)
+        if not mask.any():
+            continue
+        worked = mask & (daily["work_hours"] > 0)
+        daily.loc[mask, "status"] = day_type
+        daily.loc[worked, "ot_hours"] = daily.loc[worked, ["ot_hours", "work_hours"]].max(axis=1)
+        daily.loc[worked, "special_worked"] = True
+    return daily
+
+
+def _work_day_credit_series(g: pd.DataFrame) -> pd.Series:
+    """Per-row Work Day credit for a group, zeroing out any day flagged
+    special_worked (a Paid Holiday/Holiday/Comp Off someone worked through
+    — that day's hours count toward Time Off instead, via apply_special_days
+    folding them into ot_hours)."""
+    credit = g["work_hours"].apply(work_day_credit)
+    if "special_worked" in g.columns:
+        credit = credit.where(~g["special_worked"], 0.0)
+    return credit
 
 
 def holiday_dates(daily: pd.DataFrame) -> list:
@@ -270,6 +557,25 @@ def holiday_dates(daily: pd.DataFrame) -> list:
     if daily.empty or "status" not in daily.columns:
         return []
     dates = daily.loc[daily["status"] == STATUS_HOLIDAY, "date"].dropna().unique()
+    return sorted(pd.Timestamp(d).strftime("%d-%b") for d in dates)
+
+
+def paid_holiday_dates(daily: pd.DataFrame) -> list:
+    """Dates flagged Paid Holiday (status 'PH') for at least one employee —
+    same idea as holiday_dates(), for the company calendar's Paid Holiday
+    days."""
+    if daily.empty or "status" not in daily.columns:
+        return []
+    dates = daily.loc[daily["status"] == STATUS_PAID_HOLIDAY, "date"].dropna().unique()
+    return sorted(pd.Timestamp(d).strftime("%d-%b") for d in dates)
+
+
+def comp_off_dates(daily: pd.DataFrame) -> list:
+    """Dates flagged Comp Off (status 'CO') for at least one employee — same
+    idea as holiday_dates(), for the company calendar's Comp Off days."""
+    if daily.empty or "status" not in daily.columns:
+        return []
+    dates = daily.loc[daily["status"] == STATUS_COMP_OFF, "date"].dropna().unique()
     return sorted(pd.Timestamp(d).strftime("%d-%b") for d in dates)
 
 
@@ -282,3 +588,180 @@ def kpis(emp_summary: pd.DataFrame) -> dict:
         "total_ot_hours": round(float(emp_summary["total_ot_hours"].sum()), 1),
         "total_absent_days": int(emp_summary["absent_days"].sum()),
     }
+
+
+# Shift codes that pre-authorize overtime, and which side of the shift they
+# cover — mirrors the source workbook's DailyAttendance_OT Power Query.
+_IN_OT_SHIFTS = {"M-OT", "ME-OT", "Full-OT"}  # counts time clocked in before 9:00 AM
+_OUT_OT_SHIFTS = {"E-OT", "ME-OT", "Full-OT"}  # counts time clocked out after 5:30 PM
+
+# All shift codes that pre-authorize OT — public, for callers that just
+# need to flag/color a day by its shift code (e.g. the dashboard grid)
+# without recomputing hours themselves.
+OT_SHIFT_CODES = _IN_OT_SHIFTS | _OUT_OT_SHIFTS
+_OT_NINE_AM = datetime.time(9, 0, 0)
+_OT_FIVE_THIRTY_PM = datetime.time(17, 30, 0)
+_OT_SIX_AM = datetime.time(6, 0, 0)
+
+
+def _parse_time_str(value) -> datetime.time | None:
+    text = (str(value) if value is not None else "").strip()
+    if not text or text.lower() == "nan":
+        return None
+    parts = text.split(":")
+    try:
+        h, m = int(parts[0]), int(parts[1])
+        sec = int(parts[2]) if len(parts) > 2 else 0
+        return datetime.time(h % 24, m, sec)
+    except (ValueError, IndexError):
+        return None
+
+
+_SUGGEST_MORNING_IN = datetime.time(8, 20, 0)
+_SUGGEST_EVENING_OUT = datetime.time(18, 0, 0)
+
+
+def suggest_shift_code(
+    time_in, time_out, special_worked: bool = False, department: str = "", work_hours=None
+) -> str:
+    """Suggests which OT shift code an ordinary GS day's punches look like
+    they should have had, purely from the actual times worked (or the
+    company calendar) — never changes the stored shift, just a visual
+    nudge in the dashboard's OT view that a shift code was probably
+    forgotten:
+
+    - Worked a Holiday/Paid Holiday/Comp Off (special_worked) -> "Full-OT",
+      regardless of specific times.
+    - House Keeping doesn't run a fixed shift schedule like the other
+      departments, so it isn't judged by clock-in/out time of day at all —
+      any day worked more than 8.5h is "ME-OT" outright.
+    - Clocked in before 8:20 AM AND out after 6:00 PM -> "ME-OT".
+    - Clocked in before 8:20 AM only -> "M-OT".
+    - Clocked out after 6:00 PM only -> "E-OT".
+    - Otherwise -> "" (no suggestion, an ordinary GS day)."""
+    if special_worked:
+        return "Full-OT"
+    if _punch_missing(time_in) or _punch_missing(time_out):
+        return ""
+    if department == "HOUSE KEEPING":
+        return "ME-OT" if work_hours is not None and not pd.isna(work_hours) and float(work_hours) > 8.5 else ""
+    t_in, t_out = _parse_time_str(time_in), _parse_time_str(time_out)
+    early_in = t_in is not None and t_in < _SUGGEST_MORNING_IN
+    late_out = t_out is not None and t_out > _SUGGEST_EVENING_OUT
+    if early_in and late_out:
+        return "ME-OT"
+    if early_in:
+        return "M-OT"
+    if late_out:
+        return "E-OT"
+    return ""
+
+
+def _round_to_quarter_hour(total_minutes: float) -> float:
+    """<20 minutes doesn't count at all; otherwise round to the nearest
+    15-minute increment, expressed in hours — matches the source Power
+    Query's OT rounding exactly."""
+    if total_minutes < 20:
+        return 0.0
+    return round(round(total_minutes / 15) * 15 / 60, 2)
+
+
+def _minutes_between(start: datetime.time, end: datetime.time) -> float:
+    today = datetime.date.today()
+    return (datetime.datetime.combine(today, end) - datetime.datetime.combine(today, start)).total_seconds() / 60
+
+
+def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
+    """Shift-based OT view, mirroring the source workbook's
+    DailyAttendance_OT Power Query. Only applies to employees on a
+    special OT-approved shift code for that day (not the ordinary "GS"
+    shift):
+
+    - "M-OT"/"ME-OT"/"Full-OT" credits time clocked in before 9:00 AM.
+    - "E-OT"/"ME-OT"/"Full-OT" credits time clocked out after 5:30 PM
+      (handling the overnight case where "Out" is a time after midnight).
+    - "Full-OT" instead counts the entire day's worked hours as OT.
+
+    Both sides round to the nearest 15 minutes and require at least 20
+    minutes to count at all. Only rows already marked Present are
+    considered, matching the source query's own pre-filter. Not
+    applicable to Staff subcategory employees — they're excluded
+    entirely (they get the separate, day-count-based "Time Off" figure
+    on the dashboard instead, see month_attendance_view).
+
+    Returns a flat DataFrame (one row per employee/date with real OT),
+    sorted by date then department then employee — empty if nothing
+    qualifies (e.g. the uploaded file only ever uses the "GS" shift).
+    """
+    columns = [
+        "date", "emp_code", "emp_name", "department", "designation", "shift",
+        "time_in", "time_out", "work_hours", "in_ot_hours", "out_ot_hours",
+        "total_ot_hours", "full_day_ot",
+    ]
+    if daily.empty:
+        return pd.DataFrame(columns=columns)
+
+    if "subcategory" in daily.columns:
+        daily = daily[daily["subcategory"] != "Staff"]
+        if daily.empty:
+            return pd.DataFrame(columns=columns)
+
+    # status == Present, OR special_worked (apply_special_days overwrites
+    # status to H/PH/CO for every employee on a special calendar day, even
+    # ones who actually worked it — special_worked is what still marks
+    # those as real attendance, so an OT shift set on a holiday isn't
+    # silently dropped here). Callers that skip apply_special_days never
+    # get a special_worked column, so status alone decides for them.
+    if "special_worked" in daily.columns:
+        present_mask = (daily["status"] == STATUS_PRESENT) | daily["special_worked"]
+    else:
+        present_mask = daily["status"] == STATUS_PRESENT
+    present = daily[present_mask].copy()
+    present = present[present["shift"] != "GS"]
+    if present.empty:
+        return pd.DataFrame(columns=columns)
+
+    def work_hours_span(row) -> float:
+        t_in, t_out = _parse_time_str(row["time_in"]), _parse_time_str(row["time_out"])
+        if t_in is None or t_out is None:
+            return 0.0
+        minutes = _minutes_between(t_in, t_out)
+        if minutes < 0:
+            minutes += 24 * 60  # overnight shift
+        hours = round(minutes / 60, 2)
+        return hours if hours >= 4 else 0.0
+
+    def in_ot_hours(row) -> float:
+        if row["shift"] not in _IN_OT_SHIFTS:
+            return 0.0
+        t_in = _parse_time_str(row["time_in"])
+        if t_in is None:
+            return 0.0
+        minutes = _minutes_between(t_in, _OT_NINE_AM)
+        return _round_to_quarter_hour(minutes) if minutes > 0 else 0.0
+
+    def out_ot_hours(row) -> float:
+        if row["shift"] not in _OUT_OT_SHIFTS:
+            return 0.0
+        t_out = _parse_time_str(row["time_out"])
+        if t_out is None:
+            return 0.0
+        if t_out >= _OT_FIVE_THIRTY_PM:
+            minutes = _minutes_between(_OT_FIVE_THIRTY_PM, t_out)
+        elif t_out < _OT_SIX_AM:
+            minutes = _minutes_between(_OT_FIVE_THIRTY_PM, t_out) + 24 * 60
+        else:
+            minutes = 0.0
+        return _round_to_quarter_hour(minutes) if minutes > 0 else 0.0
+
+    present["work_hours"] = present.apply(work_hours_span, axis=1)
+    present["in_ot_hours"] = present.apply(in_ot_hours, axis=1)
+    present["out_ot_hours"] = present.apply(out_ot_hours, axis=1)
+    present["total_ot_hours"] = present.apply(
+        lambda r: r["work_hours"] if r["shift"] == "Full-OT" else r["in_ot_hours"] + r["out_ot_hours"],
+        axis=1,
+    )
+    present["full_day_ot"] = (present["shift"] == "Full-OT").astype(int)
+
+    present = present.sort_values(["date", "department", "emp_code"]).reset_index(drop=True)
+    return present[columns]

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Payday</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --text: #0f172a;
+    --muted: #64748b;
+    --navy: #002f66;
+    --navy-deep: #0f172a;
+    --yellow: #fde047;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .top-nav {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--yellow);
+  }
+  .top-nav a {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: #57530c;
+  }
+  .top-nav a:hover { background: rgba(15, 23, 42, 0.12); color: #14213d; }
+  .top-nav .nav-brand {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 1.15rem; font-weight: 700; color: #14213d;
+    margin-right: 12px; padding: 0; border-radius: 0;
+  }
+  .top-nav .nav-brand:hover { background: none; }
+  .top-nav .nav-brand .logo { width: 24px; height: 24px; flex: none; }
+  .top-nav .nav-spacer { flex: 1; }
+
+  .landing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    min-height: calc(100vh - 48px);
+    text-align: center;
+    padding: 24px;
+  }
+  .landing .logo {
+    width: clamp(120px, 30vw, 200px);
+    height: clamp(120px, 30vw, 200px);
+  }
+  .landing h1 {
+    margin: 0;
+    font-size: clamp(1.8rem, 8vw, 3rem);
+    letter-spacing: 0.02em;
+    color: var(--navy);
+  }
+  .landing p {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--muted);
+  }
+  .landing .actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+  .landing .actions a {
+    padding: 0.65rem 1.3rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    background: var(--navy);
+    color: var(--yellow);
+    transition: background .15s ease;
+  }
+  .landing .actions a:hover { background: var(--navy-deep); }
+  .landing .actions a.secondary {
+    background: transparent;
+    color: var(--navy);
+    border: 1px solid var(--navy);
+  }
+  .landing .actions a.secondary:hover { background: rgba(0,47,102,0.08); }
+</style>
+</head>
+<body>
+    <nav class="top-nav">
+        <a href="{% url 'home' %}" class="nav-brand">
+            <svg class="logo" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" fill="#002f66" />
+                <path d="M12 2a5 5 0 0 1 0 10 5 5 0 0 0 0 10 10 10 0 0 1 0-20z" fill="#fde047" />
+                <circle cx="12" cy="7" r="1.7" fill="#002f66" />
+                <circle cx="12" cy="17" r="1.7" fill="#fde047" />
+            </svg>
+            Payday
+        </a>
+        <span class="nav-spacer"></span>
+        <a href="{% url 'upload' %}">Upload</a>
+        <a href="{% url 'dashboard' %}">Attendance</a>
+        <a href="{% url 'calendar' %}">Holiday Calendar</a>
+    </nav>
+    <div class="landing">
+        <svg class="logo" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" fill="#002f66" />
+            <path d="M12 2a5 5 0 0 1 0 10 5 5 0 0 0 0 10 10 10 0 0 1 0-20z" fill="#fde047" />
+            <circle cx="12" cy="7" r="1.7" fill="#002f66" />
+            <circle cx="12" cy="17" r="1.7" fill="#fde047" />
+        </svg>
+        <h1>Payday</h1>
+        <p>Attendance, overtime, and the holiday calendar — in one place.</p>
+        <div class="actions">
+            <a href="{% url 'dashboard' %}">Open Attendance</a>
+            <a href="{% url 'upload' %}" class="secondary">Upload Attendance</a>
+            <a href="{% url 'calendar' %}" class="secondary">Holiday Calendar</a>
+        </div>
+    </div>
+</body>
+</html>

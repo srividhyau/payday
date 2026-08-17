@@ -10,10 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# PIN required to lock/unlock a month's attendance on the dashboard (see
+# attendance.models.MonthLock) — this app has no user login, so the PIN is
+# the only gate on that action. Override via the ATTENDANCE_LOCK_PIN env
+# var in any real deployment; this default is only for local dev.
+ATTENDANCE_LOCK_PIN = os.environ.get('ATTENDANCE_LOCK_PIN', '1234')
 
 
 # Quick-start development settings - unsuitable for production

@@ -14,12 +14,8 @@ venv/
 .env
 
 # Django - contains real employee/attendance data once used
-db.sqlite3
 staticfiles/
 media/
-
-# Streamlit
-.streamlit/secrets.toml
 
 # OS
 .DS_Store

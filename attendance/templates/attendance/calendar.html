@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payday — Holiday Calendar</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 2rem;
+            background: var(--yellow);
+            border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; }
+        .topbar nav a {
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav a:hover { background: var(--navy); color: var(--yellow); }
+
+        h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
+        h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+        .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 700px; }
+        .caption:last-child { margin-bottom: 0; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.35rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .month-nav { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.25rem; }
+        .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; }
+        .month-nav a {
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 1rem;
+            width: 2rem;
+            height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            transition: background .15s ease, color .15s ease;
+        }
+        .month-nav a:hover { background: var(--navy); color: var(--yellow); }
+
+        .legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin-bottom: 1.1rem; font-size: 0.8rem; }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--text-muted);
+            background: var(--bg);
+            padding: 0.25rem 0.6rem 0.25rem 0.4rem;
+            border-radius: 999px;
+        }
+        .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
+
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+        table.cal { border-collapse: collapse; width: 100%; table-layout: fixed; }
+        table.cal th, table.cal td { border: 1px solid #666; padding: 0; text-align: left; vertical-align: top; }
+        table.cal th { background: #fafbfc; color: var(--text-muted); padding: 0.5rem; text-align: center; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.cal td { height: 80px; }
+        table.cal td.out-of-month { background: #f7f7f7; }
+        table.cal .day-number { font-size: 0.8rem; padding: 0.3rem 0.4rem; color: #333; }
+        table.cal td.out-of-month .day-number { color: #bbb; }
+        table.cal .is-today .day-number { font-weight: 700; color: var(--navy); text-decoration: underline; }
+
+        table.cal td:nth-child(7):not(.type-H):not(.type-PH):not(.type-CO):not(.out-of-month) { background: #D6D6D6; }
+        table.cal td.type-H { background: #D6D6D6; }
+        table.cal td.type-PH { background: #4FB3A9; }
+        table.cal td.type-CO { background: #F5A85C; }
+
+        .day-cell-form { display: flex; flex-direction: column; height: 100%; }
+        .day-cell-form select {
+            margin: 0 0.3rem 0.3rem;
+            font-size: 0.75rem;
+            border: 1px solid #999;
+            border-radius: 3px;
+            background: #fff;
+            padding: 0.15rem;
+        }
+
+        .table-wrap.simple-wrap { max-width: 420px; }
+        table.simple { border-collapse: collapse; width: 100%; }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
+        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple tbody tr:last-child td { border-bottom: none; }
+        table.simple tbody tr:hover td { background: #fafbff; }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a href="{% url 'home' %}" class="brand">Payday</a>
+        <nav>
+            <a href="{% url 'dashboard' %}">Attendance</a>
+            <a href="{% url 'upload' %}">Upload</a>
+        </nav>
+    </header>
+    <div class="page">
+        <h1>Holiday Calendar</h1>
+        <p class="caption">
+            Set company-wide Holidays, Paid Holidays, and Comp Off days here — they apply to every
+            employee automatically on the dashboard. A Paid Holiday only overrides someone's status if
+            they didn't actually work that day; if they came in anyway, their hours count as OT instead.
+        </p>
+
+        <div class="card">
+            <div class="legend">
+                <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Sunday</span>
+                <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
+                <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
+                <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
+            </div>
+
+            <div class="month-nav">
+                <a href="?year={{ prev_year }}&month={{ prev_month }}">&larr;</a>
+                <h2>{{ month_name }} {{ year }}</h2>
+                <a href="?year={{ next_year }}&month={{ next_month }}">&rarr;</a>
+            </div>
+
+            <div class="table-wrap">
+                <table class="cal">
+                    <thead>
+                        <tr>
+                            <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for week in weeks %}
+                        <tr>
+                            {% for day in week %}
+                            <td class="{% if not day.in_month %}out-of-month{% endif %} {% if day.day_type %}type-{{ day.day_type }}{% endif %} {% if day.is_today %}is-today{% endif %}">
+                                <form method="post" class="day-cell-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="date" value="{{ day.date|date:'Y-m-d' }}">
+                                    <input type="hidden" name="year" value="{{ year }}">
+                                    <input type="hidden" name="month" value="{{ month }}">
+                                    <div class="day-number">{{ day.date.day }}</div>
+                                    <select name="day_type" onchange="this.form.submit()">
+                                        <option value=""{% if not day.day_type %} selected{% endif %}>—</option>
+                                        {% for code, label in day_types %}
+                                        <option value="{{ code }}"{% if day.day_type == code %} selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </form>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Upcoming</h2>
+            <div class="table-wrap simple-wrap">
+                <table class="simple">
+                    <tr><th>Date</th><th>Type</th></tr>
+                    {% for sd in upcoming %}
+                    <tr><td>{{ sd.date|date:"d M Y" }}</td><td>{{ sd.get_day_type_display }}</td></tr>
+                    {% empty %}
+                    <tr><td colspan="2">Nothing scheduled.</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

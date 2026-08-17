@@ -44,10 +44,18 @@ HR confirmed the DailyAttendance export uses:
     10. shift
     11. intime       -> time_in
     12. outtime      -> time_out
-    13. hours        -> work_hours
-    14-19. -  (ignore — everything after hours)
+    13. -  (ignore)
+    14. -  (ignore)
+    15. hours        -> work_hours (e.g. "08:30", a duration, not decimal)
+    16. -  (ignore)
+    17. -  (ignore)
+    18. attendance   -> status ("Present"/"Absent"/"1/2Present"/...)
+    19. -  (ignore — punch-in/out log)
 
-See POSITIONAL_COLUMNS below.
+See POSITIONAL_COLUMNS below. The real eSSL export has no header row at
+all — the first row is already data — so load_file() also has to detect
+that and read the CSV with header=None instead of losing row 1 to
+pandas's default header=0.
 """
 from __future__ import annotations
 
@@ -86,8 +94,27 @@ COLUMN_ALIASES = {
 # the required columns — see _build_positional_rename_map().
 POSITIONAL_COLUMNS = [
     "date", "emp_code", "emp_name", "company", "department", "category", "subcategory",
-    None, None, "shift", "time_in", "time_out", "work_hours",
+    None, None, "shift", "time_in", "time_out", None, None, "work_hours",
+    None, None, "status",
 ]
+
+# Word-style status values seen in the wild (the real eSSL export spells
+# these out instead of using the short P/A/... codes) -> canonical code.
+STATUS_WORD_ALIASES = {
+    "present": "P",
+    "absent": "A",
+    "half day": "HD",
+    "halfday": "HD",
+    "1/2present": "HD",
+    "1/2 present": "HD",
+    "paid holiday": "PH",
+    "holiday": "H",
+    "week off": "WO",
+    "weekoff": "WO",
+    "comp off": "CO",
+    "compoff": "CO",
+    "personal leave": "PL",
+}
 
 STATUS_LABELS = {
     "P": "Present",
@@ -141,7 +168,7 @@ def _build_positional_rename_map(columns) -> dict:
 
 
 def load_file(uploaded_file) -> pd.DataFrame:
-    """Load an uploaded CSV/XLSX/XLSM file (Streamlit UploadedFile, path, or
+    """Load an uploaded CSV/XLSX/XLSM file (Django UploadedFile, path, or
     file-like object) into a raw DataFrame, trying every sheet for xlsx and
     picking the one that looks like a daily attendance table."""
     name = getattr(uploaded_file, "name", str(uploaded_file))
@@ -166,7 +193,20 @@ def load_file(uploaded_file) -> pd.DataFrame:
             raise ValueError("Could not find a recognizable attendance sheet in the workbook.")
         return best_df
 
-    return pd.read_csv(uploaded_file)
+    # Some real-world DailyAttendance exports have no header row at all —
+    # the file starts directly with data. Reading with the default header=0
+    # would silently consume that first data row as column headers. Peek at
+    # the first cell: if it parses as a date, there's no header, so re-read
+    # with header=None (columns become 0, 1, 2, ... and fall through to
+    # POSITIONAL_COLUMNS in normalize()).
+    raw = uploaded_file.read() if hasattr(uploaded_file, "read") else uploaded_file
+    buf = io.BytesIO(raw) if isinstance(raw, (bytes, bytearray)) else raw
+    df = pd.read_csv(buf, header=None)
+    first_cell = str(df.iloc[0, 0]).strip()
+    if pd.isna(pd.to_datetime(first_cell, errors="coerce", dayfirst=True)):
+        df.columns = df.iloc[0].tolist()
+        df = df.iloc[1:].reset_index(drop=True)
+    return df
 
 
 def normalize(df: pd.DataFrame) -> pd.DataFrame:
@@ -211,17 +251,21 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
     out = out.dropna(subset=["date"])
 
     if "work_hours" in out.columns:
-        out["work_hours"] = pd.to_numeric(out["work_hours"], errors="coerce").fillna(0.0)
+        # work_hours sometimes comes as a decimal (9.21) and sometimes as an
+        # "HH:MM" duration string (08:30) — _duration_to_hours handles both.
+        out["work_hours"] = _duration_to_hours(out["work_hours"])
     else:
         out["work_hours"] = 0.0
 
     if "ot_hours" in out.columns:
-        out["ot_hours"] = _ot_to_hours(out["ot_hours"])
+        out["ot_hours"] = _duration_to_hours(out["ot_hours"])
     else:
         out["ot_hours"] = 0.0
 
     if "status" in out.columns:
-        out["status"] = out["status"].astype(str).str.strip().str.upper()
+        raw_status = out["status"].astype(str).str.strip()
+        word_mapped = raw_status.str.lower().map(STATUS_WORD_ALIASES)
+        out["status"] = word_mapped.fillna(raw_status.str.upper())
         out.loc[~out["status"].isin(STATUS_LABELS.keys()), "status"] = pd.NA
     else:
         out["status"] = pd.NA
@@ -241,9 +285,10 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values(["emp_code", "date"]).reset_index(drop=True)
 
 
-def _ot_to_hours(series: pd.Series) -> pd.Series:
-    """OT columns sometimes come as 'HH:MM:SS' strings and sometimes as
-    decimal hours. Normalize both to decimal hours."""
+def _duration_to_hours(series: pd.Series) -> pd.Series:
+    """Duration columns (work_hours, ot_hours) sometimes come as
+    'HH:MM:SS'/'HH:MM' strings and sometimes as decimal hours. Normalize
+    both to decimal hours."""
 
     def convert(v):
         if pd.isna(v):
