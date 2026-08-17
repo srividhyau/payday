@@ -16,10 +16,10 @@ set -e  # stop immediately on any error
 
 # ---------------- CONFIG (edit these) ----------------
 APP_NAME="payday"                              # used for service name, nginx config name
-PROJECT_DIR="/home/deploy/payday"              # where the Django project lives (or will be cloned)
+PROJECT_DIR="/root/workspace/payday"              # where the Django project lives (or will be cloned)
 REPO_URL=""                                    # git repo URL, leave blank if code is already on the server
 DEPLOY_USER="deploy"                           # non-root user that owns/runs the app
-DOMAIN="payday.yourdomain.com"                 # subdomain to serve
+DOMAIN="payday.app.mvindustrial.in"                 # subdomain to serve
 DJANGO_WSGI_MODULE="payday.wsgi:application"   # <project_folder>.wsgi:application
 GUNICORN_PORT="8000"
 GUNICORN_WORKERS="3"
