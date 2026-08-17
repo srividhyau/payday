@@ -18,7 +18,7 @@ set -e  # stop immediately on any error
 APP_NAME="payday"                              # used for service name, nginx config name
 PROJECT_DIR="/root/workspace/payday"              # where the Django project lives (or will be cloned)
 REPO_URL=""                                    # git repo URL, leave blank if code is already on the server
-DEPLOY_USER="deploy"                           # non-root user that owns/runs the app
+DEPLOY_USER="root"                           # non-root user that owns/runs the app
 DOMAIN="payday.app.mvindustrial.in"                 # subdomain to serve
 DJANGO_WSGI_MODULE="payday.wsgi:application"   # <project_folder>.wsgi:application
 GUNICORN_PORT="8000"
@@ -30,22 +30,22 @@ echo "== Step 1: System packages =="
 apt update
 apt install -y python3-venv python3-pip nginx git curl
 
-echo "== Step 2: Project code =="
-if [ ! -d "$PROJECT_DIR" ]; then
-    if [ -n "$REPO_URL" ]; then
-        sudo -u "$DEPLOY_USER" git clone "$REPO_URL" "$PROJECT_DIR"
-    else
-        echo "ERROR: $PROJECT_DIR does not exist and no REPO_URL was given."
-        echo "Either set REPO_URL in the config, or upload your code to $PROJECT_DIR first."
-        exit 1
-    fi
-else
-    if [ -n "$REPO_URL" ]; then
-        echo "Project dir exists, pulling latest changes..."
-        cd "$PROJECT_DIR"
-        sudo -u "$DEPLOY_USER" git pull
-    fi
-fi
+#echo "== Step 2: Project code =="
+#if [ ! -d "$PROJECT_DIR" ]; then
+#    if [ -n "$REPO_URL" ]; then
+#        sudo -u "$DEPLOY_USER" git clone "$REPO_URL" "$PROJECT_DIR"
+#    else
+#        echo "ERROR: $PROJECT_DIR does not exist and no REPO_URL was given."
+#        echo "Either set REPO_URL in the config, or upload your code to $PROJECT_DIR first."
+#        exit 1
+#    fi
+#else
+#    if [ -n "$REPO_URL" ]; then
+#        echo "Project dir exists, pulling latest changes..."
+#        cd "$PROJECT_DIR"
+#        sudo -u "$DEPLOY_USER" git pull
+#    fi
+#fi
 
 cd "$PROJECT_DIR"
 
@@ -53,15 +53,22 @@ echo "== Step 3: Virtualenv + dependencies =="
 if [ ! -d "venv" ]; then
     sudo -u "$DEPLOY_USER" python3 -m venv venv
 fi
-sudo -u "$DEPLOY_USER" ./venv/bin/pip install --upgrade pip
-if [ -f "requirements.txt" ]; then
-    sudo -u "$DEPLOY_USER" ./venv/bin/pip install -r requirements.txt
-fi
-sudo -u "$DEPLOY_USER" ./venv/bin/pip install gunicorn
-
-echo "== Step 4: Django migrate + collectstatic =="
-sudo -u "$DEPLOY_USER" ./venv/bin/python manage.py migrate --noinput
-sudo -u "$DEPLOY_USER" ./venv/bin/python manage.py collectstatic --noinput
+# Run the venv-activated block as DEPLOY_USER (not root), so venv files
+# and installed packages stay owned by the correct user.
+# NOTE: activation here only affects this subshell — it will not
+# leave your interactive terminal activated after the script exits.
+sudo -u "$DEPLOY_USER" bash -c "
+    cd '$PROJECT_DIR' &&
+    echo '== Activate and install ==' &&
+    source venv/bin/activate &&
+    pip install --upgrade pip &&
+    if [ -f requirements.txt ]; then pip install -r requirements.txt; fi &&
+    pip install gunicorn &&
+    echo '== Step 4: Django migrate + collectstatic ==' &&
+    python manage.py migrate --noinput &&
+    python manage.py collectstatic --noinput &&
+    deactivate
+"
 
 echo "== Step 5: systemd service =="
 cat > /etc/systemd/system/${APP_NAME}.service <<EOF
