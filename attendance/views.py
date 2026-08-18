@@ -12,7 +12,7 @@ from src import metrics
 
 from .forms import UploadForm
 from .importer import import_file
-from .models import AttendanceRecord, MonthLock, SpecialDay, UploadBatch
+from .models import AttendanceRecord, Department, Employee, MonthLock, SpecialDay, UploadBatch
 
 # Mon..Sun abbreviations for the grid's day-of-week header — Thursday and
 # Sunday get two letters (TH/SU) instead of just T/S, so they aren't
@@ -458,4 +458,202 @@ def toggle_month_lock_view(request):
     elif action == "unlock":
         MonthLock.objects.filter(year=year, month=month, view=view).delete()
         messages.success(request, f"{view_label} is now unlocked for {py_calendar.month_name[month]} {year}.")
+    return redirect(next_url)
+
+
+def _pick_department(request, departments):
+    """Shared default-department resolution for the Mark Attendance flow —
+    the explicit request param wins, else "Operators" (this flow's main
+    use case), else whatever department happens to exist first."""
+    dept_id = request.GET.get("department") or request.POST.get("department")
+    if dept_id:
+        dept = Department.objects.filter(id=dept_id).first()
+        if dept:
+            return dept
+    return Department.objects.filter(name__iexact="Operators").first() or (departments[0] if departments else None)
+
+
+@login_required
+def mark_attendance_view(request):
+    """Daily attendance marking for one department at a time (Operators by
+    default) — a fast, mobile-friendly alternative to waiting on the eSSL
+    fingerprint export, for departments where punches aren't captured that
+    way. One page load = one department + one date; marking is a single
+    bulk POST that upserts an AttendanceRecord per employee, same
+    upsert-by-(employee, date) semantics as the fingerprint importer."""
+    date_param = request.GET.get("date") or request.POST.get("date")
+    try:
+        target_date = date_cls.fromisoformat(date_param) if date_param else date_cls.today()
+    except ValueError:
+        target_date = date_cls.today()
+
+    departments = list(Department.objects.all())
+    dept = _pick_department(request, departments)
+
+    redirect_url = f"{request.path}?date={target_date.isoformat()}" + (f"&department={dept.id}" if dept else "")
+
+    if request.method == "POST":
+        if dept is None:
+            messages.error(request, "No department selected.")
+            return redirect(redirect_url)
+        if _month_is_locked(target_date.isoformat(), MonthLock.VIEW_ALL):
+            messages.error(request, "This month is locked — unlock it on the dashboard first.")
+            return redirect(redirect_url)
+
+        employees = Employee.objects.filter(department=dept)
+        valid_status = dict(AttendanceRecord.STATUS_CHOICES)
+        saved = 0
+        for emp in employees:
+            # The Present/Absent toggle (radio, name=status_<id>) and the
+            # "More…" dropdown (select, name=status_more_<id>) are separate
+            # fields — only one is ever meaningful at a time (the template's
+            # JS keeps them mutually exclusive), so an unchecked radio group
+            # falls back to whatever the select holds.
+            status = request.POST.get(f"status_{emp.id}", "").strip()
+            if not status:
+                status = request.POST.get(f"status_more_{emp.id}", "").strip()
+            if status not in valid_status:
+                continue
+            shift = request.POST.get(f"shift_{emp.id}", "").strip()
+            AttendanceRecord.objects.update_or_create(
+                employee=emp, date=target_date,
+                defaults={"status": status, "shift": shift},
+            )
+            saved += 1
+        messages.success(
+            request, f"Marked attendance for {saved} employee(s) in {dept.name} on {target_date:%d %b %Y}."
+        )
+        return redirect(redirect_url)
+
+    employees = Employee.objects.filter(department=dept).order_by("name") if dept else Employee.objects.none()
+    existing = {
+        r.employee_id: r
+        for r in AttendanceRecord.objects.filter(date=target_date, employee__in=employees)
+    }
+    rows = [
+        {
+            "employee": emp,
+            "status": existing[emp.id].status if emp.id in existing else "P",
+            "shift": existing[emp.id].shift if emp.id in existing else "",
+        }
+        for emp in employees
+    ]
+
+    context = {
+        "target_date": target_date,
+        "prev_date": (target_date - timedelta(days=1)).isoformat(),
+        "next_date": (target_date + timedelta(days=1)).isoformat(),
+        "departments": departments,
+        "dept": dept,
+        "rows": rows,
+        "status_choices": AttendanceRecord.STATUS_CHOICES,
+        "is_locked": _month_is_locked(target_date.isoformat(), MonthLock.VIEW_ALL),
+    }
+    return render(request, "attendance/mark_attendance.html", context)
+
+
+@login_required
+def mark_attendance_month_view(request):
+    """Whole-month companion to mark_attendance_view — one department at a
+    time, a grid of employee x day-of-month, each cell directly editable
+    (click it, pick a status, save) via set_attendance_status_view below.
+    Read-heavy by design: one query for the whole month's records rather
+    than N+1 per cell."""
+    date_param = request.GET.get("date")
+    try:
+        current = date_cls.fromisoformat(date_param) if date_param else date_cls.today()
+    except ValueError:
+        current = date_cls.today()
+    year, month = current.year, current.month
+
+    departments = list(Department.objects.all())
+    dept = _pick_department(request, departments)
+
+    prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
+    next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+    _, days_in_month = py_calendar.monthrange(year, month)
+    day_headers = [
+        {
+            "day": d,
+            "dow": _DOW_LABELS[date_cls(year, month, d).weekday()],
+            "date_iso": date_cls(year, month, d).isoformat(),
+        }
+        for d in range(1, days_in_month + 1)
+    ]
+
+    employees = Employee.objects.filter(department=dept).order_by("name") if dept else Employee.objects.none()
+    status_map = {
+        (r["employee_id"], r["date"].day): r["status"]
+        for r in AttendanceRecord.objects.filter(
+            employee__in=employees, date__year=year, date__month=month
+        ).values("employee_id", "date", "status")
+    }
+    table_rows = [
+        {
+            "employee": emp,
+            "cells": [
+                {
+                    "day": d["day"],
+                    "date_iso": d["date_iso"],
+                    "status": status_map.get((emp.id, d["day"]), ""),
+                }
+                for d in day_headers
+            ],
+        }
+        for emp in employees
+    ]
+
+    context = {
+        "current": current,
+        "year": year,
+        "month": month,
+        "month_name": py_calendar.month_name[month],
+        "prev_date": prev_date.isoformat(),
+        "next_date": next_date.isoformat(),
+        "departments": departments,
+        "dept": dept,
+        "day_headers": day_headers,
+        "table_rows": table_rows,
+        "status_choices": AttendanceRecord.STATUS_CHOICES,
+        "status_labels": dict(AttendanceRecord.STATUS_CHOICES),
+        "is_locked": _month_is_locked(current.isoformat(), MonthLock.VIEW_ALL),
+    }
+    return render(request, "attendance/mark_attendance_month.html", context)
+
+
+@login_required
+def set_attendance_status_view(request):
+    """Single-cell save for the month grid — each day cell is its own tiny
+    form whose submit button already carries the *target* status (the
+    opposite of whatever's currently shown, computed in the template), so
+    one click toggles Present <-> Absent with no popup. Same
+    upsert-by-(employee, date) as mark_attendance_view's bulk save, just one
+    record at a time."""
+    next_url = request.POST.get("next") or "mark_attendance_month"
+    if request.method != "POST":
+        return redirect(next_url)
+
+    date_str = request.POST.get("date", "").strip()
+    if _month_is_locked(date_str, MonthLock.VIEW_ALL):
+        messages.error(request, "This month is locked — unlock it on the dashboard first.")
+        return redirect(next_url)
+
+    try:
+        emp = Employee.objects.get(id=request.POST.get("employee_id", "").strip())
+        target_date = date_cls.fromisoformat(date_str)
+    except (Employee.DoesNotExist, ValueError):
+        messages.error(request, "Invalid employee or date.")
+        return redirect(next_url)
+
+    status = request.POST.get("status", "").strip()
+    valid_status = dict(AttendanceRecord.STATUS_CHOICES)
+    if status not in valid_status:
+        messages.error(request, "Invalid status.")
+        return redirect(next_url)
+
+    AttendanceRecord.objects.update_or_create(
+        employee=emp, date=target_date, defaults={"status": status},
+    )
+    messages.success(request, f"{emp.name}: {valid_status[status]} on {target_date:%d %b}.")
     return redirect(next_url)

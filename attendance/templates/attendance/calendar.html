@@ -138,6 +138,7 @@
     <header class="topbar">
         <a href="{% url 'home' %}" class="brand">Payday</a>
         <nav>
+            <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
             <a href="{% url 'dashboard' %}">Attendance</a>
             <a href="{% url 'upload' %}">Upload</a>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">

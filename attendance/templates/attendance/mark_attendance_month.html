@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — Mark Attendance (Month)</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { max-width: 100%; margin: 0 auto; padding: 1rem 1rem 3rem; }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 1.25rem;
+            background: var(--yellow);
+            border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .topbar nav a { color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease; }
+        .topbar nav a:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav button {
+            color: var(--navy); background: none; border: none; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; font-family: inherit;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
+
+        h1 { font-size: 1.3rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
+        .msg.success { background: #e6f4ea; color: #1e7e34; }
+        .msg.error { background: #fdecea; color: #b3261e; }
+
+        .view-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
+        .view-toggle a {
+            font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.9rem; border-radius: 999px;
+            text-decoration: none; border: 1px solid var(--navy); color: var(--navy);
+        }
+        .view-toggle a.active { background: var(--navy); color: var(--yellow); }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 0.9rem 1rem;
+            margin-bottom: 1rem;
+        }
+        .date-nav { display: flex; align-items: center; gap: 0.4rem; flex: 1 1 auto; min-width: 0; }
+        .date-nav a {
+            flex: none;
+            width: 2.4rem; height: 2.4rem;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 8px; border: 1px solid var(--border);
+            color: var(--navy); text-decoration: none; font-weight: 700; font-size: 1.1rem;
+        }
+        .date-nav a:hover { background: var(--bg); }
+        .date-nav .current-date { flex: 1 1 auto; min-width: 0; text-align: center; font-weight: 700; font-size: 1rem; color: var(--navy); white-space: nowrap; }
+        select.dept-picker {
+            flex: none; padding: 0.5rem 0.7rem; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 0.85rem; font-weight: 600; color: var(--navy); background: var(--surface); max-width: 100%;
+        }
+
+        .locked-banner {
+            background: #fff4e5; color: #8a4b00; border: 1px solid #ffddaa;
+            border-radius: var(--radius); padding: 0.7rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; font-weight: 600;
+        }
+        .empty { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem 1rem; text-align: center; color: var(--text-muted); }
+        .hint { font-size: 0.78rem; color: var(--text-muted); margin: -0.4rem 0 0.9rem; }
+
+        .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; margin-bottom: 0.9rem; font-size: 0.75rem; color: var(--text-muted); }
+        .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; margin-right: 0.3rem; vertical-align: middle; border: 1px solid rgba(0,0,0,0.1); }
+
+        /* --- month grid: sticky first column, horizontal scroll --- */
+        .grid-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; background: var(--surface); }
+        table.month {
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 0.78rem;
+        }
+        table.month th, table.month td {
+            border: 1px solid var(--border);
+            text-align: center;
+            white-space: nowrap;
+        }
+        table.month th { padding: 0.4rem 0.3rem; }
+        table.month td.label { padding: 0.4rem 0.3rem; }
+        table.month col.label-col { width: 130px; }
+        table.month col.day-col { width: 38px; }
+        table.month th {
+            background: #fafafa;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            line-height: 1.15;
+        }
+        table.month th .dow { display: block; font-size: 0.65rem; color: var(--text-muted); font-weight: 500; }
+        table.month td.label {
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background: #fff;
+            font-weight: 600;
+        }
+        table.month td.label .emp-code { display: block; font-weight: 400; color: var(--text-muted); font-size: 0.7rem; }
+        table.month th.label { position: sticky; left: 0; z-index: 3; background: #fafafa; }
+
+        /* Each day cell is its own tiny auto-submitting form — one click
+           toggles Present <-> Absent immediately (full page reload, same
+           pattern as the Holiday Calendar's day-type dropdown), no popup. */
+        table.month td.day-cell { padding: 0; }
+        table.month td.day-cell form { margin: 0; height: 100%; }
+        table.month td.day-cell button {
+            width: 100%; height: 100%; min-height: 2.3rem;
+            border: none; background: none; cursor: pointer;
+            font: inherit; font-weight: 700; color: inherit;
+            padding: 0.5rem 0.3rem;
+        }
+        table.month td.day-cell button:hover { outline: 2px solid var(--navy); outline-offset: -2px; }
+        table.month.locked td.day-cell button { cursor: default; }
+        table.month.locked td.day-cell button:hover { outline: none; }
+        table.month td.status-P { background: #e6f4ea; color: #1e7e34; }
+        table.month td.status-PH { background: #d3ece9; color: #0d6b62; }
+        table.month td.status-CO { background: #fce3c9; color: #8a4b00; }
+        table.month td.status-PL { background: #eae3fb; color: #5b21b6; }
+        table.month td.status-WO { background: #ececec; color: #555; }
+        table.month td.status-H { background: #ececec; color: #555; }
+        table.month td.status-HD { background: #fff6cc; color: #8a6d00; }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a href="{% url 'home' %}" class="brand">Payday</a>
+        <nav>
+            <a href="{% url 'dashboard' %}">Attendance</a>
+            <a href="{% url 'upload' %}">Upload</a>
+            <a href="{% url 'calendar' %}">Holiday Calendar</a>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit">Logout ({{ user.username }})</button>
+            </form>
+        </nav>
+    </header>
+
+    <div class="page">
+        <h1>Mark Attendance — Month View</h1>
+
+        <div class="view-toggle">
+            <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}">Day view</a>
+            <a href="#" class="active">Month view</a>
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <form method="get" id="filterForm">
+            <div class="controls">
+                <div class="date-nav">
+                    <a href="?date={{ prev_date }}{% if dept %}&department={{ dept.id }}{% endif %}" aria-label="Previous month">&lsaquo;</a>
+                    <span class="current-date">{{ month_name }} {{ year }}</span>
+                    <a href="?date={{ next_date }}{% if dept %}&department={{ dept.id }}{% endif %}" aria-label="Next month">&rsaquo;</a>
+                </div>
+                <select name="department" class="dept-picker" onchange="document.getElementById('filterForm').submit()">
+                    {% for d in departments %}
+                        <option value="{{ d.id }}" {% if dept.id == d.id %}selected{% endif %}>{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+            </div>
+        </form>
+
+        {% if is_locked %}
+            <div class="locked-banner">This month is locked. Unlock it from the dashboard before editing attendance.</div>
+        {% endif %}
+
+        {% if not dept %}
+            <div class="empty">No departments found yet.</div>
+        {% elif not table_rows %}
+            <div class="empty">No employees in {{ dept.name }}.</div>
+        {% else %}
+            <p class="hint">Tap a day to toggle Present ⇄ Absent. For other statuses (Paid Holiday, Comp Off, etc.), use the <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}">Day view</a>.</p>
+            <div class="legend">
+                <span><span class="swatch" style="background:#e6f4ea"></span>Present</span>
+                <span><span class="swatch" style="background:#d3ece9"></span>Paid Holiday</span>
+                <span><span class="swatch" style="background:#fce3c9"></span>Comp Off</span>
+                <span><span class="swatch" style="background:#eae3fb"></span>Personal Leave</span>
+                <span><span class="swatch" style="background:#ececec"></span>Week Off / Holiday</span>
+                <span><span class="swatch" style="background:#fff6cc"></span>Half Day</span>
+                <span><span class="swatch" style="background:#fff;border:1px solid #ccc"></span>Blank = Absent / Unmarked</span>
+            </div>
+
+            <div class="grid-scroll">
+                <table class="month{% if is_locked %} locked{% endif %}" id="monthTable">
+                    <colgroup>
+                        <col class="label-col">
+                        {% for d in day_headers %}<col class="day-col">{% endfor %}
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th class="label"></th>
+                            {% for d in day_headers %}<th><span class="dow">{{ d.dow }}</span>{{ d.day }}</th>{% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in table_rows %}
+                        <tr>
+                            <td class="label" title="{{ row.employee.name }}">{{ row.employee.name }}<span class="emp-code">{{ row.employee.code }}</span></td>
+                            {% for cell in row.cells %}
+                                <td class="day-cell {% if cell.status %}status-{{ cell.status }}{% endif %}">
+                                    <form method="post" action="{% url 'set_attendance_status' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                        <input type="hidden" name="date" value="{{ cell.date_iso }}">
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" name="status" value="{% if cell.status == 'P' %}A{% else %}P{% endif %}" {% if is_locked %}disabled{% endif %}>{% if cell.status != 'A' %}{{ cell.status }}{% endif %}</button>
+                                    </form>
+                                </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

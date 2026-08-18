@@ -495,6 +495,7 @@
     <header class="topbar">
         <a href="{% url 'home' %}" class="brand">Payday</a>
         <nav>
+            <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
             <a href="{% url 'upload' %}">Upload</a>
             <a href="{% url 'calendar' %}">Holiday Calendar</a>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
