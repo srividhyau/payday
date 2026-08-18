@@ -11,9 +11,12 @@ class DepartmentAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ("code", "name", "department", "category", "subcategory", "company", "designation")
+    list_display = (
+        "code", "name", "department", "category", "subcategory", "company", "designation",
+        "account_name", "bank_name", "account_no", "ifsc_code", "branch",
+    )
     list_filter = ("department", "category")
-    search_fields = ("code", "name")
+    search_fields = ("code", "name", "account_no", "ifsc_code")
 
 
 @admin.register(UploadBatch)

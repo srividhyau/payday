@@ -25,6 +25,15 @@ class Employee(models.Model):
     )
     designation = models.CharField(max_length=100, blank=True)
 
+    # Bank details for salary transfer — sourced from the monthly salary
+    # workbook's department sheets (Op/I&B/Staff/Helpers/Company Workers),
+    # not from the eSSL attendance export.
+    account_name = models.CharField(max_length=150, blank=True)
+    bank_name = models.CharField(max_length=150, blank=True)
+    account_no = models.CharField(max_length=40, blank=True)
+    ifsc_code = models.CharField(max_length=20, blank=True)
+    branch = models.CharField(max_length=100, blank=True)
+
     class Meta:
         ordering = ["code"]
 
