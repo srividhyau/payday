@@ -96,6 +96,19 @@ systemctl daemon-reload
 systemctl enable "${APP_NAME}"
 systemctl restart "${APP_NAME}"
 
+echo "== Step 4b: Static file permissions =="
+# nginx (www-data) serves staticfiles/ directly via `alias`, so every
+# directory from filesystem root down to PROJECT_DIR needs execute
+# (traverse) permission for "other" — this matters most when PROJECT_DIR
+# lives under /root, which is 700 by default and would otherwise 403
+# every CSS/JS/image request even though the app itself works fine.
+path="$PROJECT_DIR"
+while [ "$path" != "/" ] && [ "$path" != "." ]; do
+    chmod o+x "$path"
+    path=$(dirname "$path")
+done
+chmod -R o+rX "$PROJECT_DIR/staticfiles"
+
 echo "== Step 6: Nginx config =="
 cat > /etc/nginx/sites-available/${APP_NAME} <<EOF
 server {

@@ -13,6 +13,7 @@ class DepartmentAdmin(admin.ModelAdmin):
 class EmployeeAdmin(admin.ModelAdmin):
     list_display = (
         "code", "name", "department", "category", "subcategory", "company", "designation",
+        "ot_rate_per_hour",
         "account_name", "bank_name", "account_no", "ifsc_code", "branch",
     )
     list_filter = ("department", "category")

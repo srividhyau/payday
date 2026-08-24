@@ -25,6 +25,11 @@ class Employee(models.Model):
     )
     designation = models.CharField(max_length=100, blank=True)
 
+    ot_rate_per_hour = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0,
+        help_text="Overtime pay rate for this employee, per hour.",
+    )
+
     # Bank details for salary transfer — sourced from the monthly salary
     # workbook's department sheets (Op/I&B/Staff/Helpers/Company Workers),
     # not from the eSSL attendance export.
