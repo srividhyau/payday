@@ -55,6 +55,42 @@
             padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
         }
         .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav details.nav-dropdown { position: relative; }
+        .topbar nav details.nav-dropdown summary {
+            list-style: none;
+            cursor: pointer;
+            color: var(--navy);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+        .topbar nav details.nav-dropdown summary:hover,
+        .topbar nav details.nav-dropdown[open] summary { background: var(--navy); color: var(--yellow); }
+        .topbar nav .nav-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 0.35rem;
+            min-width: 170px;
+            z-index: 50;
+        }
+        .topbar nav .nav-dropdown-menu a {
+            display: block;
+            padding: 0.5rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--navy);
+            text-decoration: none;
+        }
+        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
 
         h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
         h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
@@ -103,6 +139,12 @@
             <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
             <a href="{% url 'dashboard' %}">Attendance</a>
             <a href="{% url 'calendar' %}">Holiday Calendar</a>
+            <details class="nav-dropdown">
+                <summary>Reports</summary>
+                <div class="nav-dropdown-menu">
+                    <a href="{% url 'ot_details' %}">OT Details</a>
+                </div>
+            </details>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit">Logout ({{ user.username }})</button>

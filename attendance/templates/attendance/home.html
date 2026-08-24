@@ -58,6 +58,38 @@
   .top-nav .nav-brand:hover { background: none; }
   .top-nav .nav-brand .logo { width: 24px; height: 24px; flex: none; }
   .top-nav .nav-spacer { flex: 1; }
+  .top-nav details.nav-dropdown { position: relative; }
+  .top-nav details.nav-dropdown summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #57530c;
+  }
+  .top-nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+  .top-nav details.nav-dropdown summary:hover,
+  .top-nav details.nav-dropdown[open] summary { background: rgba(15, 23, 42, 0.12); color: #14213d; }
+  .top-nav .nav-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    padding: 6px;
+    min-width: 160px;
+    z-index: 50;
+  }
+  .top-nav .nav-dropdown-menu a {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 6px;
+    color: #14213d;
+    font-weight: 500;
+  }
+  .top-nav .nav-dropdown-menu a:hover { background: #f1f5f9; }
 
   .landing {
     display: flex;
@@ -126,6 +158,12 @@
         <a href="{% url 'upload' %}">Upload</a>
         <a href="{% url 'dashboard' %}">Attendance</a>
         <a href="{% url 'calendar' %}">Holiday Calendar</a>
+        <details class="nav-dropdown">
+            <summary>Reports</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'ot_details' %}">OT Details</a>
+            </div>
+        </details>
         <form method="post" action="{% url 'logout' %}" style="display:inline;">
             {% csrf_token %}
             <button type="submit">Logout ({{ user.username }})</button>

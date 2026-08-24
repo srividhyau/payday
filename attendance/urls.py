@@ -12,6 +12,12 @@ urlpatterns = [
     path("mark-attendance/month/", views.mark_attendance_month_view, name="mark_attendance_month"),
     path("mark-attendance/set-status/", views.set_attendance_status_view, name="set_attendance_status"),
     path("dashboard/", views.dashboard_view, name="dashboard"),
+    path("reports/ot-details/", views.ot_details_view, name="ot_details"),
+    path("reports/ot-details/download/", views.ot_details_download_view, name="ot_details_download"),
+    path(
+        "reports/ot-details/download-grid/", views.ot_details_download_grid_view,
+        name="ot_details_download_grid",
+    ),
     path("calendar/", views.calendar_view, name="calendar"),
     path("edit-record/", views.edit_record_view, name="edit_record"),
     path("bulk-set-shift/", views.bulk_set_shift_view, name="bulk_set_shift"),

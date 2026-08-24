@@ -56,6 +56,42 @@
             padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
         }
         .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav details.nav-dropdown { position: relative; }
+        .topbar nav details.nav-dropdown summary {
+            list-style: none;
+            cursor: pointer;
+            color: var(--navy);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+        .topbar nav details.nav-dropdown summary:hover,
+        .topbar nav details.nav-dropdown[open] summary { background: var(--navy); color: var(--yellow); }
+        .topbar nav .nav-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 0.35rem;
+            min-width: 170px;
+            z-index: 50;
+        }
+        .topbar nav .nav-dropdown-menu a {
+            display: block;
+            padding: 0.5rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--navy);
+            text-decoration: none;
+        }
+        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
 
         h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
         h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
@@ -265,6 +301,11 @@
         table.month td.special-PH { background: #4FB3A9; }
         table.month td.special-CO { background: #F5A85C; }
 
+        /* Absent / Personal Leave days — light grey, distinct from the
+           hours-based heat-map colors since there's no worked-hours value
+           to color-code on a day the employee wasn't in at all. */
+        table.month td.leave-day { background: #ececec; }
+
         /* Header gets a lighter tint of the same color, just enough to flag
            the column — the full-strength color stays on the data cells,
            where it correctly steps aside for the heat-map color on any day
@@ -350,7 +391,7 @@
            swaps shift-flagged cells' numbers from worked hours to
            shift-based OT hours, replicating the old standalone /ot/ page
            inside this grid. */
-        table.month.ot-view td.editable-cell:not(.label):not(.shift-flag-M-OT):not(.shift-flag-E-OT):not(.shift-flag-ME-OT):not(.shift-flag-Full-OT):not(.gs-show-time) {
+        table.month.ot-view td.editable-cell:not(.label):not(.shift-flag-M-OT):not(.shift-flag-E-OT):not(.shift-flag-ME-OT):not(.shift-flag-Full-OT):not(.gs-show-time):not(.punch-issue) {
             background: transparent !important;
             color: transparent;
         }
@@ -498,6 +539,12 @@
             <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
             <a href="{% url 'upload' %}">Upload</a>
             <a href="{% url 'calendar' %}">Holiday Calendar</a>
+            <details class="nav-dropdown">
+                <summary>Reports</summary>
+                <div class="nav-dropdown-menu">
+                    <a href="{% url 'ot_details' %}">OT Details</a>
+                </div>
+            </details>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit">Logout ({{ user.username }})</button>
@@ -535,7 +582,7 @@
                 <div class="kpi"><div class="label">Paid Holidays</div><div class="value">{{ paid_holidays|length }}</div></div>
                 <div class="kpi"><div class="label">Comp Off</div><div class="value">{{ comp_offs|length }}</div></div>
                 <div class="kpi"><div class="label">Avg. attendance</div><div class="value">{{ kpi.avg_attendance_pct }}%</div></div>
-                <div class="kpi kpi-alert"><div class="label">Missed out punches</div><div class="value">{{ missed_punch_count }}</div></div>
+                <div class="kpi kpi-alert"><div class="label">Missed punches</div><div class="value">{{ missed_punch_count }}</div></div>
             </div>
         </div>
 
@@ -609,6 +656,7 @@
                 <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
                 <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
                 <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
+                <span class="legend-item"><span class="swatch" style="background:#ececec"></span>Absent / Leave</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #2E7D32"></span>M-OT shift</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT shift</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT shift</span>
@@ -634,6 +682,8 @@
                         {% for d in day_labels %}<col class="day-col">{% endfor %}
                         {% for c in summary_cols %}<col class="summary-col summary-col-cell">{% endfor %}
                         <col class="summary-col ot-total-col">
+                        <col class="summary-col ot-total-col">
+                        <col class="summary-col ot-total-col">
                     </colgroup>
                     <thead>
                         <tr>
@@ -641,6 +691,8 @@
                             {% for d in day_headers %}<th class="editable-header {% if d.special %}special-{{ d.special }}{% endif %}" data-date="{{ d.date_iso }}" data-day-type="{{ d.special }}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
                             {% for c in summary_cols %}<th class="summary-col-cell">{{ c }}</th>{% endfor %}
                             <th class="ot-total-col">Total OT</th>
+                            <th class="ot-total-col">OT Rate/hr</th>
+                            <th class="ot-total-col">OT Amount</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -651,12 +703,14 @@
                             {% else %}
                                 <td class="label" title="{{ row.label }}">{{ row.label }}</td>
                             {% for cell in row.day_cells %}
-                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{{ cell.value }}</td>
+                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.leave %}leave-day{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{{ cell.value }}</td>
                             {% endfor %}
                             {% for value in row.summary_cells %}
                                 <td class="summary-highlight summary-col-cell">{{ value }}</td>
                             {% endfor %}
                                 <td class="summary-highlight ot-total-col">{{ row.total_ot }}</td>
+                                <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
+                                <td class="summary-highlight ot-total-col">{{ row.total_ot_amount }}</td>
                             {% endif %}
                         </tr>
                         {% endfor %}

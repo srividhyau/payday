@@ -429,21 +429,29 @@ def clean_punch_time(value: str) -> str:
     return "" if _punch_missing(value) else (value or "").strip()
 
 
-def punch_time_labels(daily: pd.DataFrame, ot_hours_map: dict | None = None) -> dict:
-    """Maps (emp_code, date) -> "IN - HH:MM:SS\\nOUT - HH:MM:SS\\nHRS - N\\n
-    SHIFT - X\\nOT - Nh" text (one field per line — see the tooltip's
-    `white-space: pre-line` in dashboard.html), so callers can label/
-    tooltip the month_attendance_view() day cells with punch times, worked
-    hours, shift code, and OT hours without cluttering the heatmap grid
-    itself. emp_code alone is enough to key on since Employee.code is
-    unique across departments. Skips days with no punch at all (plain
-    absence); says "missing" for whichever side is missing on a one-sided
-    punch.
+def punch_time_labels(
+    daily: pd.DataFrame, ot_hours_map: dict | None = None, ot_rate_map: dict | None = None
+) -> dict:
+    """Maps (emp_code, date) -> "DATE - DD-Mon-YYYY\\nIN - HH:MM:SS\\n
+    OUT - HH:MM:SS\\nHRS - N\\nSHIFT - X\\nOT - Nh" text (one field per
+    line — see the tooltip's `white-space: pre-line` in dashboard.html),
+    so callers can label/tooltip the month_attendance_view() day cells
+    with the date, punch times, worked hours, shift code, and OT hours
+    without cluttering the heatmap grid itself — the date line matters
+    most when the grid is scrolled far enough that the column header
+    isn't visible alongside the hovered cell. emp_code alone is enough to
+    key on since Employee.code is unique across departments. Skips days
+    with no punch at all (plain absence); says "missing" for whichever
+    side is missing on a one-sided punch.
 
     ot_hours_map, if given, overrides the raw ot_hours column — pass
     overtime_view()'s per-record total_ot_hours (keyed the same way) so
     the label reflects the actual shift-based OT calculation rather than
-    whatever the source file happened to report."""
+    whatever the source file happened to report.
+
+    ot_rate_map, if given (emp_code -> Employee.ot_rate_per_hour), adds
+    "OT RATE - <rate>/hr" and "OT AMT - <rate x ot_hours>" lines — used by
+    the OT View tooltip."""
     labels = {}
     for row in daily.itertuples(index=False):
         in_missing = _punch_missing(row.time_in)
@@ -459,20 +467,25 @@ def punch_time_labels(daily: pd.DataFrame, ot_hours_map: dict | None = None) -> 
             ot_hours = round(float(ot_hours_map.get(key, 0.0)), 1)
         else:
             ot_hours = round(float(row.ot_hours), 1) if pd.notna(row.ot_hours) else 0.0
-        labels[key] = (
-            f"IN - {time_in}\nOUT - {time_out}\nHRS - {hrs}\nSHIFT - {shift}\nOT - {ot_hours}h"
-        )
+        date_label = pd.Timestamp(row.date).strftime("%d-%b-%Y")
+        label = f"DATE - {date_label}\nIN - {time_in}\nOUT - {time_out}\nHRS - {hrs}\nSHIFT - {shift}\nOT - {ot_hours}h"
+        if ot_rate_map is not None:
+            rate = float(ot_rate_map.get(row.emp_code, 0.0))
+            label += f"\nOT RATE - {rate}/hr\nOT AMT - {round(ot_hours * rate, 2)}"
+        labels[key] = label
     return labels
 
 
 def punch_issues(daily: pd.DataFrame) -> set:
-    """Set of (emp_code, date) with a real in-punch but a missing
-    out-punch — "forgot to clock out" — distinct from a plain absence
-    where both are missing. Doesn't flag the reverse (missing in-punch,
-    real out-punch), which is rare and treated as not actionable here."""
+    """Set of (emp_code, date) with exactly one side of the punch pair
+    missing — a real in-punch but no out-punch ("forgot to clock out"), or
+    a real out-punch but no in-punch (a stray one-sided punch) — distinct
+    from a plain absence where both are missing."""
     issues = set()
     for row in daily.itertuples(index=False):
-        if not _punch_missing(row.time_in) and _punch_missing(row.time_out):
+        in_missing = _punch_missing(row.time_in)
+        out_missing = _punch_missing(row.time_out)
+        if in_missing != out_missing:
             issues.add((row.emp_code, row.date))
     return issues
 
@@ -637,7 +650,8 @@ def suggest_shift_code(
       any day worked more than 8.5h is "ME-OT" outright.
     - Clocked in before 8:20 AM AND out after 6:00 PM -> "ME-OT".
     - Clocked in before 8:20 AM only -> "M-OT".
-    - Clocked out after 6:00 PM only -> "E-OT".
+    - Clocked out after 6:00 PM, OR clocked out after midnight (before
+      6:00 AM — an overnight shift, e.g. clocked out 0:32 AM) -> "E-OT".
     - Otherwise -> "" (no suggestion, an ordinary GS day)."""
     if special_worked:
         return "Full-OT"
@@ -647,7 +661,11 @@ def suggest_shift_code(
         return "ME-OT" if work_hours is not None and not pd.isna(work_hours) and float(work_hours) > 8.5 else ""
     t_in, t_out = _parse_time_str(time_in), _parse_time_str(time_out)
     early_in = t_in is not None and t_in < _SUGGEST_MORNING_IN
-    late_out = t_out is not None and t_out > _SUGGEST_EVENING_OUT
+    # A time-of-day comparison alone can't tell "0:32 AM" apart from an
+    # ordinary early morning — it only means "very late" if the person
+    # worked into the next day, which a plain t_out > 18:00 check misses
+    # entirely (0:32 sorts as earlier than 18:00, not later).
+    late_out = t_out is not None and (t_out > _SUGGEST_EVENING_OUT or t_out < _OT_SIX_AM)
     if early_in and late_out:
         return "ME-OT"
     if early_in:
@@ -681,6 +699,13 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     - "E-OT"/"ME-OT"/"Full-OT" credits time clocked out after 5:30 PM
       (handling the overnight case where "Out" is a time after midnight).
     - "Full-OT" instead counts the entire day's worked hours as OT.
+
+    HOUSE KEEPING is the one exception to all of the above: that
+    department doesn't run a fixed shift schedule, so it's never judged
+    by clock-in/out time of day (or by whether a shift code was even
+    set) — any day worked over 8.5h simply credits (work_hours - 8.5) as
+    OT, full stop. A Full-OT day (a holiday worked) still credits the
+    entire span instead, same as every other department.
 
     Both sides round to the nearest 15 minutes and require at least 20
     minutes to count at all. Only rows already marked Present are
@@ -717,7 +742,11 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     else:
         present_mask = daily["status"] == STATUS_PRESENT
     present = daily[present_mask].copy()
-    present = present[present["shift"] != "GS"]
+    # HOUSE KEEPING is judged purely on hours worked (see docstring), so
+    # it's never excluded here just for sitting on the ordinary "GS"
+    # shift the way every other department is.
+    is_house_keeping = present["department"] == "HOUSE KEEPING"
+    present = present[(present["shift"] != "GS") | is_house_keeping]
     if present.empty:
         return pd.DataFrame(columns=columns)
 
@@ -729,6 +758,14 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
         if minutes < 0:
             minutes += 24 * 60  # overnight shift
         hours = round(minutes / 60, 2)
+        # The 4h floor only makes sense as a "did they really show up"
+        # gate for the M-OT/E-OT partial-day credit below — Full-OT counts
+        # the entire span worked as OT regardless of length, so it must
+        # skip the floor (a holiday worked for e.g. 3.5h should credit
+        # 3.5h OT, not 0). HOUSE KEEPING skips it too since its OT is
+        # computed straight off this same span (see total_ot_hours below).
+        if row["shift"] == "Full-OT" or row["department"] == "HOUSE KEEPING":
+            return hours
         return hours if hours >= 4 else 0.0
 
     def in_ot_hours(row) -> float:
@@ -757,10 +794,15 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     present["work_hours"] = present.apply(work_hours_span, axis=1)
     present["in_ot_hours"] = present.apply(in_ot_hours, axis=1)
     present["out_ot_hours"] = present.apply(out_ot_hours, axis=1)
-    present["total_ot_hours"] = present.apply(
-        lambda r: r["work_hours"] if r["shift"] == "Full-OT" else r["in_ot_hours"] + r["out_ot_hours"],
-        axis=1,
-    )
+
+    def total_ot(row) -> float:
+        if row["shift"] == "Full-OT":
+            return row["work_hours"]
+        if row["department"] == "HOUSE KEEPING":
+            return round(max(row["work_hours"] - 8.5, 0.0), 2)
+        return row["in_ot_hours"] + row["out_ot_hours"]
+
+    present["total_ot_hours"] = present.apply(total_ot, axis=1)
     present["full_day_ot"] = (present["shift"] == "Full-OT").astype(int)
 
     present = present.sort_values(["date", "department", "emp_code"]).reset_index(drop=True)

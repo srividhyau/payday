@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payday — OT Details</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 2rem;
+            background: var(--yellow);
+            border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .topbar nav a {
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav a:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav button {
+            color: var(--navy); background: none; border: none; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; font-family: inherit;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav details.nav-dropdown { position: relative; }
+        .topbar nav details.nav-dropdown summary {
+            list-style: none;
+            cursor: pointer;
+            color: var(--navy);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+        .topbar nav details.nav-dropdown summary:hover,
+        .topbar nav details.nav-dropdown[open] summary { background: var(--navy); color: var(--yellow); }
+        .topbar nav .nav-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 0.35rem;
+            min-width: 170px;
+            z-index: 50;
+        }
+        .topbar nav .nav-dropdown-menu a {
+            display: block;
+            padding: 0.5rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--navy);
+            text-decoration: none;
+        }
+        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
+        .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
+
+        h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
+        h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+        .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 700px; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.35rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .month-nav { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.25rem; }
+        .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; }
+        .month-nav a {
+            color: var(--navy);
+            text-decoration: none;
+            font-size: 1rem;
+            width: 2rem;
+            height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            transition: background .15s ease, color .15s ease;
+        }
+        .month-nav a:hover { background: var(--navy); color: var(--yellow); }
+
+        .kpi-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.25rem; min-width: 160px; flex: 1; }
+        .kpi .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.3rem; }
+        .kpi .value { font-size: 1.5rem; font-weight: 700; color: var(--navy); }
+
+        .tab-row { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; }
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--text-muted);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .tab-btn.active { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+        table.simple { border-collapse: collapse; width: 100%; }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple tbody tr:last-child td { border-bottom: none; }
+        table.simple tbody tr:hover td { background: #fafbff; }
+        table.simple td.num, table.simple th.num { text-align: right; }
+        table.simple tfoot td { font-weight: 700; background: #fafbfc; border-top: 2px solid var(--border); }
+        table.simple tr.dept-row td { font-weight: 700; background: #FCE4D6; color: var(--navy-deep); }
+        .dept-headcount { font-weight: 400; color: var(--text-muted); font-size: 0.8em; }
+
+        .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+
+        .report-toolbar { display: flex; gap: 0.5rem; justify-content: flex-end; margin-bottom: 1rem; }
+        .toolbar-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--navy);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: var(--shadow);
+        }
+        .toolbar-btn:hover { background: var(--bg); }
+        .print-only-title { display: none; }
+
+        /* Each tab's Print button only prints whatever panel is currently
+           active on screen (the other panel already carries an inline
+           display:none from the tab-switch JS, which print respects same
+           as any other media) — this just strips the surrounding chrome
+           and gives the wide Full Monthly grid a landscape page. */
+        @media print {
+            .topbar, .month-nav, .tab-row, .report-toolbar, .caption { display: none !important; }
+            .print-only-title { display: block; }
+            .card { box-shadow: none; border: none; padding: 0; }
+            body { background: #fff; }
+            @page { size: landscape; margin: 10mm; }
+            table.month, table.simple { font-size: 0.65rem; }
+            .grid-scroll { overflow: visible; border: none; }
+            /* table.simple only has a bottom-border per row on screen (flat
+               UI style) — a printed report reads better as a proper ruled
+               grid, so give every cell a full border here. table.month
+               already has full cell borders on screen; just darken them
+               for a crisper printed line. */
+            table.simple, table.simple th, table.simple td { border: 1px solid #000; border-collapse: collapse; }
+            table.month, table.month th, table.month td { border: 1px solid #000; }
+        }
+
+        /* --- Full Monthly OT grid (same look/logic as the dashboard's OT
+           View tab, permanently on instead of toggled — see
+           attendance/views.py _build_month_grid) --- */
+        .grid-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; }
+        table.month { border-collapse: collapse; table-layout: fixed; font-size: 0.8rem; }
+        table.month th, table.month td { border: 1px solid #666; padding: 0.3rem 0.35rem; text-align: center; white-space: nowrap; }
+        table.month col.label-col { width: 100px; }
+        table.month col.day-col { width: 34px; }
+        table.month col.summary-col { width: 82px; }
+        table.month th {
+            background: #fafafa; position: sticky; top: 0; z-index: 2;
+            white-space: normal; overflow-wrap: break-word; line-height: 1.15; vertical-align: bottom;
+        }
+        table.month td.label {
+            text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            position: sticky; left: 0; z-index: 1; background: #fff;
+        }
+        table.month th.label { position: sticky; left: 0; z-index: 3; background: #fafafa; }
+        table.month tr.dept td { background: #FCE4D6; }
+        table.month td.dept-header { position: static; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
+        table.month tr.dept:hover td { filter: brightness(0.97); }
+        table.month .toggle-icon { display: inline-block; width: 0.9em; }
+
+        table.month td[data-tooltip] { cursor: help; position: relative; }
+        table.month td[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 6px; background: #FFEB3B; color: #1a1a1a; font-weight: 700;
+            font-size: 0.95rem; white-space: pre; max-width: none; text-align: center;
+            padding: 0.35rem 0.7rem; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            z-index: 10; pointer-events: none;
+        }
+
+        table.month td.special-H { background: #D6D6D6; }
+        table.month td.special-PH { background: #4FB3A9; }
+        table.month td.special-CO { background: #F5A85C; }
+        table.month th.special-H { background: #ececec; }
+        table.month th.special-PH { background: #d3ece9; }
+        table.month th.special-CO { background: #fce3c9; }
+        table.month td.special-H, table.month td.special-PH, table.month td.special-CO,
+        table.month th.special-H, table.month th.special-PH, table.month th.special-CO {
+            border-left: 2px solid #555; border-right: 2px solid #555;
+        }
+        table.month th.special-H, table.month th.special-PH, table.month th.special-CO { border-top: 2px solid #555; }
+        table.month tbody tr:last-child td.special-H,
+        table.month tbody tr:last-child td.special-PH,
+        table.month tbody tr:last-child td.special-CO { border-bottom: 2px solid #555; }
+
+        table.month td.summary-highlight { background: #FFF9B0; }
+        table.month tr.dept td.summary-highlight { background: #FCE4D6; }
+
+        table.month td.editable-cell { position: relative; cursor: default; }
+        table.month td.shift-flag-M-OT::before,
+        table.month td.shift-flag-E-OT::before,
+        table.month td.shift-flag-ME-OT::before,
+        table.month td.shift-flag-Full-OT::before {
+            content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 4px;
+        }
+        table.month td.shift-flag-M-OT::before { background: #2E7D32; }
+        table.month td.shift-flag-E-OT::before { background: #800000; }
+        table.month td.shift-flag-ME-OT::before { background: #EF6C00; }
+        table.month td.shift-flag-Full-OT::before { background: #1565C0; }
+
+        /* Every cell without a real/suggested shift flag stays blank; the
+           rest show In/Out time instead of worked hours (see the swap
+           script below) — this grid is always in "OT view" mode. */
+        table.month td.editable-cell:not(.label):not(.shift-flag-M-OT):not(.shift-flag-E-OT):not(.shift-flag-ME-OT):not(.shift-flag-Full-OT):not(.gs-show-time) {
+            background: transparent !important;
+            color: transparent;
+        }
+        table.month td.editable-cell.gs-show-time { background: transparent !important; }
+        table.month td.editable-cell.shift-flag-M-OT,
+        table.month td.editable-cell.shift-flag-E-OT,
+        table.month td.editable-cell.shift-flag-ME-OT,
+        table.month td.editable-cell.shift-flag-Full-OT {
+            background: #FFF9B0 !important;
+            color: #1a1a1a;
+        }
+        table.month td.gs-suggest-M-OT::before,
+        table.month td.gs-suggest-E-OT::before,
+        table.month td.gs-suggest-ME-OT::before,
+        table.month td.gs-suggest-Full-OT::before {
+            content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 4px;
+        }
+        table.month td.gs-suggest-M-OT::before { background: #2E7D32; }
+        table.month td.gs-suggest-E-OT::before { background: #800000; }
+        table.month td.gs-suggest-ME-OT::before { background: #EF6C00; }
+        table.month td.gs-suggest-Full-OT::before { background: #1565C0; }
+        table.month th .dow { display: block; font-size: 0.65rem; font-weight: 400; color: #888; line-height: 1; margin-bottom: 0.25rem; }
+
+        .month-legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin-bottom: 1.1rem; font-size: 0.8rem; }
+        .month-legend .legend-item { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-muted); background: var(--bg); padding: 0.25rem 0.6rem 0.25rem 0.4rem; border-radius: 999px; }
+        .month-legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a href="{% url 'home' %}" class="brand">Payday</a>
+        <nav>
+            <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
+            <a href="{% url 'upload' %}">Upload</a>
+            <a href="{% url 'dashboard' %}">Attendance</a>
+            <a href="{% url 'calendar' %}">Holiday Calendar</a>
+            <details class="nav-dropdown">
+                <summary>Reports</summary>
+                <div class="nav-dropdown-menu">
+                    <a href="{% url 'ot_details' %}" class="current">OT Details</a>
+                </div>
+            </details>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit">Logout ({{ user.username }})</button>
+            </form>
+        </nav>
+    </header>
+    <div class="page">
+        <h1>OT Details</h1>
+        <p class="caption">Overtime hours, rate, and amount per employee for the selected month — the same numbers as the Attendance dashboard's OT View tab, laid out as flat tables instead of a day &times; employee grid.</p>
+
+        {% if not has_data %}
+            <div class="card"><p class="empty-state">No attendance data uploaded yet.</p></div>
+        {% else %}
+            <div class="month-nav">
+                <a href="?date={{ prev_date }}">&larr;</a>
+                <h2>{{ month_name }} {{ year }}</h2>
+                <a href="?date={{ next_date }}">&rarr;</a>
+            </div>
+
+            {% if empty %}
+                <div class="card"><p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p></div>
+            {% else %}
+                <div class="kpi-row">
+                    <div class="kpi">
+                        <div class="label">Employees with OT</div>
+                        <div class="value">{{ summary_rows|length }}</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="label">Total OT Hours</div>
+                        <div class="value">{{ summary_total_hours }}</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="label">Total OT Amount</div>
+                        <div class="value">{{ summary_total_amount }}</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="tab-row">
+                        <button type="button" class="tab-btn active" data-tab="summary">Monthly Summary</button>
+                        <button type="button" class="tab-btn" data-tab="grid">Full Monthly View</button>
+                    </div>
+
+                    <div class="tab-panel" data-panel="summary">
+                        <div class="report-toolbar">
+                            <button type="button" class="toolbar-btn print-btn">Print</button>
+                            <a class="toolbar-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}">Download (.xlsx)</a>
+                        </div>
+                        <h2 class="print-only-title">OT Monthly Summary — {{ month_name }} {{ year }}</h2>
+                        {% if summary_rows %}
+                        <div class="table-wrap">
+                            <table class="simple">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Employee</th>
+                                        <th>Department</th>
+                                        <th class="num">OT Hours</th>
+                                        <th class="num">OT Rate/hr</th>
+                                        <th class="num">OT Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in summary_rows %}
+                                    {% if row.is_dept %}
+                                    <tr class="dept-row">
+                                        <td colspan="3">{{ row.department }} <span class="dept-headcount">({{ row.headcount }})</span></td>
+                                        <td class="num">{{ row.ot_hours }}</td>
+                                        <td></td>
+                                        <td class="num">{{ row.ot_amount }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td>{{ row.emp_code }}</td>
+                                        <td>{{ row.emp_name }}</td>
+                                        <td>{{ row.department }}</td>
+                                        <td class="num">{{ row.ot_hours }}</td>
+                                        <td class="num">{{ row.ot_rate }}</td>
+                                        <td class="num">{{ row.ot_amount }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3">Total</td>
+                                        <td class="num">{{ summary_total_hours }}</td>
+                                        <td></td>
+                                        <td class="num">{{ summary_total_amount }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        {% else %}
+                            <p class="empty-state">No OT recorded for {{ month_name }} {{ year }}.</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="tab-panel" data-panel="grid" style="display:none;">
+                        <div class="report-toolbar">
+                            <button type="button" class="toolbar-btn print-btn">Print</button>
+                            <a class="toolbar-btn" href="{% url 'ot_details_download_grid' %}?date={{ current_date }}">Download (.xlsx)</a>
+                        </div>
+                        <h2 class="print-only-title">OT Full Monthly View — {{ month_name }} {{ year }}</h2>
+                        {% if table_rows %}
+                        <div class="month-legend">
+                            <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
+                            <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
+                            <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
+                            <span class="legend-item"><span class="swatch" style="background:#FFF9B0"></span>Confirmed OT shift</span>
+                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #2E7D32"></span>M-OT</span>
+                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT</span>
+                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT</span>
+                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #1565C0"></span>Full-OT</span>
+                        </div>
+                        <p class="caption">Only employees with OT (real or suggested) that month are shown, grouped by department. Click a department row to collapse it.</p>
+                        <div class="grid-scroll">
+                            <table class="month">
+                                <colgroup>
+                                    <col class="label-col">
+                                    {% for d in day_headers %}<col class="day-col">{% endfor %}
+                                    <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th class="label"></th>
+                                        {% for d in day_headers %}<th class="{% if d.special %}special-{{ d.special }}{% endif %}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
+                                        <th class="ot-total-col">Total OT</th>
+                                        <th class="ot-total-col">OT Rate/hr</th>
+                                        <th class="ot-total-col">OT Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in table_rows %}
+                                    <tr class="{% if row.is_dept %}dept{% endif %}">
+                                        {% if row.is_dept %}
+                                            <td class="label dept-header" colspan="{{ total_cols }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
+                                        {% else %}
+                                            <td class="label" title="{{ row.label }}">{{ row.label }}</td>
+                                        {% for cell in row.day_cells %}
+                                            <td class="editable-cell {% if cell.special %}special-{{ cell.special }}{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{{ cell.value }}</td>
+                                        {% endfor %}
+                                            <td class="summary-highlight ot-total-col">{{ row.total_ot }}</td>
+                                            <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
+                                            <td class="summary-highlight ot-total-col">{{ row.total_ot_amount }}</td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                            <p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+    <script>
+        document.querySelectorAll('.tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+                document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
+                btn.classList.add('active');
+                document.querySelector('.tab-panel[data-panel="' + btn.dataset.tab + '"]').style.display = '';
+            });
+        });
+
+        // Each tab's Print button lives inside its own panel, so it's only
+        // clickable while that panel is the active (visible) one — the
+        // print stylesheet just hides chrome (nav/tabs/toolbar) and lets
+        // the browser print whatever's already on screen.
+        document.querySelectorAll('.print-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () { window.print(); });
+        });
+
+        // Full Monthly View grid: the server already sends only employees
+        // (and departments) with real OT that month (see _ot_only_rows in
+        // views.py) — this just swaps shift-flagged/suggested cells to show
+        // In/Out time instead of worked hours, and wires up department
+        // collapse. Runs once on load; the table is already in the DOM even
+        // while its tab is hidden.
+        (function () {
+            function toHHMM(value) {
+                var parts = (value || '').split(':');
+                return parts.length >= 2 ? parts[0] + ':' + parts[1] : (value || '—');
+            }
+            function formatInOut(cell) {
+                return toHHMM(cell.dataset.in) + '\n' + toHHMM(cell.dataset.out);
+            }
+            document.querySelectorAll('table.month td.editable-cell[class*="shift-flag-"]').forEach(function (cell) {
+                cell.textContent = cell.dataset.shiftOt || '';
+            });
+            document.querySelectorAll('table.month td.editable-cell.gs-show-time').forEach(function (cell) {
+                cell.textContent = formatInOut(cell);
+                cell.style.whiteSpace = 'pre-line';
+            });
+
+            function employeeRowsOf(deptRow) {
+                var rows = [];
+                var sib = deptRow.nextElementSibling;
+                while (sib && !sib.classList.contains('dept')) {
+                    rows.push(sib);
+                    sib = sib.nextElementSibling;
+                }
+                return rows;
+            }
+            document.querySelectorAll('table.month tr.dept').forEach(function (deptRow) {
+                var employees = employeeRowsOf(deptRow);
+                deptRow.querySelector('td.label').addEventListener('click', function () {
+                    var collapsed = deptRow.classList.toggle('collapsed');
+                    deptRow.querySelector('.toggle-icon').textContent = collapsed ? '▸' : '▾';
+                    employees.forEach(function (row) {
+                        row.style.display = collapsed ? 'none' : '';
+                    });
+                });
+            });
+        })();
+    </script>
+</body>
+</html>
