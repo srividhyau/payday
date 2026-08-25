@@ -342,6 +342,22 @@
             return match ? match.pop() : '';
         }
 
+        function reportClientError(message, context) {
+            // Best-effort — a client-side failure (e.g. html2canvas
+            // throwing) never reaches the server on its own, so without
+            // this it's invisible to the server log entirely.
+            try {
+                var body = new FormData();
+                body.append('message', message);
+                body.append('context', context);
+                fetch('{% url "log_client_error" %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                    body: body,
+                });
+            } catch (e) { /* nothing more we can do */ }
+        }
+
         function todayIso() {
             var d = new Date();
             var mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -421,9 +437,11 @@
                         }, 'image/png');
                     });
                 })
-                .catch(function () {
+                .catch(function (err) {
                     document.body.classList.remove('capturing');
-                    return { ok: false, error: 'Failed to capture the table.' };
+                    var msg = (err && err.message) || String(err);
+                    reportClientError(msg, 'month-view: table capture/send');
+                    return { ok: false, error: 'Failed to capture the table: ' + msg };
                 })
                 .then(function (result) {
                     monthResult = result;

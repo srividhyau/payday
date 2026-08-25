@@ -646,6 +646,12 @@ def _notify_telegram(text: str, parse_mode: str | None = None) -> tuple[bool, st
     except urllib.error.URLError as exc:
         logger.warning("Telegram notification failed: %s", exc)
         return False, str(exc.reason)
+    except Exception as exc:  # noqa: BLE001 - a timeout/SSL/connection error
+        # isn't a URLError/HTTPError in every case (e.g. a read timeout can
+        # raise a bare TimeoutError) — catch-all so a send failure is always
+        # logged and reported back, never silently swallowed.
+        logger.exception("Telegram notification failed unexpectedly: %s", exc)
+        return False, str(exc)
 
 
 def _telegram_send_photo(photo_bytes: bytes, filename: str, caption: str = "") -> tuple[bool, str]:
@@ -693,6 +699,13 @@ def _telegram_send_photo(photo_bytes: bytes, filename: str, caption: str = "") -
     except urllib.error.URLError as exc:
         logger.warning("Telegram sendPhoto failed: %s", exc)
         return False, str(exc.reason)
+    except Exception as exc:  # noqa: BLE001 - a timeout/SSL/connection error
+        # isn't a URLError/HTTPError in every case (e.g. a read timeout can
+        # raise a bare TimeoutError), and a 20MB+ photo makes that more
+        # likely than for the plain-text sendMessage above — catch-all so a
+        # send failure is always logged and reported back, never silent.
+        logger.exception("Telegram sendPhoto failed unexpectedly: %s", exc)
+        return False, str(exc)
 
 
 def _pick_department(request, departments):
@@ -876,6 +889,21 @@ def mark_attendance_view(request):
 
 
 @login_required
+def log_client_error_view(request):
+    """Client-side failures (e.g. html2canvas throwing before any Telegram
+    request is even made — see the "Send Report" buttons) are invisible to
+    the server by definition, so there's nothing here for the normal error
+    logging to catch. This just gives the browser a way to hand that
+    failure to the server log instead of it vanishing in the console."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False}, status=405)
+    message = request.POST.get("message", "")[:2000]
+    context = request.POST.get("context", "")[:200]
+    logger.warning("Client-side error [%s, user=%s]: %s", context or "unknown", request.user, message)
+    return JsonResponse({"ok": True})
+
+
+@login_required
 def send_day_attendance_report_view(request):
     """Sends a simple text attendance table (name — status, one per line)
     for one department/date to Telegram — the Day view's "Send Report"
@@ -914,7 +942,11 @@ def send_day_attendance_report_view(request):
         f"{present} Present, {absent} Absent\n"
         f"<pre>{html.escape(table_text)}</pre>"
     )
-    ok, error = _notify_telegram(text, parse_mode="HTML")
+    try:
+        ok, error = _notify_telegram(text, parse_mode="HTML")
+    except Exception:
+        logger.exception("send_day_attendance_report_view failed unexpectedly.")
+        return JsonResponse({"ok": False, "error": "Unexpected server error."}, status=500)
     if not ok:
         return JsonResponse({"ok": False, "error": error or "Telegram send failed."}, status=502)
     return JsonResponse({"ok": True})
@@ -975,7 +1007,11 @@ def send_telegram_report_view(request):
     if not image:
         return JsonResponse({"ok": False, "error": "No image provided."}, status=400)
     caption = request.POST.get("caption", "").strip()
-    ok, error = _telegram_send_photo(image.read(), image.name or "report.png", caption)
+    try:
+        ok, error = _telegram_send_photo(image.read(), image.name or "report.png", caption)
+    except Exception:
+        logger.exception("send_telegram_report_view failed unexpectedly.")
+        return JsonResponse({"ok": False, "error": "Unexpected server error."}, status=500)
     if not ok:
         return JsonResponse({"ok": False, "error": error or "Telegram send failed."}, status=502)
     return JsonResponse({"ok": True})
