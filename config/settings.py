@@ -193,17 +193,17 @@ LOGGING = {
     },
     'root': {
         'handlers': ['console', 'file'],
-        'level': 'WARNING',
+        'level': 'INFO',
     },
     'loggers': {
         'django': {
             'handlers': ['console', 'file'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': False,
         },
         'attendance': {
             'handlers': ['console', 'file'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': False,
         },
     },
