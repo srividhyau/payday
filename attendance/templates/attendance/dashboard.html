@@ -95,6 +95,11 @@
 
         h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
         h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+        .dept-summary summary { cursor: pointer; list-style: none; }
+        .dept-summary summary::-webkit-details-marker { display: none; }
+        .dept-summary summary h2 { display: inline-block; margin: 0 0 0.9rem; }
+        .dept-summary summary h2::before { content: "▸ "; }
+        .dept-summary[open] summary h2::before { content: "▾ "; }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
         .caption:last-child { margin-bottom: 0; }
         .caption a { color: var(--navy); text-decoration: none; font-weight: 600; }
@@ -265,6 +270,11 @@
            data-tooltip + a ::after pseudo-element instead to get a bigger,
            bold, bright yellow label on hover. */
         table.month td[data-tooltip] { cursor: help; position: relative; }
+        /* Bump the hovered cell itself above the sticky thead (z-index 2/3)
+           and the sticky .topbar (z-index 30) — the ::after's own z-index
+           only ranks it among its own td's stacking context, not against
+           other positioned ancestors/siblings on the page. */
+        table.month td[data-tooltip]:hover { z-index: 40; }
         table.month td[data-tooltip]:hover::after {
             content: attr(data-tooltip);
             position: absolute;
@@ -454,6 +464,7 @@
         }
 
         table.month td.editable-cell { cursor: pointer; }
+        table.month td.editable-cell.just-saved { outline: 3px solid var(--navy); outline-offset: -3px; transition: outline-color 2s ease; }
         table.month th.editable-header { cursor: pointer; }
         table.month th.editable-header:hover { filter: brightness(0.95); }
         table.month.locked td.editable-cell,
@@ -522,6 +533,16 @@
         .edit-modal input:focus, .edit-modal select:focus { outline: none; border-color: var(--accent); }
         .edit-modal input:disabled { background: #f0f0f0; color: #999; }
         .edit-modal .edit-staff-note { font-size: 0.75rem; color: #999; margin: -0.3rem 0 0.6rem; }
+        .shift-toggle-label { font-size: 0.8rem; color: #444; margin-bottom: 0.35rem; }
+        .shift-toggle { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.7rem; }
+        .shift-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+        .shift-toggle label {
+            padding: 0.4rem 0.7rem; border: 1px solid #ccc; border-radius: 999px;
+            font-size: 0.8rem; font-weight: 600; color: #444; cursor: pointer;
+            user-select: none; margin: 0; transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .shift-toggle input:checked + label { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+        .shift-toggle input:disabled + label { background: #f0f0f0; color: #bbb; border-color: #e0e0e0; cursor: default; }
         .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
         .edit-modal button {
             padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
@@ -587,7 +608,8 @@
         </div>
 
         <div class="card">
-            <h2>By department</h2>
+            <details class="dept-summary">
+                <summary><h2>By department</h2></summary>
             <div class="dept-view" data-view="all">
                 <div class="table-wrap">
                     <table class="simple">
@@ -641,6 +663,7 @@
                     </table>
                 </div>
             </div>
+            </details>
         </div>
 
         <div class="card">
@@ -728,23 +751,30 @@
                     <input type="hidden" name="emp_code" id="editEmpCode">
                     <input type="hidden" name="date" id="editDate">
                     <input type="hidden" name="view" value="{{ current_view }}">
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <input type="hidden" name="next" id="editNext" value="{{ request.get_full_path }}">
                     <label>Time In
                         <input type="text" name="time_in" id="editTimeIn" placeholder="HH:MM">
                     </label>
                     <label>Time Out
                         <input type="text" name="time_out" id="editTimeOut" placeholder="HH:MM">
                     </label>
-                    <label id="editShiftLabel">Shift
-                        <input type="text" name="shift" id="editShift" list="shiftOptions" placeholder="GS">
-                        <datalist id="shiftOptions">
-                            <option value="GS">
-                            <option value="M-OT">
-                            <option value="E-OT">
-                            <option value="ME-OT">
-                            <option value="Full-OT">
-                        </datalist>
-                    </label>
+                    <div id="editShiftLabel">
+                        <p class="shift-toggle-label">Shift</p>
+                        <div class="shift-toggle" id="editShiftGroup">
+                            <input type="radio" name="shift" value="" id="editShift-none">
+                            <label for="editShift-none">—</label>
+                            <input type="radio" name="shift" value="GS" id="editShift-gs">
+                            <label for="editShift-gs">GS</label>
+                            <input type="radio" name="shift" value="M-OT" id="editShift-mot">
+                            <label for="editShift-mot">M-OT</label>
+                            <input type="radio" name="shift" value="E-OT" id="editShift-eot">
+                            <label for="editShift-eot">E-OT</label>
+                            <input type="radio" name="shift" value="ME-OT" id="editShift-meot">
+                            <label for="editShift-meot">ME-OT</label>
+                            <input type="radio" name="shift" value="Full-OT" id="editShift-fullot">
+                            <label for="editShift-fullot">Full-OT</label>
+                        </div>
+                    </div>
                     <p class="edit-staff-note" id="editStaffNote" style="display:none;">Shift isn't editable for Staff — they're excluded from shift-based OT (see Time Off instead).</p>
                     <div class="edit-actions">
                         <button type="button" id="editCancel">Cancel</button>
@@ -765,6 +795,13 @@
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <label>Shift (all employees except Staff)
                         <input type="text" name="shift" id="bulkShift" list="shiftOptions" placeholder="GS">
+                        <datalist id="shiftOptions">
+                            <option value="GS">
+                            <option value="M-OT">
+                            <option value="E-OT">
+                            <option value="ME-OT">
+                            <option value="Full-OT">
+                        </datalist>
                     </label>
                     <label>Calendar day type
                         <select name="day_type" id="bulkDayType">
@@ -815,6 +852,7 @@
 
         var editOverlay = document.getElementById('editOverlay');
         if (editOverlay) {
+            var editNextBase = document.getElementById('editNext').value;
             document.querySelectorAll('table.month td.editable-cell').forEach(function (cell) {
                 cell.addEventListener('click', function () {
                     if (isMonthLocked || !cell.dataset.emp || !cell.dataset.date) return;
@@ -825,10 +863,18 @@
                     document.getElementById('editTimeIn').value = cell.dataset.in || '';
                     document.getElementById('editTimeOut').value = cell.dataset.out || '';
                     var isStaff = cell.dataset.staff === '1';
-                    var shiftInput = document.getElementById('editShift');
-                    shiftInput.value = cell.dataset.shift || '';
-                    shiftInput.disabled = isStaff;
+                    var shiftValue = cell.dataset.shift || '';
+                    document.querySelectorAll('#editShiftGroup input[type=radio]').forEach(function (r) {
+                        r.checked = (r.value === shiftValue);
+                        r.disabled = isStaff;
+                    });
                     document.getElementById('editStaffNote').style.display = isStaff ? 'block' : 'none';
+                    // Carry the clicked cell's identity through the save's
+                    // redirect (as a URL fragment, since it's a plain
+                    // POST-redirect-GET) so the page can scroll back to it
+                    // and flash it once the reload lands.
+                    document.getElementById('editNext').value = editNextBase
+                        + '#cell=' + encodeURIComponent(cell.dataset.emp) + '::' + encodeURIComponent(cell.dataset.date);
                     editOverlay.classList.add('open');
                     document.body.classList.add('modal-open');
                 });
@@ -976,6 +1022,25 @@
                 lockOverlay.classList.remove('open');
                 document.body.classList.remove('modal-open');
             });
+        }
+
+        // After a single-cell save (see editNext above), the redirect back
+        // here carries the saved cell's identity in the URL fragment —
+        // scroll to it and flash it so the edit is easy to spot again.
+        if (location.hash.indexOf('#cell=') === 0) {
+            var parts = location.hash.slice('#cell='.length).split('::');
+            var savedEmp = decodeURIComponent(parts[0] || '');
+            var savedDate = decodeURIComponent(parts[1] || '');
+            var savedCell = null;
+            document.querySelectorAll('table.month td.editable-cell').forEach(function (cell) {
+                if (cell.dataset.emp === savedEmp && cell.dataset.date === savedDate) savedCell = cell;
+            });
+            if (savedCell) {
+                savedCell.scrollIntoView({ block: 'center', inline: 'center' });
+                savedCell.classList.add('just-saved');
+                setTimeout(function () { savedCell.classList.remove('just-saved'); }, 2000);
+            }
+            history.replaceState(null, '', location.pathname + location.search);
         }
     </script>
 </body>

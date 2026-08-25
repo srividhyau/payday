@@ -22,6 +22,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # var in any real deployment; this default is only for local dev.
 ATTENDANCE_LOCK_PIN = os.environ.get('ATTENDANCE_LOCK_PIN', '1234')
 
+# Telegram notification sent when attendance is saved from Mark Attendance's
+# Day view — posted to one topic (message_thread_id) in a group chat, so a
+# bot token, chat id, and topic id are all required. Left unset by default;
+# the notification is simply skipped wherever these aren't configured.
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8957358183:AAHL49XbZhxv7JIvkF6Q3PtdCRFQj2F2jsI')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '-1003975584971')
+TELEGRAM_TOPIC_ID = os.environ.get('TELEGRAM_TOPIC_ID', '116')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/

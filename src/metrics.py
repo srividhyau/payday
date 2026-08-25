@@ -331,7 +331,9 @@ def department_grouped_summary(emp_summary: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
-def month_attendance_view(daily: pd.DataFrame, working_days: int | None = None) -> tuple:
+def month_attendance_view(
+    daily: pd.DataFrame, working_days: int | None = None, dates: list | None = None
+) -> tuple:
     """Single wide table matching the original Month_Attendance pivot sheet:
     a department label row (grouping only, no aggregated values) followed
     by its employees indented below, one column per day-of-month with the
@@ -357,7 +359,12 @@ def month_attendance_view(daily: pd.DataFrame, working_days: int | None = None) 
     if working_days is None:
         working_days = infer_working_days(daily)
 
-    dates = sorted(daily["date"].unique())
+    # `dates` defaults to only the days that actually have a record, which
+    # blanks out any day nobody has marked/uploaded yet — pass every day of
+    # the month in explicitly (see _build_month_grid) to show the full
+    # calendar grid regardless of data gaps.
+    if dates is None:
+        dates = sorted(daily["date"].unique())
     single_month = len({(pd.Timestamp(d).year, pd.Timestamp(d).month) for d in dates}) == 1
     day_labels = [str(pd.Timestamp(d).day) for d in dates] if single_month else [
         pd.Timestamp(d).strftime("%d-%b") for d in dates

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -93,12 +94,28 @@
         .msg.success { background: #e6f4ea; color: #1e7e34; }
         .msg.error { background: #fdecea; color: #b3261e; }
 
-        .view-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
+        .view-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.9rem; }
         .view-toggle a {
             font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.9rem; border-radius: 999px;
             text-decoration: none; border: 1px solid var(--navy); color: var(--navy);
         }
         .view-toggle a.active { background: var(--navy); color: var(--yellow); }
+        .view-toggle #sendReportBtn {
+            font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.9rem; border-radius: 999px;
+            border: 1px solid var(--navy); background: var(--navy); color: var(--yellow); cursor: pointer;
+        }
+        .view-toggle #sendReportBtn:hover { background: var(--navy-deep); }
+        .view-toggle #sendReportBtn:disabled { opacity: 0.6; cursor: default; }
+        .view-toggle .report-status { margin-left: auto; }
+        .report-status { font-size: 0.8rem; color: var(--text-muted); }
+        .report-status.error { color: #b3261e; }
+        .report-status.success { color: #1e7e34; }
+        /* html2canvas can't render position:sticky reliably — flatten the
+           header row and label column to static during capture so the
+           screenshot shows a normal, complete table instead of a
+           misplaced/duplicated header or column. */
+        body.capturing table.month th,
+        body.capturing table.month td.label { position: static !important; }
 
         .controls {
             display: flex;
@@ -149,10 +166,13 @@
             text-align: center;
             white-space: nowrap;
         }
-        table.month th { padding: 0.4rem 0.3rem; }
-        table.month td.label { padding: 0.4rem 0.3rem; }
-        table.month col.label-col { width: 130px; }
+        table.month th { padding: 0.25rem 0.3rem; }
+        table.month td.label { padding: 0.25rem 0.35rem; }
+        table.month col.label-col { width: 90px; }
         table.month col.day-col { width: 38px; }
+        table.month col.summary-col { width: 110px; }
+        table.month th.summary, table.month td.summary { font-size: 0.72rem; white-space: nowrap; }
+        table.month tfoot td { background: #fafafa; font-weight: 700; }
         table.month th {
             background: #fafafa;
             position: sticky;
@@ -172,7 +192,6 @@
             background: #fff;
             font-weight: 600;
         }
-        table.month td.label .emp-code { display: block; font-weight: 400; color: var(--text-muted); font-size: 0.7rem; }
         table.month th.label { position: sticky; left: 0; z-index: 3; background: #fafafa; }
 
         /* Each day cell is its own tiny auto-submitting form — one click
@@ -181,10 +200,10 @@
         table.month td.day-cell { padding: 0; }
         table.month td.day-cell form { margin: 0; height: 100%; }
         table.month td.day-cell button {
-            width: 100%; height: 100%; min-height: 2.3rem;
+            width: 100%; height: 100%; min-height: 1.8rem;
             border: none; background: none; cursor: pointer;
             font: inherit; font-weight: 700; color: inherit;
-            padding: 0.5rem 0.3rem;
+            padding: 0.3rem 0.3rem;
         }
         table.month td.day-cell button:hover { outline: 2px solid var(--navy); outline-offset: -2px; }
         table.month.locked td.day-cell button { cursor: default; }
@@ -224,6 +243,10 @@
         <div class="view-toggle">
             <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}">Day view</a>
             <a href="#" class="active">Month view</a>
+            {% if dept and table_rows %}
+                <span id="sendReportStatus" class="report-status"></span>
+                <button type="button" id="sendReportBtn">Send Report</button>
+            {% endif %}
         </div>
 
         {% for message in messages %}
@@ -271,17 +294,19 @@
                     <colgroup>
                         <col class="label-col">
                         {% for d in day_headers %}<col class="day-col">{% endfor %}
+                        <col class="summary-col">
                     </colgroup>
                     <thead>
                         <tr>
                             <th class="label"></th>
                             {% for d in day_headers %}<th><span class="dow">{{ d.dow }}</span>{{ d.day }}</th>{% endfor %}
+                            <th class="summary">Present</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for row in table_rows %}
                         <tr>
-                            <td class="label" title="{{ row.employee.name }}">{{ row.employee.name }}<span class="emp-code">{{ row.employee.code }}</span></td>
+                            <td class="label" title="{{ row.employee.name }}">{{ row.employee.name }}</td>
                             {% for cell in row.cells %}
                                 <td class="day-cell {% if cell.status %}status-{{ cell.status }}{% endif %}">
                                     <form method="post" action="{% url 'set_attendance_status' %}">
@@ -293,12 +318,124 @@
                                     </form>
                                 </td>
                             {% endfor %}
+                            <td class="summary">{{ row.present_count }}/{{ row.total_days }} ({{ row.percent_absent }}% Absent)</td>
                         </tr>
                         {% endfor %}
                     </tbody>
+                    <tfoot>
+                        <tr>
+                            <td class="label">Present</td>
+                            {% for count in day_totals %}<td class="summary">{{ count }}</td>{% endfor %}
+                            <td class="summary">{{ total_present }}</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         {% endif %}
     </div>
+
+    {% if dept and table_rows %}
+    <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
+    <script>
+        function getCookie(name) {
+            var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return match ? match.pop() : '';
+        }
+
+        function todayIso() {
+            var d = new Date();
+            var mm = String(d.getMonth() + 1).padStart(2, '0');
+            var dd = String(d.getDate()).padStart(2, '0');
+            return d.getFullYear() + '-' + mm + '-' + dd;
+        }
+
+        function rotateToLandscape(canvas) {
+            if (canvas.height <= canvas.width) return canvas;
+            // A department with many employees makes the table taller than
+            // wide — rotate it 90° so the report always lands in Telegram
+            // as a wide, landscape image instead of a tall, hard-to-read
+            // strip.
+            var rotated = document.createElement('canvas');
+            rotated.width = canvas.height;
+            rotated.height = canvas.width;
+            var ctx = rotated.getContext('2d');
+            ctx.translate(rotated.width / 2, rotated.height / 2);
+            ctx.rotate(Math.PI / 2);
+            ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+            return rotated;
+        }
+
+        document.getElementById('sendReportBtn').addEventListener('click', function () {
+            var btn = document.getElementById('sendReportBtn');
+            var statusEl = document.getElementById('sendReportStatus');
+            var table = document.getElementById('monthTable');
+            var dayResult, monthResult;
+
+            btn.disabled = true;
+            statusEl.className = 'report-status';
+            // No single "day" is selected on this page, so the day-text
+            // portion always reports today's attendance.
+            statusEl.textContent = 'Sending day report…';
+
+            var dayFormData = new FormData();
+            dayFormData.append('department', '{{ dept.id }}');
+            dayFormData.append('date', todayIso());
+
+            fetch('{% url "send_day_attendance_report" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                body: dayFormData,
+            })
+                .then(function (r) { return r.json(); })
+                .catch(function () {
+                    return { ok: false, error: 'Failed to reach the server.' };
+                })
+                .then(function (result) {
+                    dayResult = result;
+                    statusEl.textContent = 'Capturing month…';
+                    document.body.classList.add('capturing');
+                    return html2canvas(table, { backgroundColor: '#ffffff', scale: 2 });
+                })
+                .then(function (canvas) {
+                    document.body.classList.remove('capturing');
+                    statusEl.textContent = 'Sending month report…';
+                    var finalCanvas = rotateToLandscape(canvas);
+                    return new Promise(function (resolve) {
+                        finalCanvas.toBlob(function (blob) {
+                            var formData = new FormData();
+                            formData.append('image', blob, 'month-attendance.png');
+                            formData.append(
+                                'caption',
+                                'Month Attendance — {{ dept.name|escapejs }} — {{ month_name|escapejs }} {{ year|escapejs }}'
+                            );
+                            fetch('{% url "send_telegram_report" %}', {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                                body: formData,
+                            })
+                                .then(function (r) { return r.json(); })
+                                .then(resolve)
+                                .catch(function () {
+                                    resolve({ ok: false, error: 'Failed to reach the server.' });
+                                });
+                        }, 'image/png');
+                    });
+                })
+                .catch(function () {
+                    document.body.classList.remove('capturing');
+                    return { ok: false, error: 'Failed to capture the table.' };
+                })
+                .then(function (result) {
+                    monthResult = result;
+                    btn.disabled = false;
+                    var ok = dayResult.ok && monthResult.ok;
+                    statusEl.textContent =
+                        'Day: ' + (dayResult.ok ? 'sent' : 'failed (' + (dayResult.error || 'error') + ')') +
+                        ' — Month: ' + (monthResult.ok ? 'sent' : 'failed (' + (monthResult.error || 'error') + ')');
+                    statusEl.className = 'report-status ' + (ok ? 'success' : 'error');
+                });
+        });
+    </script>
+    {% endif %}
 </body>
 </html>

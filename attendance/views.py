@@ -1,4 +1,10 @@
 import calendar as py_calendar
+import html
+import json
+import logging
+import urllib.error
+import urllib.request
+import uuid
 from datetime import date as date_cls
 from datetime import timedelta
 
@@ -6,7 +12,7 @@ import pandas as pd
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
 from src import metrics
@@ -14,6 +20,8 @@ from src import metrics
 from .forms import UploadForm
 from .importer import import_file
 from .models import AttendanceRecord, Department, Employee, MonthLock, SpecialDay, UploadBatch
+
+logger = logging.getLogger(__name__)
 
 # Mon..Sun abbreviations for the grid's day-of-week header — Thursday and
 # Sunday get two letters (TH/SU) instead of just T/S, so they aren't
@@ -108,8 +116,13 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
         if not shift_ot_table.empty else {}
     )
 
-    month_view, day_labels = metrics.month_attendance_view(daily, working_days)
-    dates = sorted(daily["date"].unique())
+    first_date = pd.Timestamp(daily["date"].iloc[0])
+    _, days_in_month = py_calendar.monthrange(first_date.year, first_date.month)
+    dates = [
+        pd.Timestamp(year=first_date.year, month=first_date.month, day=d)
+        for d in range(1, days_in_month + 1)
+    ]
+    month_view, day_labels = metrics.month_attendance_view(daily, working_days, dates=dates)
     time_labels = metrics.punch_time_labels(
         daily, shift_ot_map, ot_rate_map=emp_rate_map if ot_tooltip else None
     )
@@ -573,6 +586,84 @@ def toggle_month_lock_view(request):
     return redirect(next_url)
 
 
+def _notify_telegram(text: str, parse_mode: str | None = None) -> tuple[bool, str]:
+    """Posts a text message to the configured bot/chat/topic (see
+    settings.TELEGRAM_*). Never raises — returns (ok, error) so a caller
+    that needs to know (the Day view's "Send Report" button) can surface a
+    failure, while a best-effort caller (the bulk save notification) can
+    just ignore the result."""
+    token = settings.TELEGRAM_BOT_TOKEN
+    chat_id = settings.TELEGRAM_CHAT_ID
+    if not token or not chat_id:
+        return False, "Telegram isn't configured (missing bot token or chat id)."
+    payload = {"chat_id": chat_id, "text": text}
+    if settings.TELEGRAM_TOPIC_ID:
+        payload["message_thread_id"] = settings.TELEGRAM_TOPIC_ID
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    request_obj = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        urllib.request.urlopen(request_obj, timeout=5)
+        return True, ""
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")
+        logger.warning("Telegram notification failed: %s", detail)
+        return False, detail
+    except urllib.error.URLError as exc:
+        logger.warning("Telegram notification failed: %s", exc)
+        return False, str(exc.reason)
+
+
+def _telegram_send_photo(photo_bytes: bytes, filename: str, caption: str = "") -> tuple[bool, str]:
+    """Posts an image to the configured Telegram bot/chat/topic via
+    sendPhoto. Unlike _notify_telegram, this one reports back (ok, error)
+    instead of swallowing failures — it's triggered by an explicit "Send
+    Report" click, so the user needs to know if it didn't go through."""
+    token = settings.TELEGRAM_BOT_TOKEN
+    chat_id = settings.TELEGRAM_CHAT_ID
+    if not token or not chat_id:
+        return False, "Telegram isn't configured (missing bot token or chat id)."
+
+    fields = {"chat_id": chat_id, "caption": caption[:1024]}
+    if settings.TELEGRAM_TOPIC_ID:
+        fields["message_thread_id"] = settings.TELEGRAM_TOPIC_ID
+
+    boundary = uuid.uuid4().hex
+    body = bytearray()
+    for name, value in fields.items():
+        if not value:
+            continue
+        body += (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'
+        ).encode("utf-8")
+    body += (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="{filename}"\r\n'
+        f"Content-Type: image/png\r\n\r\n"
+    ).encode("utf-8")
+    body += photo_bytes
+    body += f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+    request_obj = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendPhoto",
+        data=bytes(body),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    try:
+        urllib.request.urlopen(request_obj, timeout=20)
+        return True, ""
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")
+        logger.warning("Telegram sendPhoto failed: %s", detail)
+        return False, detail
+    except urllib.error.URLError as exc:
+        logger.warning("Telegram sendPhoto failed: %s", exc)
+        return False, str(exc.reason)
+
+
 def _pick_department(request, departments):
     """Shared default-department resolution for the Mark Attendance flow —
     the explicit request param wins, else "Operators" (this flow's main
@@ -583,6 +674,67 @@ def _pick_department(request, departments):
         if dept:
             return dept
     return Department.objects.filter(name__iexact="Operators").first() or (departments[0] if departments else None)
+
+
+def _build_simple_month_grid(dept, year: int, month: int) -> dict:
+    """Builds the employee x day-of-month grid (day_headers, table_rows,
+    day_totals, total_present) behind Mark Attendance's Month view table —
+    and, rendered off-screen, behind the Day view's "Send Report" button
+    too, so it can screenshot a month table without navigating away. Plain
+    DB reads keyed by (employee, day-of-month); unrelated to the
+    dashboard's pandas-based _build_month_grid, which draws from a
+    different data source (_load_daily_data)."""
+    _, days_in_month = py_calendar.monthrange(year, month)
+    day_headers = [
+        {
+            "day": d,
+            "dow": _DOW_LABELS[date_cls(year, month, d).weekday()],
+            "date_iso": date_cls(year, month, d).isoformat(),
+        }
+        for d in range(1, days_in_month + 1)
+    ]
+
+    employees = Employee.objects.filter(department=dept).order_by("name") if dept else Employee.objects.none()
+    status_map = {
+        (r["employee_id"], r["date"].day): r["status"]
+        for r in AttendanceRecord.objects.filter(
+            employee__in=employees, date__year=year, date__month=month
+        ).values("employee_id", "date", "status")
+    }
+    total_days = len(day_headers)
+    day_totals = [0] * total_days
+    table_rows = []
+    for emp in employees:
+        cells = [
+            {
+                "day": d["day"],
+                "date_iso": d["date_iso"],
+                "status": status_map.get((emp.id, d["day"]), ""),
+            }
+            for d in day_headers
+        ]
+        present_count = 0
+        absent_count = 0
+        for i, c in enumerate(cells):
+            if c["status"] == "P":
+                present_count += 1
+                day_totals[i] += 1
+            elif not c["status"]:
+                absent_count += 1
+        table_rows.append({
+            "employee": emp,
+            "cells": cells,
+            "present_count": present_count,
+            "total_days": total_days,
+            "percent_absent": round(absent_count / total_days * 100) if total_days else 0,
+        })
+
+    return {
+        "day_headers": day_headers,
+        "table_rows": table_rows,
+        "day_totals": day_totals,
+        "total_present": sum(day_totals),
+    }
 
 
 @login_required
@@ -615,6 +767,8 @@ def mark_attendance_view(request):
         employees = Employee.objects.filter(department=dept)
         valid_status = dict(AttendanceRecord.STATUS_CHOICES)
         saved = 0
+        present_count = 0
+        absent_count = 0
         for emp in employees:
             # The Present/Absent toggle (radio, name=status_<id>) and the
             # "More…" dropdown (select, name=status_more_<id>) are separate
@@ -632,9 +786,21 @@ def mark_attendance_view(request):
                 defaults={"status": status, "shift": shift},
             )
             saved += 1
+            if status == "P":
+                present_count += 1
+            elif status == "A":
+                absent_count += 1
         messages.success(
             request, f"Marked attendance for {saved} employee(s) in {dept.name} on {target_date:%d %b %Y}."
         )
+        if saved:
+            other_count = saved - present_count - absent_count
+            breakdown = f"{present_count} Present, {absent_count} Absent"
+            if other_count:
+                breakdown += f", {other_count} Other"
+            _notify_telegram(
+                f"🗓 Attendance marked — {dept.name} — {target_date:%d %b %Y}\n{saved} employee(s): {breakdown}"
+            )
         return redirect(redirect_url)
 
     employees = Employee.objects.filter(department=dept).order_by("name") if dept else Employee.objects.none()
@@ -645,11 +811,16 @@ def mark_attendance_view(request):
     rows = [
         {
             "employee": emp,
-            "status": existing[emp.id].status if emp.id in existing else "P",
+            "status": existing[emp.id].status if emp.id in existing else "A",
             "shift": existing[emp.id].shift if emp.id in existing else "",
         }
         for emp in employees
     ]
+
+    # "Send Report" sends the day's attendance as text plus a screenshot of
+    # the whole month — the month grid below is rendered off-screen purely
+    # so that screenshot can be captured without navigating to Month view.
+    month_grid = _build_simple_month_grid(dept, target_date.year, target_date.month) if dept else None
 
     context = {
         "target_date": target_date,
@@ -660,8 +831,58 @@ def mark_attendance_view(request):
         "rows": rows,
         "status_choices": AttendanceRecord.STATUS_CHOICES,
         "is_locked": _month_is_locked(target_date.isoformat(), MonthLock.VIEW_ALL),
+        "month_name": py_calendar.month_name[target_date.month],
+        "month_day_headers": month_grid["day_headers"] if month_grid else [],
+        "month_table_rows": month_grid["table_rows"] if month_grid else [],
+        "month_day_totals": month_grid["day_totals"] if month_grid else [],
+        "month_total_present": month_grid["total_present"] if month_grid else 0,
     }
     return render(request, "attendance/mark_attendance.html", context)
+
+
+@login_required
+def send_day_attendance_report_view(request):
+    """Sends a simple text attendance table (name — status, one per line)
+    for one department/date to Telegram — the Day view's "Send Report"
+    button. Plain text rather than a screenshot: the emp-list is just a
+    column of radio toggles, which doesn't capture well as an image, so
+    this rebuilds the same data as a Telegram-native monospace table."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required."}, status=405)
+
+    dept = Department.objects.filter(id=request.POST.get("department")).first()
+    if not dept:
+        return JsonResponse({"ok": False, "error": "Invalid department."}, status=400)
+    try:
+        target_date = date_cls.fromisoformat(request.POST.get("date", ""))
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "Invalid date."}, status=400)
+
+    employees = Employee.objects.filter(department=dept).order_by("name")
+    if not employees:
+        return JsonResponse({"ok": False, "error": "No employees in this department."}, status=400)
+
+    status_map = {
+        r.employee_id: r.status
+        for r in AttendanceRecord.objects.filter(date=target_date, employee__in=employees)
+    }
+    status_labels = dict(AttendanceRecord.STATUS_CHOICES)
+    rows = [(emp.name, status_labels.get(status_map.get(emp.id, "A"), "Absent")) for emp in employees]
+
+    name_width = max(len(name) for name, _ in rows)
+    table_text = "\n".join(f"{name.ljust(name_width)}  {status}" for name, status in rows)
+    present = sum(1 for _, status in rows if status == "Present")
+    absent = sum(1 for _, status in rows if status == "Absent")
+
+    text = (
+        f"<b>🗓 Day Attendance — {html.escape(dept.name)} — {target_date:%d %b %Y}</b>\n"
+        f"{present} Present, {absent} Absent\n"
+        f"<pre>{html.escape(table_text)}</pre>"
+    )
+    ok, error = _notify_telegram(text, parse_mode="HTML")
+    if not ok:
+        return JsonResponse({"ok": False, "error": error or "Telegram send failed."}, status=502)
+    return JsonResponse({"ok": True})
 
 
 @login_required
@@ -684,37 +905,7 @@ def mark_attendance_month_view(request):
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
 
-    _, days_in_month = py_calendar.monthrange(year, month)
-    day_headers = [
-        {
-            "day": d,
-            "dow": _DOW_LABELS[date_cls(year, month, d).weekday()],
-            "date_iso": date_cls(year, month, d).isoformat(),
-        }
-        for d in range(1, days_in_month + 1)
-    ]
-
-    employees = Employee.objects.filter(department=dept).order_by("name") if dept else Employee.objects.none()
-    status_map = {
-        (r["employee_id"], r["date"].day): r["status"]
-        for r in AttendanceRecord.objects.filter(
-            employee__in=employees, date__year=year, date__month=month
-        ).values("employee_id", "date", "status")
-    }
-    table_rows = [
-        {
-            "employee": emp,
-            "cells": [
-                {
-                    "day": d["day"],
-                    "date_iso": d["date_iso"],
-                    "status": status_map.get((emp.id, d["day"]), ""),
-                }
-                for d in day_headers
-            ],
-        }
-        for emp in employees
-    ]
+    grid = _build_simple_month_grid(dept, year, month)
 
     context = {
         "current": current,
@@ -725,13 +916,34 @@ def mark_attendance_month_view(request):
         "next_date": next_date.isoformat(),
         "departments": departments,
         "dept": dept,
-        "day_headers": day_headers,
-        "table_rows": table_rows,
+        "day_headers": grid["day_headers"],
+        "table_rows": grid["table_rows"],
+        "day_totals": grid["day_totals"],
+        "total_present": grid["total_present"],
         "status_choices": AttendanceRecord.STATUS_CHOICES,
         "status_labels": dict(AttendanceRecord.STATUS_CHOICES),
         "is_locked": _month_is_locked(current.isoformat(), MonthLock.VIEW_ALL),
     }
     return render(request, "attendance/mark_attendance_month.html", context)
+
+
+@login_required
+def send_telegram_report_view(request):
+    """Receives a screenshot (captured client-side via html2canvas — see
+    mark_attendance_month.html's "Send Report" button) and forwards it to
+    Telegram as a photo. JSON in, JSON out: the button is a fetch() call,
+    not a form submit, so it can re-enable itself and show an error inline
+    instead of navigating away."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required."}, status=405)
+    image = request.FILES.get("image")
+    if not image:
+        return JsonResponse({"ok": False, "error": "No image provided."}, status=400)
+    caption = request.POST.get("caption", "").strip()
+    ok, error = _telegram_send_photo(image.read(), image.name or "report.png", caption)
+    if not ok:
+        return JsonResponse({"ok": False, "error": error or "Telegram send failed."}, status=502)
+    return JsonResponse({"ok": True})
 
 
 @login_required

@@ -221,6 +221,11 @@
         table.month .toggle-icon { display: inline-block; width: 0.9em; }
 
         table.month td[data-tooltip] { cursor: help; position: relative; }
+        /* Bump the hovered cell itself above the sticky thead (z-index 2/3)
+           and the sticky .topbar (z-index 30) — the ::after's own z-index
+           only ranks it among its own td's stacking context, not against
+           other positioned ancestors/siblings on the page. */
+        table.month td[data-tooltip]:hover { z-index: 40; }
         table.month td[data-tooltip]:hover::after {
             content: attr(data-tooltip);
             position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
