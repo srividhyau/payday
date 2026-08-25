@@ -16,6 +16,7 @@ venv/
 # Django - contains real employee/attendance data once used
 staticfiles/
 media/
+logs/
 
 # OS
 .DS_Store

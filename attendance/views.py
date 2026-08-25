@@ -23,6 +23,16 @@ from .models import AttendanceRecord, Department, Employee, MonthLock, SpecialDa
 
 logger = logging.getLogger(__name__)
 
+
+def _error(request, text: str) -> None:
+    """messages.error() plus a matching log line — a user-facing error
+    should always leave a trace in the log, not just a one-time flash
+    message that's gone once the page reloads. Use this instead of
+    messages.error() directly unless the call site already logs its own
+    more detailed line (e.g. logger.exception with a traceback)."""
+    messages.error(request, text)
+    logger.warning("%s [%s, user=%s]", text, request.path, request.user)
+
 # Mon..Sun abbreviations for the grid's day-of-week header — Thursday and
 # Sunday get two letters (TH/SU) instead of just T/S, so they aren't
 # ambiguous with Tuesday and Saturday.
@@ -62,8 +72,13 @@ def upload_view(request):
                     f"Imported {batch.row_count} rows from {batch.period_start} to "
                     f"{batch.period_end}.",
                 )
+                logger.info(
+                    "Upload imported: %s rows, %s to %s, file=%s",
+                    batch.row_count, batch.period_start, batch.period_end, uploaded.name,
+                )
             except Exception as exc:  # noqa: BLE001 - surface any parse/import error to HR
                 messages.error(request, f"Import failed: {exc}")
+                logger.exception("Upload import failed for file=%s", uploaded.name)
             return redirect("upload")
     else:
         form = UploadForm()
@@ -483,13 +498,13 @@ def edit_record_view(request):
     view = request.POST.get("view", "all")
 
     if _month_is_locked(date_str, view):
-        messages.error(request, "This view is locked for this month — unlock it first to make changes.")
+        _error(request, "This view is locked for this month — unlock it first to make changes.")
         return redirect(next_url)
 
     try:
         record = AttendanceRecord.objects.get(employee__code=emp_code, date=date_str)
     except AttendanceRecord.DoesNotExist:
-        messages.error(request, f"No attendance record for {emp_code} on {date_str}.")
+        _error(request, f"No attendance record for {emp_code} on {date_str}.")
         return redirect(next_url)
 
     record.time_in = time_in
@@ -502,6 +517,10 @@ def edit_record_view(request):
     record.work_hours, record.status = metrics.recompute_from_punch(time_in, time_out)
     record.save()
     messages.success(request, f"Updated {emp_code} on {date_str}.")
+    logger.info(
+        "Record edited: emp=%s date=%s time_in=%s time_out=%s shift=%s by user=%s",
+        emp_code, date_str, time_in, time_out, shift, request.user,
+    )
     return redirect(next_url)
 
 
@@ -523,11 +542,11 @@ def bulk_set_shift_view(request):
     day_type = request.POST.get("day_type", "")
     view = request.POST.get("view", "all")
     if not date_str:
-        messages.error(request, "Missing date.")
+        _error(request, "Missing date.")
         return redirect(next_url)
 
     if _month_is_locked(date_str, view):
-        messages.error(request, "This view is locked for this month — unlock it first to make changes.")
+        _error(request, "This view is locked for this month — unlock it first to make changes.")
         return redirect(next_url)
 
     updated = (
@@ -543,6 +562,10 @@ def bulk_set_shift_view(request):
     messages.success(
         request,
         f"Set shift '{shift}' for {updated} employee(s) and calendar type '{day_type or '—'}' on {date_str}.",
+    )
+    logger.info(
+        "Bulk shift set: date=%s shift=%s day_type=%s updated=%s by user=%s",
+        date_str, shift, day_type or "-", updated, request.user,
     )
     return redirect(next_url)
 
@@ -563,7 +586,7 @@ def toggle_month_lock_view(request):
         year = int(request.POST.get("year", ""))
         month = int(request.POST.get("month", ""))
     except ValueError:
-        messages.error(request, "Missing month.")
+        _error(request, "Missing month.")
         return redirect(next_url)
 
     view = request.POST.get("view", "all")
@@ -574,6 +597,9 @@ def toggle_month_lock_view(request):
     action = request.POST.get("action", "")
     if pin != settings.ATTENDANCE_LOCK_PIN:
         messages.error(request, "Incorrect PIN.")
+        logger.warning(
+            "Incorrect lock PIN attempt: view=%s %s-%s by user=%s", view, year, month, request.user,
+        )
         return redirect(next_url)
 
     view_label = dict(MonthLock.VIEW_CHOICES)[view]
@@ -583,6 +609,9 @@ def toggle_month_lock_view(request):
     elif action == "unlock":
         MonthLock.objects.filter(year=year, month=month, view=view).delete()
         messages.success(request, f"{view_label} is now unlocked for {py_calendar.month_name[month]} {year}.")
+    logger.info(
+        "Month lock %s: view=%s %s-%s by user=%s", action, view, year, month, request.user,
+    )
     return redirect(next_url)
 
 
@@ -608,6 +637,7 @@ def _notify_telegram(text: str, parse_mode: str | None = None) -> tuple[bool, st
     )
     try:
         urllib.request.urlopen(request_obj, timeout=5)
+        logger.info("Telegram message sent.")
         return True, ""
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")
@@ -654,6 +684,7 @@ def _telegram_send_photo(photo_bytes: bytes, filename: str, caption: str = "") -
     )
     try:
         urllib.request.urlopen(request_obj, timeout=20)
+        logger.info("Telegram photo sent.")
         return True, ""
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")
@@ -758,10 +789,10 @@ def mark_attendance_view(request):
 
     if request.method == "POST":
         if dept is None:
-            messages.error(request, "No department selected.")
+            _error(request, "No department selected.")
             return redirect(redirect_url)
         if _month_is_locked(target_date.isoformat(), MonthLock.VIEW_ALL):
-            messages.error(request, "This month is locked — unlock it on the dashboard first.")
+            _error(request, "This month is locked — unlock it on the dashboard first.")
             return redirect(redirect_url)
 
         employees = Employee.objects.filter(department=dept)
@@ -792,6 +823,10 @@ def mark_attendance_view(request):
                 absent_count += 1
         messages.success(
             request, f"Marked attendance for {saved} employee(s) in {dept.name} on {target_date:%d %b %Y}."
+        )
+        logger.info(
+            "Day attendance saved: dept=%s date=%s saved=%s present=%s absent=%s by user=%s",
+            dept.name, target_date, saved, present_count, absent_count, request.user,
         )
         if saved:
             other_count = saved - present_count - absent_count
@@ -960,26 +995,30 @@ def set_attendance_status_view(request):
 
     date_str = request.POST.get("date", "").strip()
     if _month_is_locked(date_str, MonthLock.VIEW_ALL):
-        messages.error(request, "This month is locked — unlock it on the dashboard first.")
+        _error(request, "This month is locked — unlock it on the dashboard first.")
         return redirect(next_url)
 
     try:
         emp = Employee.objects.get(id=request.POST.get("employee_id", "").strip())
         target_date = date_cls.fromisoformat(date_str)
     except (Employee.DoesNotExist, ValueError):
-        messages.error(request, "Invalid employee or date.")
+        _error(request, "Invalid employee or date.")
         return redirect(next_url)
 
     status = request.POST.get("status", "").strip()
     valid_status = dict(AttendanceRecord.STATUS_CHOICES)
     if status not in valid_status:
-        messages.error(request, "Invalid status.")
+        _error(request, "Invalid status.")
         return redirect(next_url)
 
     AttendanceRecord.objects.update_or_create(
         employee=emp, date=target_date, defaults={"status": status},
     )
     messages.success(request, f"{emp.name}: {valid_status[status]} on {target_date:%d %b}.")
+    logger.info(
+        "Month-grid cell set: emp=%s date=%s status=%s by user=%s",
+        emp.code, target_date, status, request.user,
+    )
     return redirect(next_url)
 
 
