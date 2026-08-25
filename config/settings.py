@@ -16,6 +16,20 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Local dev convenience: load a gitignored .env file (KEY=value per line,
+# same format the production systemd unit's EnvironmentFile reads — see
+# deploy.bash) into the environment before any os.environ.get() below runs.
+# No-op if the file doesn't exist; never overrides a real env var that's
+# already set.
+_env_file = BASE_DIR / '.env'
+if _env_file.exists():
+    for _line in _env_file.read_text().splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith('#') or '=' not in _line:
+            continue
+        _key, _, _value = _line.partition('=')
+        os.environ.setdefault(_key.strip(), _value.strip())
+
 # PIN required to lock/unlock a month's attendance on the dashboard (see
 # attendance.models.MonthLock) — this app has no user login, so the PIN is
 # the only gate on that action. Override via the ATTENDANCE_LOCK_PIN env
@@ -26,9 +40,9 @@ ATTENDANCE_LOCK_PIN = os.environ.get('ATTENDANCE_LOCK_PIN', '1234')
 # Day view — posted to one topic (message_thread_id) in a group chat, so a
 # bot token, chat id, and topic id are all required. Left unset by default;
 # the notification is simply skipped wherever these aren't configured.
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8957358183:AAHL49XbZhxv7JIvkF6Q3PtdCRFQj2F2jsI')
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '-1003975584971')
-TELEGRAM_TOPIC_ID = os.environ.get('TELEGRAM_TOPIC_ID', '116')
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+TELEGRAM_TOPIC_ID = os.environ.get('TELEGRAM_TOPIC_ID', '')
 
 
 # Quick-start development settings - unsuitable for production

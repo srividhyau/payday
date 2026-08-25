@@ -80,6 +80,12 @@ After=network.target
 User=${DEPLOY_USER}
 Group=www-data
 WorkingDirectory=${PROJECT_DIR}
+# Secrets (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPIC_ID,
+# ATTENDANCE_LOCK_PIN, ...) live in this .env file on the server only —
+# it's in .gitignore and this script never writes to it, so create/edit it
+# by hand on the VPS (e.g. "nano ${PROJECT_DIR}/.env", KEY=value per line).
+# The leading "-" means systemd won't fail to start if it's missing yet.
+EnvironmentFile=-${PROJECT_DIR}/.env
 ExecStart=${PROJECT_DIR}/venv/bin/gunicorn \\
           --workers ${GUNICORN_WORKERS} \\
           --bind 127.0.0.1:${GUNICORN_PORT} \\
