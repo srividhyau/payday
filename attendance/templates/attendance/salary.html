@@ -86,7 +86,12 @@
             border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
         }
         .month-nav a:hover { background: var(--navy); color: var(--yellow); }
-        .working-days { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem; }
+        .working-days { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem; max-width: 700px; line-height: 1.5; }
+
+        .kpi-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.85rem 1.1rem; min-width: 130px; flex: 1; }
+        .kpi .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .kpi .value { font-size: 1.3rem; font-weight: 700; color: var(--navy); }
 
         .tab-row { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .tab-btn {
@@ -156,7 +161,13 @@
             <h2>{{ month_name }} {{ year }}</h2>
             <a href="?date={{ next_date }}">&rarr;</a>
         </div>
-        <p class="working-days">Working days this month: {{ working_days }} (calendar days minus Sundays — Paid Holiday/Comp Off don't reduce this, they add to Paid Days instead)</p>
+        <div class="kpi-row">
+            <div class="kpi"><div class="label">Working Days</div><div class="value">{{ working_days }}</div></div>
+            <div class="kpi"><div class="label">Holidays</div><div class="value">{{ holiday_count }}</div></div>
+            <div class="kpi"><div class="label">Paid Holidays</div><div class="value">{{ paid_holiday_count }}</div></div>
+            <div class="kpi"><div class="label">Comp Off</div><div class="value">{{ comp_off_count }}</div></div>
+        </div>
+        <p class="working-days">Working days = calendar days minus Sundays — Paid Holiday/Comp Off don't reduce this, they add to each employee's Paid Days instead (see the per-employee column below).</p>
 
         <div class="card">
             <div class="tab-row">

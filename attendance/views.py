@@ -1144,6 +1144,14 @@ def salary_view(request):
     month_start, month_end = current.replace(day=1), current.replace(day=days_in_month)
 
     working_days = payroll.working_days_in_month(year, month)
+    special_day_counts = {
+        r["day_type"]: r["n"]
+        for r in SpecialDay.objects.filter(date__year=year, date__month=month)
+        .values("day_type").annotate(n=Count("id"))
+    }
+    holiday_count = special_day_counts.get(SpecialDay.HOLIDAY, 0)
+    paid_holiday_count = special_day_counts.get(SpecialDay.PAID_HOLIDAY, 0)
+    comp_off_count = special_day_counts.get(SpecialDay.COMP_OFF, 0)
 
     adjustments = {a.employee_id: a for a in SalaryAdjustment.objects.filter(year=year, month=month)}
     paid_days_map = {
@@ -1195,6 +1203,9 @@ def salary_view(request):
         "prev_date": prev_date.isoformat(),
         "next_date": next_date.isoformat(),
         "working_days": working_days,
+        "holiday_count": holiday_count,
+        "paid_holiday_count": paid_holiday_count,
+        "comp_off_count": comp_off_count,
     }
     for tab_key, _label, subcategory in _SALARY_SUBCATEGORY_TABS:
         employees = (
