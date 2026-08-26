@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 import openpyxl
 
@@ -314,5 +315,162 @@ def import_departments(path, dry_run: bool = False) -> DeptImportReport:
                 emp.department = dept
                 emp.save(update_fields=["department"])
             report.updated.append(f"{emp.code} {emp.name} -> {dept.name} (from {sheet_name})")
+
+    return report
+
+
+# --- Salary import (basic_salary/hra/da/pf_number/esi_number/tds_enabled)
+# for the Salary page — Company Workers/Helpers/Staff, one sheet each.
+# Column aliases per sheet (normalized header text -> Employee field);
+# "name" is required in every sheet, the rest are whatever that sheet
+# actually has (Helpers/Staff have no hra/da/pf/esi columns at all).
+_SALARY_SHEETS = [
+    ("Company Workers", "Company", {
+        "name": "name", "pf no": "pf_number", "esi no": "esi_number",
+        "basic": "basic_salary", "da": "da", "hra": "hra",
+        "professiona tax": "tax",  # sic — that's the actual (misspelled) header text
+    }),
+    ("Helpers", "Helper", {"name": "name", "fixed salary": "basic_salary"}),
+    ("Staff", "Staff", {"name": "name", "fixed salary": "basic_salary", "tax": "tax"}),
+]
+
+
+@dataclass
+class SalaryImportReport:
+    updated: list[str] = field(default_factory=list)
+    skipped_wrong_subcategory: list[str] = field(default_factory=list)
+    skipped_already_set: list[str] = field(default_factory=list)
+    unmatched: list[str] = field(default_factory=list)
+
+
+def _to_decimal(value) -> Decimal:
+    if value is None or value == "":
+        return Decimal(0)
+    return Decimal(str(value))
+
+
+def _find_salary_header_row(rows: list[tuple], aliases: dict[str, str]) -> tuple[int, dict[str, int]] | None:
+    """First row containing a 'name' column per the given alias map —
+    separate from _find_dept_header_row because these three sheets header
+    their name column just "NAME", not "EMP NAME" like that function
+    requires."""
+    for row_idx, row in enumerate(rows):
+        col_map = {}
+        for col_idx, cell in enumerate(row):
+            field_name = aliases.get(_normalize_header(cell))
+            if field_name and field_name not in col_map:
+                col_map[field_name] = col_idx
+        if "name" in col_map:
+            return row_idx, col_map
+    return None
+
+
+def import_salary_data(path, dry_run: bool = False) -> SalaryImportReport:
+    """Touches exactly these Employee fields, nothing else — no
+    department/category/subcategory/bank-detail changes, regardless of
+    what else the sheet contains:
+    - basic_salary, hra, da (Company Workers only for hra/da)
+    - pf_number, esi_number (Company Workers only)
+    - pf_enabled/esi_enabled (Company Workers only — true iff that row
+      has a PF NO / ESI NO at all) and tds_enabled (Staff and Company
+      Workers — true iff TAX/Professional tax is nonzero), always synced
+      to the sheet's current value each run, since these can legitimately
+      flip either direction month to month (unlike the salary figures).
+
+    Matching is by name only — same limitation as import_bank_details,
+    these sheets have no code column reliable enough to key on — which
+    risks two failure modes this function explicitly guards against
+    (found the hard way running this by hand before this became a real
+    function):
+    1. A name matching an unrelated employee who happens to share it, or
+       matching the *right* person's data to the *wrong* row because
+       their Employee.subcategory doesn't actually match this sheet
+       (e.g. tagged "Company" in the DB but only listed in "Helpers"
+       this month) — guarded by requiring the matched Employee's
+       existing subcategory to already equal the sheet's expected value;
+       anything else is skipped and reported, never applied.
+    2. Overwriting a value someone already entered — guarded by only
+       filling currently-all-zero basic_salary/hra/da, same never-
+       overwrite rule as import_departments/import_bank_details.
+
+    Every skip is reported, not silent: reconcile skipped_wrong_subcategory
+    by hand (either the sheet or the Employee's subcategory is out of
+    date) and unmatched by checking for a spelling difference."""
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=False)
+    report = SalaryImportReport()
+
+    for sheet_name, expected_subcategory, aliases in _SALARY_SHEETS:
+        if sheet_name not in wb.sheetnames:
+            continue
+        ws = wb[sheet_name]
+        rows = list(ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True))
+        header = _find_salary_header_row(rows, aliases)
+        if header is None:
+            continue
+        header_idx, col_map = header
+        name_col = col_map["name"]
+
+        for row in rows[header_idx + 1:]:
+            name_val = row[name_col] if name_col < len(row) else None
+            if not isinstance(name_val, str) or not name_val.strip():
+                continue
+            name = name_val.strip()
+
+            emp = Employee.objects.filter(name__iexact=name).first()
+            if emp is None:
+                report.unmatched.append(f"{sheet_name}: {name}")
+                continue
+            if emp.subcategory.strip().lower() != expected_subcategory.lower():
+                report.skipped_wrong_subcategory.append(
+                    f"{sheet_name}: {emp.code} {emp.name} has subcategory "
+                    f"{emp.subcategory!r}, expected {expected_subcategory!r}"
+                )
+                continue
+
+            def cell(field_name, _row=row, _col_map=col_map):
+                col = _col_map.get(field_name)
+                return _row[col] if col is not None and col < len(_row) else None
+
+            changed = []
+            if emp.basic_salary or emp.hra or emp.da:
+                report.skipped_already_set.append(f"{sheet_name}: {emp.code} {emp.name} already has salary data")
+            else:
+                for field_name in ("basic_salary", "hra", "da"):
+                    if field_name in col_map:
+                        setattr(emp, field_name, _to_decimal(cell(field_name)))
+                        changed.append(field_name)
+                if "pf_number" in col_map and not emp.pf_number:
+                    emp.pf_number = _clean(cell("pf_number"))
+                    changed.append("pf_number")
+                if "esi_number" in col_map and not emp.esi_number:
+                    emp.esi_number = _clean(cell("esi_number"))
+                    changed.append("esi_number")
+
+            # pf_enabled/esi_enabled/tds_enabled always sync to what the
+            # sheet says this run, independent of the basic_salary/hra/da
+            # already-set guard above — unlike those, an enabled flag can
+            # legitimately flip in either direction month to month (PF/ESI
+            # enrollment starts or ends, TDS applicability crosses a
+            # threshold), so this isn't a "fill once" field.
+            if "pf_number" in col_map:
+                new_pf_enabled = bool(_clean(cell("pf_number")))
+                if emp.pf_enabled != new_pf_enabled:
+                    emp.pf_enabled = new_pf_enabled
+                    changed.append("pf_enabled")
+            if "esi_number" in col_map:
+                new_esi_enabled = bool(_clean(cell("esi_number")))
+                if emp.esi_enabled != new_esi_enabled:
+                    emp.esi_enabled = new_esi_enabled
+                    changed.append("esi_enabled")
+            if "tax" in col_map:
+                new_tds_enabled = float(cell("tax") or 0) > 0
+                if emp.tds_enabled != new_tds_enabled:
+                    emp.tds_enabled = new_tds_enabled
+                    changed.append("tds_enabled")
+
+            if changed:
+                if not dry_run:
+                    emp.save(update_fields=changed)
+                report.updated.append(f"{emp.code} {emp.name}: {', '.join(changed)}")
 
     return report

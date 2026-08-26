@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — Salary</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 2rem;
+            background: var(--yellow);
+            border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .topbar nav a {
+            color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav a:hover, .topbar nav a.current { background: var(--navy); color: var(--yellow); }
+        .topbar nav button {
+            color: var(--navy); background: none; border: none; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; font-family: inherit;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav details.nav-dropdown { position: relative; }
+        .topbar nav details.nav-dropdown summary {
+            list-style: none; cursor: pointer; color: var(--navy); font-size: 0.85rem; font-weight: 600;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+        .topbar nav details.nav-dropdown summary:hover,
+        .topbar nav details.nav-dropdown[open] summary { background: var(--navy); color: var(--yellow); }
+        .topbar nav .nav-dropdown-menu {
+            position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+            padding: 0.35rem; min-width: 170px; z-index: 50;
+        }
+        .topbar nav .nav-dropdown-menu a { display: block; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: var(--navy); text-decoration: none; }
+        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
+
+        h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
+        .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 760px; }
+
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
+        .msg.success { background: #e6f4ea; color: #1e7e34; }
+        .msg.error { background: #fdecea; color: #b3261e; }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.35rem 1.5rem; margin-bottom: 1.5rem; }
+
+        .month-nav { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.5rem; }
+        .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; color: var(--navy); }
+        .month-nav a {
+            color: var(--navy); text-decoration: none; font-size: 1rem; width: 2rem; height: 2rem;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
+        }
+        .month-nav a:hover { background: var(--navy); color: var(--yellow); }
+        .working-days { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem; }
+
+        .tab-row { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+        .tab-btn {
+            padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+            color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); cursor: pointer; font-family: inherit;
+        }
+        .tab-btn.active { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem; }
+        table.simple { border-collapse: collapse; width: 100%; }
+        table.simple th, table.simple td { padding: 0.5rem 0.7rem; font-size: 0.82rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple tbody tr:last-child td { border-bottom: none; }
+        table.simple tbody tr:hover td { background: #fafbff; }
+        table.simple td.num, table.simple th.num { text-align: right; }
+        table.simple td.net, table.simple th.net { text-align: right; font-weight: 700; color: var(--navy); }
+
+        .adj-input {
+            width: 5.5rem; padding: 0.3rem 0.4rem; border: 1px solid var(--border); border-radius: 6px;
+            font-size: 0.82rem; text-align: right; font-family: inherit;
+        }
+        .adj-input:focus { outline: none; border-color: var(--navy); }
+        input.adj-input[type="text"] { width: 8rem; text-align: left; }
+
+        .save-bar { display: flex; justify-content: flex-end; }
+        .save-bar button {
+            background: var(--navy); color: var(--yellow); font-weight: 700; border: none;
+            padding: 0.6rem 1.4rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+        }
+        .save-bar button:hover { background: var(--navy-deep); }
+
+        .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a href="{% url 'home' %}" class="brand">Payday</a>
+        <nav>
+            <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
+            <a href="{% url 'upload' %}">Upload</a>
+            <a href="{% url 'dashboard' %}">Attendance</a>
+            <a href="{% url 'calendar' %}">Holiday Calendar</a>
+            <a href="{% url 'salary' %}" class="current">Salary</a>
+            <details class="nav-dropdown">
+                <summary>Reports</summary>
+                <div class="nav-dropdown-menu">
+                    <a href="{% url 'ot_details' %}">OT Details</a>
+                </div>
+            </details>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit">Logout ({{ user.username }})</button>
+            </form>
+        </nav>
+    </header>
+
+    <div class="page">
+        <h1>Salary</h1>
+        <p class="caption">Monthly payroll adjustments by group. Adjust Days/Deductions/Additions feed the computed Gross/PF/ESI/NET below — Operators' pay is piece-rate, entered by hand each month rather than computed from attendance.</p>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <div class="month-nav">
+            <a href="?date={{ prev_date }}">&larr;</a>
+            <h2>{{ month_name }} {{ year }}</h2>
+            <a href="?date={{ next_date }}">&rarr;</a>
+        </div>
+        <p class="working-days">Working days this month: {{ working_days }} (calendar days minus Sundays — Paid Holiday/Comp Off don't reduce this, they add to Paid Days instead)</p>
+
+        <div class="card">
+            <div class="tab-row">
+                <button type="button" class="tab-btn active" data-tab="company">Company Workers</button>
+                <button type="button" class="tab-btn" data-tab="helpers">Helpers</button>
+                <button type="button" class="tab-btn" data-tab="staff">Staff</button>
+                <button type="button" class="tab-btn" data-tab="operators">Operators</button>
+            </div>
+
+            <div class="tab-panel" data-panel="company">
+                {% if company_rows %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                    <input type="hidden" name="tab" value="company">
+                    <div class="table-wrap">
+                        <table class="simple">
+                            <thead>
+                                <tr>
+                                    <th>Code</th><th>Employee</th>
+                                    <th class="num">Basic</th><th class="num">DA</th><th class="num">HRA</th>
+                                    <th class="num">Paid Days</th><th class="num">Adjust Days</th>
+                                    <th class="num">Deductions</th><th class="num">Additions</th>
+                                    <th class="num">Gross</th><th class="num">Earned Total</th>
+                                    <th class="num">PF</th><th class="num">ESI</th>
+                                    <th>PF?</th><th>ESI?</th><th>TDS?</th>
+                                    <th class="net">NET</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in company_rows %}
+                                <tr>
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <td>{{ row.employee.code }}</td>
+                                    <td>{{ row.employee.name }}</td>
+                                    <td class="num">{{ row.employee.basic_salary }}</td>
+                                    <td class="num">{{ row.employee.da }}</td>
+                                    <td class="num">{{ row.employee.hra }}</td>
+                                    <td class="num">{{ row.paid_days }}</td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
+                                    <td class="num">{{ row.calc.gross }}</td>
+                                    <td class="num">{{ row.calc.earned_total }}</td>
+                                    <td class="num">{{ row.calc.pf }}</td>
+                                    <td class="num">{{ row.calc.esi }}</td>
+                                    <td><input type="checkbox" disabled {% if row.employee.pf_enabled %}checked{% endif %}></td>
+                                    <td><input type="checkbox" disabled {% if row.employee.esi_enabled %}checked{% endif %}></td>
+                                    <td><input type="checkbox" disabled {% if row.employee.tds_enabled %}checked{% endif %}></td>
+                                    <td class="net">{{ row.calc.net }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="caption" style="margin:0 0 0.75rem;">PF/ESI/TDS applicability is set per employee in the Employee admin, not here — it's reflected above but not editable on this page.</p>
+                    <div class="save-bar"><button type="submit">Save Company Workers</button></div>
+                </form>
+                {% else %}
+                    <p class="empty-state">No employees with subcategory "Company" active this month.</p>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-panel="helpers" style="display:none;">
+                {% if helper_rows %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                    <input type="hidden" name="tab" value="helpers">
+                    <div class="table-wrap">
+                        <table class="simple">
+                            <thead>
+                                <tr>
+                                    <th>Code</th><th>Employee</th><th class="num">Basic Salary</th>
+                                    <th class="num">Paid Days</th><th class="num">Adjust Days</th>
+                                    <th class="num">Deductions</th><th class="num">Additions</th>
+                                    <th class="num">Earned Salary</th><th class="net">NET</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in helper_rows %}
+                                <tr>
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <td>{{ row.employee.code }}</td>
+                                    <td>{{ row.employee.name }}</td>
+                                    <td class="num">{{ row.employee.basic_salary }}</td>
+                                    <td class="num">{{ row.paid_days }}</td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
+                                    <td class="num">{{ row.calc.earned_salary }}</td>
+                                    <td class="net">{{ row.calc.net }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="save-bar"><button type="submit">Save Helpers</button></div>
+                </form>
+                {% else %}
+                    <p class="empty-state">No employees with subcategory "Helper" active this month.</p>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-panel="staff" style="display:none;">
+                {% if staff_rows %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                    <input type="hidden" name="tab" value="staff">
+                    <div class="table-wrap">
+                        <table class="simple">
+                            <thead>
+                                <tr>
+                                    <th>Code</th><th>Employee</th><th class="num">Basic Salary</th>
+                                    <th class="num">Paid Days</th><th class="num">Adjust Days</th>
+                                    <th class="num">Deductions</th><th class="num">Additions</th>
+                                    <th class="num">Earned Salary</th><th>TDS?</th><th class="net">NET</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in staff_rows %}
+                                <tr>
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <td>{{ row.employee.code }}</td>
+                                    <td>{{ row.employee.name }}</td>
+                                    <td class="num">{{ row.employee.basic_salary }}</td>
+                                    <td class="num">{{ row.paid_days }}</td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
+                                    <td class="num">{{ row.calc.earned_salary }}</td>
+                                    <td><input type="checkbox" disabled {% if row.employee.tds_enabled %}checked{% endif %}></td>
+                                    <td class="net">{{ row.calc.net }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="save-bar"><button type="submit">Save Staff</button></div>
+                </form>
+                {% else %}
+                    <p class="empty-state">No employees with subcategory "Staff" active this month.</p>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-panel="operators" style="display:none;">
+                {% if operator_rows %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                    <input type="hidden" name="tab" value="operators">
+                    <div class="table-wrap">
+                        <table class="simple">
+                            <thead>
+                                <tr>
+                                    <th>Code</th><th>Employee</th>
+                                    <th class="num">Manual Amount</th>
+                                    <th class="num">Deductions</th><th class="num">Additions</th>
+                                    <th>Hold</th><th>Notes</th><th class="net">NET</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in operator_rows %}
+                                <tr>
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <td>{{ row.employee.code }}</td>
+                                    <td>{{ row.employee.name }}</td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
+                                    <td><input type="checkbox" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
+                                    <td><input class="adj-input" type="text" name="notes_{{ row.employee.id }}" value="{{ row.notes }}"></td>
+                                    <td class="net">{{ row.calc.net }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="save-bar"><button type="submit">Save Operators</button></div>
+                </form>
+                {% else %}
+                    <p class="empty-state">No employees with category "Operator" active this month.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+                document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
+                btn.classList.add('active');
+                document.querySelector('.tab-panel[data-panel="' + btn.dataset.tab + '"]').style.display = '';
+            });
+        });
+    </script>
+</body>
+</html>

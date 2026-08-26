@@ -305,6 +305,7 @@
             <a href="{% url 'upload' %}">Upload</a>
             <a href="{% url 'dashboard' %}">Attendance</a>
             <a href="{% url 'calendar' %}">Holiday Calendar</a>
+            <a href="{% url 'salary' %}">Salary</a>
             <details class="nav-dropdown">
                 <summary>Reports</summary>
                 <div class="nav-dropdown-menu">
@@ -371,6 +372,8 @@
                                         <th class="num">OT Hours</th>
                                         <th class="num">OT Rate/hr</th>
                                         <th class="num">OT Amount</th>
+                                        <th class="num">Dept OT Hours</th>
+                                        <th class="num">Dept OT Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -378,8 +381,10 @@
                                     {% if row.is_dept %}
                                     <tr class="dept-row">
                                         <td colspan="3">{{ row.department }} <span class="dept-headcount">({{ row.headcount }})</span></td>
+                                        <td class="num"></td>
+                                        <td class="num"></td>
+                                        <td class="num"></td>
                                         <td class="num">{{ row.ot_hours }}</td>
-                                        <td></td>
                                         <td class="num">{{ row.ot_amount }}</td>
                                     </tr>
                                     {% else %}
@@ -390,6 +395,8 @@
                                         <td class="num">{{ row.ot_hours }}</td>
                                         <td class="num">{{ row.ot_rate }}</td>
                                         <td class="num">{{ row.ot_amount }}</td>
+                                        <td class="num"></td>
+                                        <td class="num"></td>
                                     </tr>
                                     {% endif %}
                                     {% endfor %}
@@ -400,6 +407,8 @@
                                         <td class="num">{{ summary_total_hours }}</td>
                                         <td></td>
                                         <td class="num">{{ summary_total_amount }}</td>
+                                        <td></td>
+                                        <td></td>
                                     </tr>
                                 </tfoot>
                             </table>

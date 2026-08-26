@@ -1,3 +1,6 @@
+from datetime import date
+
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -9,6 +12,31 @@ class Department(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class EmployeeQuerySet(models.QuerySet):
+    def active_on(self, on_date):
+        """Employees active on a single date: those with an EmploymentPeriod
+        covering it, or (for employees with no periods recorded at all —
+        the pre-history-tracking default) everyone, so nobody vanishes from
+        Mark Attendance just because their periods were never set up."""
+        no_periods = models.Q(employment_periods__isnull=True)
+        covering = models.Q(employment_periods__start_date__lte=on_date) & (
+            models.Q(employment_periods__end_date__isnull=True)
+            | models.Q(employment_periods__end_date__gte=on_date)
+        )
+        return self.filter(no_periods | covering).distinct()
+
+    def active_during(self, start_date, end_date):
+        """Employees active at any point within [start_date, end_date] —
+        used for the month grid, where someone active for only part of the
+        month should still appear so their partial attendance is visible."""
+        no_periods = models.Q(employment_periods__isnull=True)
+        overlapping = models.Q(employment_periods__start_date__lte=end_date) & (
+            models.Q(employment_periods__end_date__isnull=True)
+            | models.Q(employment_periods__end_date__gte=start_date)
+        )
+        return self.filter(no_periods | overlapping).distinct()
 
 
 class Employee(models.Model):
@@ -30,6 +58,30 @@ class Employee(models.Model):
         help_text="Overtime pay rate for this employee, per hour.",
     )
 
+    # Salary — basic_salary applies to everyone (Helpers/Staff/Operators use
+    # it as their whole fixed salary; Company Workers combine it with da/hra
+    # below). hra/da/pf_number/esi_number only apply to Company Workers, but
+    # live here rather than a separate table for the same reason
+    # ot_rate_per_hour does — one flat field per employee, no history.
+    basic_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    hra = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    da = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    pf_number = models.CharField(max_length=40, blank=True)
+    esi_number = models.CharField(max_length=40, blank=True)
+
+    # Per-employee overrides for the Salary page's Company Workers
+    # calculation (src/payroll.py) — most Company Workers are PF/ESI
+    # eligible by default, so those default True; TDS is the exception
+    # rather than the rule, so it defaults False. PF/ESI here only gate
+    # whether the deduction is computed at all — ESI still separately
+    # respects the statutory wage ceiling even when enabled. There's no
+    # automatic TDS amount (no slab/rate logic built) — enabling it is a
+    # record-keeping flag for HR; the actual figure is still entered via
+    # SalaryAdjustment.deductions, same as today.
+    pf_enabled = models.BooleanField(default=True)
+    esi_enabled = models.BooleanField(default=True)
+    tds_enabled = models.BooleanField(default=False)
+
     # Bank details for salary transfer — sourced from the monthly salary
     # workbook's department sheets (Op/I&B/Staff/Helpers/Company Workers),
     # not from the eSSL attendance export.
@@ -39,11 +91,53 @@ class Employee(models.Model):
     ifsc_code = models.CharField(max_length=20, blank=True)
     branch = models.CharField(max_length=100, blank=True)
 
+    objects = EmployeeQuerySet.as_manager()
+
     class Meta:
         ordering = ["code"]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+    def is_active_on(self, on_date) -> bool:
+        """Single-employee version of the active_on() queryset filter —
+        for the odd spot that already has an Employee instance in hand and
+        just needs a yes/no, rather than filtering a whole list."""
+        periods = self.employment_periods.all()
+        if not periods:
+            return True
+        return periods.filter(start_date__lte=on_date).filter(
+            models.Q(end_date__isnull=True) | models.Q(end_date__gte=on_date)
+        ).exists()
+
+
+class EmploymentPeriod(models.Model):
+    """One continuous stretch of employment for an employee — start_date to
+    end_date (end_date blank = still active). Someone who takes a month off
+    and rejoins gets a second period rather than reusing or deleting the
+    first, so their earlier tenure's attendance/OT history stays intact and
+    the exact leave/rejoin dates are preserved. Managed from the Employee
+    admin page (inline)."""
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="employment_periods")
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True, help_text="Leave blank if still active.")
+
+    class Meta:
+        ordering = ["employee__name", "start_date"]
+
+    def __str__(self):
+        return f"{self.employee.name}: {self.start_date} – {self.end_date or 'present'}"
+
+    def clean(self):
+        if self.end_date and self.end_date < self.start_date:
+            raise ValidationError("End date can't be before the start date.")
+        overlapping = EmploymentPeriod.objects.filter(employee_id=self.employee_id).exclude(pk=self.pk)
+        for other in overlapping:
+            other_end = other.end_date or date.max
+            this_end = self.end_date or date.max
+            if self.start_date <= other_end and other.start_date <= this_end:
+                raise ValidationError(f"Overlaps an existing period: {other}.")
 
 
 class UploadBatch(models.Model):
@@ -94,6 +188,38 @@ class AttendanceRecord(models.Model):
 
     def __str__(self):
         return f"{self.employee.code} {self.date} {self.status}"
+
+
+class SalaryAdjustment(models.Model):
+    """One employee's monthly payroll adjustments — HR's input to the
+    Salary page (see src/payroll.py for how these combine with attendance
+    and Employee.basic_salary/hra/da into a final NET). adjust_days lets HR
+    add/subtract paid days on top of what attendance shows (e.g. an
+    approved Comp Off used); deductions/additions are flat amounts.
+    manual_amount is only meaningful for Operators, whose pay is
+    piece-rate/production-based and isn't derivable from attendance at
+    all — it's entered by hand each month, same as in the source
+    workbook."""
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="salary_adjustments")
+    year = models.IntegerField()
+    month = models.IntegerField()
+
+    adjust_days = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    additions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    manual_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    hold = models.BooleanField(default=False, help_text="Withhold this month's pay (still computed, not paid).")
+    notes = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["employee", "year", "month"], name="unique_employee_salary_month"),
+        ]
+        ordering = ["employee__code"]
+
+    def __str__(self):
+        return f"{self.employee.code} {self.year}-{self.month:02d}"
 
 
 class MonthLock(models.Model):

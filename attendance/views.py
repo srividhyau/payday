@@ -7,19 +7,23 @@ import urllib.request
 import uuid
 from datetime import date as date_cls
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
 import pandas as pd
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
-from src import metrics
+from src import metrics, payroll
 
 from .forms import UploadForm
 from .importer import import_file
-from .models import AttendanceRecord, Department, Employee, MonthLock, SpecialDay, UploadBatch
+from .models import (
+    AttendanceRecord, Department, Employee, MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -738,7 +742,12 @@ def _build_simple_month_grid(dept, year: int, month: int) -> dict:
         for d in range(1, days_in_month + 1)
     ]
 
-    employees = Employee.objects.filter(department=dept).order_by("name") if dept else Employee.objects.none()
+    employees = (
+        Employee.objects.filter(department=dept)
+        .active_during(date_cls(year, month, 1), date_cls(year, month, days_in_month))
+        .order_by("name")
+        if dept else Employee.objects.none()
+    )
     status_map = {
         (r["employee_id"], r["date"].day): r["status"]
         for r in AttendanceRecord.objects.filter(
@@ -808,7 +817,7 @@ def mark_attendance_view(request):
             _error(request, "This month is locked — unlock it on the dashboard first.")
             return redirect(redirect_url)
 
-        employees = Employee.objects.filter(department=dept)
+        employees = Employee.objects.filter(department=dept).active_on(target_date)
         valid_status = dict(AttendanceRecord.STATUS_CHOICES)
         saved = 0
         present_count = 0
@@ -851,7 +860,10 @@ def mark_attendance_view(request):
             )
         return redirect(redirect_url)
 
-    employees = Employee.objects.filter(department=dept).order_by("name") if dept else Employee.objects.none()
+    employees = (
+        Employee.objects.filter(department=dept).active_on(target_date).order_by("name")
+        if dept else Employee.objects.none()
+    )
     existing = {
         r.employee_id: r
         for r in AttendanceRecord.objects.filter(date=target_date, employee__in=employees)
@@ -921,7 +933,7 @@ def send_day_attendance_report_view(request):
     except ValueError:
         return JsonResponse({"ok": False, "error": "Invalid date."}, status=400)
 
-    employees = Employee.objects.filter(department=dept).order_by("name")
+    employees = Employee.objects.filter(department=dept).active_on(target_date).order_by("name")
     if not employees:
         return JsonResponse({"ok": False, "error": "No employees in this department."}, status=400)
 
@@ -1056,6 +1068,145 @@ def set_attendance_status_view(request):
         emp.code, target_date, status, request.user,
     )
     return redirect(next_url)
+
+
+# (tab key, page label, Employee.subcategory value) — Operators aren't
+# looped in here since their context key doesn't follow the "{tab_key}_
+# rows" pattern (see salary_view), and they're filtered by
+# category="Operator" instead of subcategory, unlike the other three.
+_SALARY_SUBCATEGORY_TABS = [
+    ("company", "Company Workers", "Company"),
+    ("helper", "Helpers", "Helper"),
+    ("staff", "Staff", "Staff"),
+]
+
+
+def _salary_decimal(request, field: str, emp_id) -> Decimal:
+    raw = request.POST.get(f"{field}_{emp_id}", "").strip()
+    if not raw:
+        return Decimal(0)
+    try:
+        return Decimal(raw)
+    except InvalidOperation:
+        return Decimal(0)
+
+
+@login_required
+def salary_view(request):
+    """One page, one month at a time, four tabs (Company Workers/Helpers/
+    Staff/Operators) — each a bulk-editable table of that month's payroll
+    adjustments (Adjust Days/Deductions/Additions, plus Manual Amount for
+    Operators), with Gross/PF/ESI/NET computed via src/payroll.py from
+    Employee.basic_salary/hra/da and this month's attendance. Save is one
+    upsert-by-(employee, year, month) per row, same bulk shape as
+    mark_attendance_view's day-view save — one tab's table = one POST."""
+    date_param = request.GET.get("date") or request.POST.get("date")
+    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    year, month = current.year, current.month
+    prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
+    next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+    if request.method == "POST":
+        tab = request.POST.get("tab", "")
+        employee_ids = request.POST.getlist("employee_id")
+        saved = 0
+        for emp_id in employee_ids:
+            emp = Employee.objects.filter(id=emp_id).first()
+            if not emp:
+                continue
+            manual_amount_raw = request.POST.get(f"manual_amount_{emp_id}", "").strip()
+            manual_amount = None
+            if manual_amount_raw:
+                try:
+                    manual_amount = Decimal(manual_amount_raw)
+                except InvalidOperation:
+                    manual_amount = None
+            SalaryAdjustment.objects.update_or_create(
+                employee=emp, year=year, month=month,
+                defaults={
+                    "adjust_days": _salary_decimal(request, "adjust_days", emp_id),
+                    "deductions": _salary_decimal(request, "deductions", emp_id),
+                    "additions": _salary_decimal(request, "additions", emp_id),
+                    "manual_amount": manual_amount,
+                    "hold": request.POST.get(f"hold_{emp_id}") == "on",
+                    "notes": request.POST.get(f"notes_{emp_id}", "").strip(),
+                },
+            )
+            saved += 1
+        messages.success(request, f"Saved salary adjustments for {saved} employee(s) ({tab}).")
+        logger.info(
+            "Salary adjustments saved: tab=%s %s-%s saved=%s by user=%s",
+            tab, year, month, saved, request.user,
+        )
+        return redirect(f"{request.path}?date={current.isoformat()}")
+
+    _, days_in_month = py_calendar.monthrange(year, month)
+    month_start, month_end = current.replace(day=1), current.replace(day=days_in_month)
+
+    working_days = payroll.working_days_in_month(year, month)
+
+    adjustments = {a.employee_id: a for a in SalaryAdjustment.objects.filter(year=year, month=month)}
+    paid_days_map = {
+        r["employee_id"]: r["n"]
+        for r in AttendanceRecord.objects.filter(
+            date__year=year, date__month=month, status__in=["P", "PH", "CO"],
+        ).values("employee_id").annotate(n=Count("id"))
+    }
+
+    def build_rows(employees, kind):
+        rows = []
+        for emp in employees:
+            adj = adjustments.get(emp.id)
+            paid_days = Decimal(paid_days_map.get(emp.id, 0))
+            adjust_days = adj.adjust_days if adj else Decimal(0)
+            deductions = adj.deductions if adj else Decimal(0)
+            additions = adj.additions if adj else Decimal(0)
+            manual_amount = adj.manual_amount if adj else None
+            if kind == "company":
+                calc = payroll.compute_company_worker_pay(
+                    emp.basic_salary, emp.hra, emp.da, paid_days, working_days,
+                    adjust_days, deductions, additions,
+                    pf_enabled=emp.pf_enabled, esi_enabled=emp.esi_enabled,
+                )
+            elif kind == "operators":
+                calc = payroll.compute_operator_pay(manual_amount, deductions, additions)
+            else:
+                calc = payroll.compute_prorated_pay(
+                    emp.basic_salary, paid_days, working_days, adjust_days, deductions, additions,
+                )
+            rows.append({
+                "employee": emp,
+                "paid_days": paid_days,
+                "adjust_days": adjust_days,
+                "deductions": deductions,
+                "additions": additions,
+                "manual_amount": manual_amount,
+                "hold": adj.hold if adj else False,
+                "notes": adj.notes if adj else "",
+                "calc": calc,
+            })
+        return rows
+
+    context = {
+        "current": current,
+        "year": year,
+        "month": month,
+        "month_name": py_calendar.month_name[month],
+        "prev_date": prev_date.isoformat(),
+        "next_date": next_date.isoformat(),
+        "working_days": working_days,
+    }
+    for tab_key, _label, subcategory in _SALARY_SUBCATEGORY_TABS:
+        employees = (
+            Employee.objects.filter(subcategory__iexact=subcategory)
+            .active_during(month_start, month_end).order_by("name")
+        )
+        context[f"{tab_key}_rows"] = build_rows(employees, tab_key)
+    context["operator_rows"] = build_rows(
+        Employee.objects.filter(category__iexact="Operator").active_during(month_start, month_end).order_by("name"),
+        "operators",
+    )
+    return render(request, "attendance/salary.html", context)
 
 
 def _ot_details_context(date_param: str | None) -> dict:
@@ -1199,7 +1350,10 @@ def ot_details_download_view(request):
     ws.append([f"OT Monthly Summary — {month_label}"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([])
-    headers = ["Code", "Employee", "Department", "OT Hours", "OT Rate/hr", "OT Amount"]
+    headers = [
+        "Code", "Employee", "Department", "OT Hours", "OT Rate/hr", "OT Amount",
+        "Dept OT Hours", "Dept OT Amount",
+    ]
     ws.append(headers)
     header_row_num = ws.max_row
     for cell in ws[header_row_num]:
@@ -1207,22 +1361,26 @@ def ot_details_download_view(request):
 
     for row in context["summary_rows"]:
         if row["is_dept"]:
-            ws.append([row["department"], "", "", row["ot_hours"], "", row["ot_amount"]])
+            ws.append([
+                row["department"], "", "", "", "", "", row["ot_hours"], row["ot_amount"],
+            ])
             for cell in ws[ws.max_row]:
                 cell.font = Font(bold=True)
         else:
             ws.append([
                 row["emp_code"], row["emp_name"], row["department"],
-                row["ot_hours"], row["ot_rate"], row["ot_amount"],
+                row["ot_hours"], row["ot_rate"], row["ot_amount"], "", "",
             ])
 
-    ws.append(["", "", "Total", context["summary_total_hours"], "", context["summary_total_amount"]])
+    ws.append([
+        "", "", "Total", context["summary_total_hours"], "", context["summary_total_amount"], "", "",
+    ])
     for cell in ws[ws.max_row]:
         cell.font = Font(bold=True)
 
     _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
 
-    widths = [10, 26, 22, 12, 12, 14]
+    widths = [10, 26, 22, 12, 12, 14, 14, 16]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 

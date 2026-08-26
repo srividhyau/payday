@@ -28,4 +28,5 @@ urlpatterns = [
         name="send_day_attendance_report",
     ),
     path("log-client-error/", views.log_client_error_view, name="log_client_error"),
+    path("salary/", views.salary_view, name="salary"),
 ]
