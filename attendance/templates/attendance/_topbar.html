@@ -1,0 +1,25 @@
+<header class="topbar">
+    <a href="{% url 'home' %}" class="brand">Payday</a>
+    <nav>
+        <details class="nav-dropdown">
+            <summary{% if current == "mark_attendance" or current == "dashboard" or current == "upload" %} class="current"{% endif %}>Attendance</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'mark_attendance' %}"{% if current == "mark_attendance" %} class="current"{% endif %}>Mark Attendance</a>
+                <a href="{% url 'dashboard' %}"{% if current == "dashboard" %} class="current"{% endif %}>Device Records</a>
+                <a href="{% url 'upload' %}"{% if current == "upload" %} class="current"{% endif %}>Upload</a>
+            </div>
+        </details>
+        <a href="{% url 'calendar' %}"{% if current == "calendar" %} class="current"{% endif %}>Holiday Calendar</a>
+        <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
+        <details class="nav-dropdown">
+            <summary>Reports</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
+            </div>
+        </details>
+        <form method="post" action="{% url 'logout' %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit">Logout ({{ user.username }})</button>
+        </form>
+    </nav>
+</header>

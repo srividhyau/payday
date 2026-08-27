@@ -60,7 +60,8 @@
         }
         .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
         .topbar nav details.nav-dropdown summary:hover,
-        .topbar nav details.nav-dropdown[open] summary { background: var(--navy); color: var(--yellow); }
+        .topbar nav details.nav-dropdown[open] summary,
+        .topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
         .topbar nav .nav-dropdown-menu {
             position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface);
             border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
@@ -68,6 +69,7 @@
         }
         .topbar nav .nav-dropdown-menu a { display: block; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: var(--navy); text-decoration: none; }
         .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
+        .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
 
         h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 760px; }
@@ -103,11 +105,72 @@
         .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem; }
         table.simple { border-collapse: collapse; width: 100%; }
         table.simple th, table.simple td { padding: 0.5rem 0.7rem; font-size: 0.82rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple th {
+            background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.72rem;
+            text-transform: uppercase; letter-spacing: 0.03em;
+            white-space: normal; max-width: 6.5rem; line-height: 1.25; vertical-align: bottom;
+        }
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
         table.simple td.num, table.simple th.num { text-align: right; }
+        table.simple tfoot td {
+            font-weight: 700; color: var(--navy-deep); background: #fafbfc;
+            border-top: 2px solid var(--border); border-bottom: none;
+        }
+        table.simple tfoot tr:hover td { background: #fafbfc; }
+        .emp-sub-ids { font-size: 0.68rem; color: var(--text-muted); font-weight: 400; margin-top: 0.15rem; white-space: nowrap; }
         table.simple td.net, table.simple th.net { text-align: right; font-weight: 700; color: var(--navy); }
+        /* Sub-header row (PF/ESI/PF+ESI under the "Emp"/"Employer" group
+           label) — smaller and lighter than the main header row above it. */
+        table.simple th.sub-th { font-size: 0.62rem; font-weight: 500; padding-top: 0.3rem; }
+        /* Per-group collapse — each group keeps one or more always-visible
+           "anchor" columns (its sum/total, already a sum-cell) plus N
+           detail columns that are hidden by default and revealed by
+           clicking the group's own header, independent of the other
+           groups. The header cell's own colspan is kept in sync via JS
+           (matching however many anchor columns are visible while
+           collapsed, up to the full group width once expanded); a colspan
+           header can't just sit above hidden td/th's without a matching
+           column count, or the whole row shifts out of alignment. PF+ESI
+           is one merged group covering both Employer and Employee columns
+           (Employer's own PF+ESI shown first, then Employee's) so there's
+           a single arrow for both instead of two. */
+        table.simple .detail-fixed, table.simple .detail-earned, table.simple .detail-pfesi { display: none; }
+        table.simple.show-fixed .detail-fixed { display: table-cell; }
+        table.simple.show-earned .detail-earned { display: table-cell; }
+        table.simple.show-pfesi .detail-pfesi { display: table-cell; }
+        table.simple th.group-toggle { cursor: pointer; }
+        table.simple th.group-toggle:hover { filter: brightness(0.94); }
+        table.simple th.group-toggle .group-arrow { font-size: 0.7rem; margin-left: 0.15rem; }
+
+        /* Column color groups lifted from the source workbook's own theme
+           (Company Workers sheet) — same section colors, banding the
+           whole column (header + every data cell), not just the header. */
+        table.simple th.grp-fixed, table.simple td.grp-fixed { background: #ECEEF0; }
+        table.simple th.grp-attendance, table.simple td.grp-attendance { background: #B4C7E7; }
+        /* Emp (comes out of the employee's own pay, feeds NET) vs Employer
+           (company's own cost, informational only) get distinct shades of
+           the same deduction-gold family, so the two roles read apart at
+           a glance instead of blurring into one undifferentiated block. */
+        table.simple th.grp-deduction-emp, table.simple td.grp-deduction-emp { background: #FFF2CC; }
+        table.simple th.grp-deduction-employer, table.simple td.grp-deduction-employer { background: #FFE0B2; }
+        table.simple th.grp-highlight, table.simple td.grp-highlight { background: #FFFF00; }
+        table.simple th.grp-attendance, table.simple th.grp-deduction-emp, table.simple th.grp-deduction-employer { color: var(--navy-deep); }
+        table.simple th.grp-highlight { color: #1a1a1a; }
+        /* Sums (PF+ESI, Total Deductions) stand out dark/bold; the
+           individual components they add up from sit one shade lighter,
+           so the eye reads "these combine into that" at a glance. */
+        table.simple td.sum-cell { color: var(--navy-deep); font-weight: 700; }
+        table.simple th.sum-cell { font-weight: 800; }
+        table.simple td.value-cell { color: #1a1a1a; font-weight: 400; }
+        table.simple tbody tr:hover td.grp-fixed { background: #d7dbe0; }
+        table.simple tbody tr:hover td.grp-attendance { background: #a3b9e0; }
+        table.simple tbody tr:hover td.grp-deduction-emp { background: #f7e9b8; }
+        table.simple tbody tr:hover td.grp-deduction-employer { background: #f7ca85; }
+        table.simple tbody tr:hover td.grp-highlight { background: #f2f200; }
+        table.simple td.grp-attendance .adj-input,
+        table.simple td.grp-deduction-emp .adj-input,
+        table.simple td.grp-deduction-employer .adj-input { background: transparent; }
 
         .adj-input {
             width: 5.5rem; padding: 0.3rem 0.4rem; border: 1px solid var(--border); border-radius: 6px;
@@ -127,30 +190,10 @@
     </style>
 </head>
 <body>
-    <header class="topbar">
-        <a href="{% url 'home' %}" class="brand">Payday</a>
-        <nav>
-            <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
-            <a href="{% url 'upload' %}">Upload</a>
-            <a href="{% url 'dashboard' %}">Attendance</a>
-            <a href="{% url 'calendar' %}">Holiday Calendar</a>
-            <a href="{% url 'salary' %}" class="current">Salary</a>
-            <details class="nav-dropdown">
-                <summary>Reports</summary>
-                <div class="nav-dropdown-menu">
-                    <a href="{% url 'ot_details' %}">OT Details</a>
-                </div>
-            </details>
-            <form method="post" action="{% url 'logout' %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit">Logout ({{ user.username }})</button>
-            </form>
-        </nav>
-    </header>
+    {% include "attendance/_topbar.html" with current="salary" %}
 
     <div class="page">
         <h1>Salary</h1>
-        <p class="caption">Monthly payroll adjustments by group. Adjust Days/Deductions/Additions feed the computed Gross/PF/ESI/NET below — Operators' pay is piece-rate, entered by hand each month rather than computed from attendance.</p>
 
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
@@ -184,17 +227,32 @@
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="company">
                     <div class="table-wrap">
-                        <table class="simple">
+                        <table class="simple" id="companyTable">
                             <thead>
                                 <tr>
-                                    <th>Code</th><th>Employee</th>
-                                    <th class="num">Basic</th><th class="num">DA</th><th class="num">HRA</th>
-                                    <th class="num">Paid Days</th><th class="num">Adjust Days</th>
-                                    <th class="num">Deductions</th><th class="num">Additions</th>
-                                    <th class="num">Gross</th><th class="num">Earned Total</th>
-                                    <th class="num">PF</th><th class="num">ESI</th>
-                                    <th>PF?</th><th>ESI?</th><th>TDS?</th>
-                                    <th class="net">NET</th>
+                                    <th rowspan="2">Code</th><th rowspan="2">Employee</th>
+                                    <th colspan="1" data-expanded-colspan="5" class="num grp-fixed group-toggle" data-group="fixed">Fixed Salary <span class="group-arrow">&#9656;</span></th>
+                                    <th rowspan="2" class="num grp-attendance">Paid Days</th><th rowspan="2" class="num grp-attendance">Adjust Days</th><th rowspan="2" class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th colspan="1" data-expanded-colspan="3" class="num group-toggle" data-group="earned">Earned Breakdown <span class="group-arrow">&#9656;</span></th>
+                                    <th colspan="2" data-expanded-colspan="6" class="num group-toggle" data-group="pfesi">PF + ESI <span class="group-arrow">&#9656;</span></th>
+                                    <th rowspan="2" class="num grp-deduction-emp">Deductions</th><th rowspan="2" class="num grp-deduction-emp sum-cell">Total Deductions</th><th rowspan="2" class="num">Additions</th>
+                                    <th rowspan="2" class="net grp-highlight">NET</th>
+                                </tr>
+                                <tr>
+                                    <th class="num grp-fixed sub-th detail-fixed">Basic</th>
+                                    <th class="num grp-fixed sub-th detail-fixed">DA</th>
+                                    <th class="num grp-fixed sub-th detail-fixed">Basic+DA</th>
+                                    <th class="num grp-fixed sub-th detail-fixed">HRA</th>
+                                    <th class="num grp-fixed sub-th sum-cell">Gross</th>
+                                    <th class="num sub-th detail-earned">Earned Basic+DA</th>
+                                    <th class="num sub-th detail-earned">Earned HRA</th>
+                                    <th class="num sub-th sum-cell">Earned Total Wages</th>
+                                    <th class="num grp-deduction-employer sub-th detail-pfesi">PF (Employer)</th>
+                                    <th class="num grp-deduction-employer sub-th detail-pfesi">ESI (Employer)</th>
+                                    <th class="num grp-deduction-employer sub-th sum-cell">PF+ESI (Employer)</th>
+                                    <th class="num grp-deduction-emp sub-th detail-pfesi">PF (Employee)</th>
+                                    <th class="num grp-deduction-emp sub-th detail-pfesi">ESI (Employee)</th>
+                                    <th class="num grp-deduction-emp sub-th sum-cell">PF+ESI (Employee)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -202,28 +260,68 @@
                                 <tr>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
-                                    <td>{{ row.employee.name }}</td>
-                                    <td class="num">{{ row.employee.basic_salary }}</td>
-                                    <td class="num">{{ row.employee.da }}</td>
-                                    <td class="num">{{ row.employee.hra }}</td>
-                                    <td class="num">{{ row.paid_days }}</td>
-                                    <td class="num"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
-                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td>
+                                        {{ row.employee.name }}
+                                        {% if row.employee.pf_number or row.employee.esi_number %}
+                                        <div class="emp-sub-ids">
+                                            {% if row.employee.pf_number %}PF: {{ row.employee.pf_number }}<br>{% endif %}
+                                            {% if row.employee.esi_number %}ESI: {{ row.employee.esi_number }}{% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="num grp-fixed value-cell detail-fixed">{{ row.employee.basic_salary }}</td>
+                                    <td class="num grp-fixed value-cell detail-fixed">{{ row.employee.da }}</td>
+                                    <td class="num grp-fixed value-cell detail-fixed">{{ row.calc.basic_da }}</td>
+                                    <td class="num grp-fixed value-cell detail-fixed">{{ row.employee.hra }}</td>
+                                    <td class="num grp-fixed sum-cell">{{ row.calc.gross }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_days }}</td>
+                                    <td class="num grp-attendance"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
+                                    <td class="num grp-attendance sum-cell">{{ row.calc.earned_days }}</td>
+                                    <td class="num value-cell detail-earned">{{ row.calc.earned_basic_da }}</td>
+                                    <td class="num value-cell detail-earned">{{ row.calc.earned_hra }}</td>
+                                    <td class="num sum-cell">{{ row.calc.earned_total }}</td>
+                                    <td class="num grp-deduction-employer value-cell detail-pfesi">{{ row.calc.pf_employer }}</td>
+                                    <td class="num grp-deduction-employer value-cell detail-pfesi">{{ row.calc.esi_employer }}</td>
+                                    <td class="num grp-deduction-employer sum-cell">{{ row.calc.pf_esi_employer }}</td>
+                                    <td class="num grp-deduction-emp value-cell detail-pfesi">{{ row.calc.pf }}</td>
+                                    <td class="num grp-deduction-emp value-cell detail-pfesi">{{ row.calc.esi }}</td>
+                                    <td class="num grp-deduction-emp sum-cell">{{ row.calc.pf_esi_employee }}</td>
+                                    <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num grp-deduction-emp sum-cell">{{ row.calc.total_deduction }}</td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
-                                    <td class="num">{{ row.calc.gross }}</td>
-                                    <td class="num">{{ row.calc.earned_total }}</td>
-                                    <td class="num">{{ row.calc.pf }}</td>
-                                    <td class="num">{{ row.calc.esi }}</td>
-                                    <td><input type="checkbox" disabled {% if row.employee.pf_enabled %}checked{% endif %}></td>
-                                    <td><input type="checkbox" disabled {% if row.employee.esi_enabled %}checked{% endif %}></td>
-                                    <td><input type="checkbox" disabled {% if row.employee.tds_enabled %}checked{% endif %}></td>
-                                    <td class="net">{{ row.calc.net }}</td>
+                                    <td class="net grp-highlight">{{ row.calc.net }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2">Total</td>
+                                    <td class="num detail-fixed">{{ company_totals.basic_salary }}</td>
+                                    <td class="num detail-fixed">{{ company_totals.da }}</td>
+                                    <td class="num detail-fixed">{{ company_totals.calc.basic_da }}</td>
+                                    <td class="num detail-fixed">{{ company_totals.hra }}</td>
+                                    <td class="num">{{ company_totals.calc.gross }}</td>
+                                    <td class="num">{{ company_totals.paid_days }}</td>
+                                    <td class="num">{{ company_totals.adjust_days }}</td>
+                                    <td class="num">{{ company_totals.calc.earned_days }}</td>
+                                    <td class="num detail-earned">{{ company_totals.calc.earned_basic_da }}</td>
+                                    <td class="num detail-earned">{{ company_totals.calc.earned_hra }}</td>
+                                    <td class="num">{{ company_totals.calc.earned_total }}</td>
+                                    <td class="num detail-pfesi">{{ company_totals.calc.pf_employer }}</td>
+                                    <td class="num detail-pfesi">{{ company_totals.calc.esi_employer }}</td>
+                                    <td class="num">{{ company_totals.calc.pf_esi_employer }}</td>
+                                    <td class="num detail-pfesi">{{ company_totals.calc.pf }}</td>
+                                    <td class="num detail-pfesi">{{ company_totals.calc.esi }}</td>
+                                    <td class="num">{{ company_totals.calc.pf_esi_employee }}</td>
+                                    <td class="num">{{ company_totals.deductions }}</td>
+                                    <td class="num">{{ company_totals.calc.total_deduction }}</td>
+                                    <td class="num">{{ company_totals.additions }}</td>
+                                    <td class="net">{{ company_totals.calc.net }}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
-                    <p class="caption" style="margin:0 0 0.75rem;">PF/ESI/TDS applicability is set per employee in the Employee admin, not here — it's reflected above but not editable on this page.</p>
+                    <p class="caption" style="margin:0 0 0.75rem;">PF/ESI applicability is set per employee in the Employee admin and already reflected in the figures above (a disabled employee shows 0). PF Employer/ESI Employer are the company's own cost, not deducted from NET.</p>
                     <div class="save-bar"><button type="submit">Save Company Workers</button></div>
                 </form>
                 {% else %}
@@ -263,6 +361,18 @@
                                 </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2">Total</td>
+                                    <td class="num">{{ helper_totals.basic_salary }}</td>
+                                    <td class="num">{{ helper_totals.paid_days }}</td>
+                                    <td class="num">{{ helper_totals.adjust_days }}</td>
+                                    <td class="num">{{ helper_totals.deductions }}</td>
+                                    <td class="num">{{ helper_totals.additions }}</td>
+                                    <td class="num">{{ helper_totals.calc.earned_salary }}</td>
+                                    <td class="net">{{ helper_totals.calc.net }}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                     <div class="save-bar"><button type="submit">Save Helpers</button></div>
@@ -305,6 +415,19 @@
                                 </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2">Total</td>
+                                    <td class="num">{{ staff_totals.basic_salary }}</td>
+                                    <td class="num">{{ staff_totals.paid_days }}</td>
+                                    <td class="num">{{ staff_totals.adjust_days }}</td>
+                                    <td class="num">{{ staff_totals.deductions }}</td>
+                                    <td class="num">{{ staff_totals.additions }}</td>
+                                    <td class="num">{{ staff_totals.calc.earned_salary }}</td>
+                                    <td></td>
+                                    <td class="net">{{ staff_totals.calc.net }}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                     <div class="save-bar"><button type="submit">Save Staff</button></div>
@@ -345,6 +468,16 @@
                                 </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2">Total</td>
+                                    <td class="num">{{ operator_totals.manual_amount }}</td>
+                                    <td class="num">{{ operator_totals.deductions }}</td>
+                                    <td class="num">{{ operator_totals.additions }}</td>
+                                    <td></td><td></td>
+                                    <td class="net">{{ operator_totals.calc.net }}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                     <div class="save-bar"><button type="submit">Save Operators</button></div>
@@ -365,6 +498,19 @@
                 document.querySelector('.tab-panel[data-panel="' + btn.dataset.tab + '"]').style.display = '';
             });
         });
+
+        var companyTable = document.getElementById('companyTable');
+        if (companyTable) {
+            companyTable.querySelectorAll('th.group-toggle').forEach(function (th) {
+                th.addEventListener('click', function () {
+                    var group = th.dataset.group;
+                    var showing = companyTable.classList.toggle('show-' + group);
+                    th.setAttribute('colspan', showing ? th.dataset.expandedColspan : '1');
+                    var arrow = th.querySelector('.group-arrow');
+                    if (arrow) arrow.textContent = showing ? '▾' : '▸';
+                });
+            });
+        }
     </script>
 </body>
 </html>

@@ -1195,6 +1195,34 @@ def salary_view(request):
             })
         return rows
 
+    def sum_rows(rows, kind):
+        """Column totals for a tab's footer row — sums whatever numeric
+        fields that tab's rows actually carry (employee Basic/HRA/DA for
+        Company Workers, manual_amount for Operators, every payroll.py
+        calc field for all of them), so each tab's template can reference
+        totals.<field> the same way it references row.<field>."""
+        totals = {
+            "paid_days": sum((r["paid_days"] for r in rows), Decimal(0)),
+            "adjust_days": sum((r["adjust_days"] for r in rows), Decimal(0)),
+            "deductions": sum((r["deductions"] for r in rows), Decimal(0)),
+            "additions": sum((r["additions"] for r in rows), Decimal(0)),
+        }
+        if kind == "company":
+            totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
+            totals["da"] = sum((r["employee"].da for r in rows), Decimal(0))
+            totals["hra"] = sum((r["employee"].hra for r in rows), Decimal(0))
+        elif kind in ("helper", "staff"):
+            totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
+        elif kind == "operators":
+            totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
+        calc_keys = rows[0]["calc"].keys() if rows else []
+        calc_totals = {k: Decimal(0) for k in calc_keys}
+        for r in rows:
+            for k in calc_keys:
+                calc_totals[k] += r["calc"][k]
+        totals["calc"] = {k: round(v, 2) for k, v in calc_totals.items()}
+        return totals
+
     context = {
         "current": current,
         "year": year,
@@ -1212,11 +1240,15 @@ def salary_view(request):
             Employee.objects.filter(subcategory__iexact=subcategory)
             .active_during(month_start, month_end).order_by("name")
         )
-        context[f"{tab_key}_rows"] = build_rows(employees, tab_key)
-    context["operator_rows"] = build_rows(
+        rows = build_rows(employees, tab_key)
+        context[f"{tab_key}_rows"] = rows
+        context[f"{tab_key}_totals"] = sum_rows(rows, tab_key)
+    operator_rows = build_rows(
         Employee.objects.filter(category__iexact="Operator").active_during(month_start, month_end).order_by("name"),
         "operators",
     )
+    context["operator_rows"] = operator_rows
+    context["operator_totals"] = sum_rows(operator_rows, "operators")
     return render(request, "attendance/salary.html", context)
 
 

@@ -19,6 +19,12 @@ from decimal import Decimal
 # from any live source.
 ESI_WAGE_CEILING = Decimal("21000")
 PF_RATE = Decimal("0.12")
+# PF Employer Contribution, empirically reverse-engineered (this workbook
+# doesn't use the standard 12%-of-Basic+DA split into EPF/EPS) — verified
+# exactly against two real rows: 2213.833333/12299.074074 == 0.18 and
+# 2169.556667/12053.092593 == 0.18, both against Earned Total Wages, not
+# Earned Basic+DA.
+PF_EMPLOYER_RATE = Decimal("0.18")
 ESI_EMPLOYEE_RATE = Decimal("0.0075")
 ESI_EMPLOYER_RATE = Decimal("0.0325")
 
@@ -63,19 +69,31 @@ def compute_company_worker_pay(
     earned_hra = hra * ratio
     earned_total = earned_basic_da + earned_hra
     pf = PF_RATE * earned_basic_da if pf_enabled else Decimal(0)
+    pf_employer = PF_EMPLOYER_RATE * earned_total if pf_enabled else Decimal(0)
     esi_eligible = esi_enabled and gross <= ESI_WAGE_CEILING
     esi = ESI_EMPLOYEE_RATE * earned_total if esi_eligible else Decimal(0)
     esi_employer = ESI_EMPLOYER_RATE * earned_total if esi_eligible else Decimal(0)
-    total_deduction = pf + esi + deductions
+    # Round PF/ESI first, then sum the rounded figures for every total
+    # that includes them (PF+ESI, Total Deduction, NET) — so each matches
+    # what you'd get by hand-adding the displayed cells, rather than a
+    # penny off from summing pre-rounding.
+    pf_r, pf_employer_r = round(pf, 2), round(pf_employer, 2)
+    esi_r, esi_employer_r = round(esi, 2), round(esi_employer, 2)
+    total_deduction = pf_r + esi_r + deductions
     net = earned_total + additions - total_deduction
     return {
+        "basic_da": round(basic_da, 2),
         "gross": round(gross, 2),
+        "earned_days": round(earned_days, 2),
         "earned_basic_da": round(earned_basic_da, 2),
         "earned_hra": round(earned_hra, 2),
         "earned_total": round(earned_total, 2),
-        "pf": round(pf, 2),
-        "esi": round(esi, 2),
-        "esi_employer": round(esi_employer, 2),
+        "pf": pf_r,
+        "pf_employer": pf_employer_r,
+        "esi": esi_r,
+        "esi_employer": esi_employer_r,
+        "pf_esi_employee": pf_r + esi_r,
+        "pf_esi_employer": pf_employer_r + esi_employer_r,
         "total_deduction": round(total_deduction, 2),
         "net": round(net, 2),
     }
