@@ -37,12 +37,18 @@ if _env_file.exists():
 ATTENDANCE_LOCK_PIN = os.environ.get('ATTENDANCE_LOCK_PIN', '1234')
 
 # Telegram notification sent when attendance is saved from Mark Attendance's
-# Day view — posted to one topic (message_thread_id) in a group chat, so a
-# bot token, chat id, and topic id are all required. Left unset by default;
-# the notification is simply skipped wherever these aren't configured.
+# Posted to one topic (message_thread_id) per feature area in a single
+# group chat, so a bot token + chat id are required plus one topic id per
+# area. Left unset by default; a notification is simply skipped wherever
+# the token/chat id aren't configured, and a missing topic id just posts
+# to the group's General topic instead of failing.
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
-TELEGRAM_TOPIC_ID = os.environ.get('TELEGRAM_TOPIC_ID', '')
+TELEGRAM_TOPIC_ID_ATTENDANCE = os.environ.get('TELEGRAM_TOPIC_ID_ATTENDANCE', '')
+TELEGRAM_TOPIC_ID_OT_CASH = os.environ.get('TELEGRAM_TOPIC_ID_OT_CASH', '')
+# Not wired into any view yet — Salary has no Telegram send feature so
+# far; recorded here so the topic is ready whenever that's built.
+TELEGRAM_TOPIC_ID_SALARY = os.environ.get('TELEGRAM_TOPIC_ID_SALARY', '')
 
 
 # Quick-start development settings - unsuitable for production

@@ -409,6 +409,7 @@
                                 'caption',
                                 'Month Attendance — {{ dept.name|escapejs }} — {{ month_name|escapejs }} {{ year|escapejs }}'
                             );
+                            formData.append('topic', 'attendance');
                             fetch('{% url "send_telegram_report" %}', {
                                 method: 'POST',
                                 headers: { 'X-CSRFToken': getCookie('csrftoken') },

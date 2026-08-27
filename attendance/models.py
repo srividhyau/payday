@@ -223,14 +223,15 @@ class SalaryAdjustment(models.Model):
 
 
 class MonthLock(models.Model):
-    """Marks one calendar month's attendance as frozen for one of the
-    dashboard's three views (All/Missed Punch/OT View) — each view is
-    locked/unlocked independently, even though they share the same
-    underlying grid, so e.g. OT View can stay locked after payroll while
-    Missed Punch remains open for corrections. Locking/unlocking both
-    require the PIN (see settings.ATTENDANCE_LOCK_PIN) — there's no user
-    login in this app, so the PIN is the only gate. Presence of a row for
-    (year, month, view) means that view is locked for that month."""
+    """Marks one calendar month's attendance as frozen for one of three
+    editable grids — the Attendance dashboard's All and Missed Punch
+    views, plus the OT page's OT View tab — each locked/unlocked
+    independently, even though they share the same underlying data, so
+    e.g. OT View can stay locked after payroll while Missed Punch remains
+    open for corrections. Locking/unlocking both require the PIN (see
+    settings.ATTENDANCE_LOCK_PIN) — there's no user login in this app, so
+    the PIN is the only gate. Presence of a row for (year, month, view)
+    means that view is locked for that month."""
 
     VIEW_ALL = "all"
     VIEW_ISSUES = "issues"
@@ -278,3 +279,22 @@ class SpecialDay(models.Model):
 
     def __str__(self):
         return f"{self.date} ({self.get_day_type_display()})"
+
+
+class CashWithdrawal(models.Model):
+    """One cash-register entry — money withdrawn for a fixed purpose
+    outside of payroll (e.g. petty cash, office expenses, an advance), logged
+    against a month as a whole (no specific day) like Salary/OT Details
+    rather than tied to an employee record."""
+
+    year = models.IntegerField()
+    month = models.IntegerField()
+    purpose = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    description = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-year", "-month", "-id"]
+
+    def __str__(self):
+        return f"{self.year}-{self.month:02d} — {self.purpose} — {self.amount}"

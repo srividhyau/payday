@@ -14,10 +14,7 @@ urlpatterns = [
     path("dashboard/", views.dashboard_view, name="dashboard"),
     path("reports/ot-details/", views.ot_details_view, name="ot_details"),
     path("reports/ot-details/download/", views.ot_details_download_view, name="ot_details_download"),
-    path(
-        "reports/ot-details/download-grid/", views.ot_details_download_grid_view,
-        name="ot_details_download_grid",
-    ),
+
     path("calendar/", views.calendar_view, name="calendar"),
     path("edit-record/", views.edit_record_view, name="edit_record"),
     path("bulk-set-shift/", views.bulk_set_shift_view, name="bulk_set_shift"),
@@ -29,4 +26,6 @@ urlpatterns = [
     ),
     path("log-client-error/", views.log_client_error_view, name="log_client_error"),
     path("salary/", views.salary_view, name="salary"),
+    path("cash-withdrawal/", views.cash_withdrawal_view, name="cash_withdrawal"),
+    path("cash-withdrawal/download/", views.cash_withdrawal_download_view, name="cash_withdrawal_download"),
 ]

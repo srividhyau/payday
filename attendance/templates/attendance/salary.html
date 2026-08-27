@@ -71,7 +71,8 @@
         .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
         .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
 
-        h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
+        h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
+        .page-header-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 760px; }
 
         .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
@@ -80,7 +81,7 @@
 
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.35rem 1.5rem; margin-bottom: 1.5rem; }
 
-        .month-nav { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.5rem; }
+        .month-nav { display: flex; align-items: center; gap: 0.9rem; }
         .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; color: var(--navy); }
         .month-nav a {
             color: var(--navy); text-decoration: none; font-size: 1rem; width: 2rem; height: 2rem;
@@ -90,10 +91,10 @@
         .month-nav a:hover { background: var(--navy); color: var(--yellow); }
         .working-days { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem; max-width: 700px; line-height: 1.5; }
 
-        .kpi-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.85rem 1.1rem; min-width: 130px; flex: 1; }
-        .kpi .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.25rem; }
-        .kpi .value { font-size: 1.3rem; font-weight: 700; color: var(--navy); }
+        .kpi-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-left: auto; }
+        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.6rem 0.9rem; min-width: 100px; }
+        .kpi .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.2rem; }
+        .kpi .value { font-size: 1.1rem; font-weight: 700; color: var(--navy); }
 
         .tab-row { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .tab-btn {
@@ -193,23 +194,25 @@
     {% include "attendance/_topbar.html" with current="salary" %}
 
     <div class="page">
-        <h1>Salary</h1>
+        <div class="page-header-row">
+            <h1>Salary</h1>
+            <div class="month-nav">
+                <a href="?date={{ prev_date }}">&larr;</a>
+                <h2>{{ month_name }} {{ year }}</h2>
+                <a href="?date={{ next_date }}">&rarr;</a>
+            </div>
+            <div class="kpi-row">
+                <div class="kpi"><div class="label">Working Days</div><div class="value">{{ working_days }}</div></div>
+                <div class="kpi"><div class="label">Holidays</div><div class="value">{{ holiday_count }}</div></div>
+                <div class="kpi"><div class="label">Paid Holidays</div><div class="value">{{ paid_holiday_count }}</div></div>
+                <div class="kpi"><div class="label">Comp Off</div><div class="value">{{ comp_off_count }}</div></div>
+            </div>
+        </div>
 
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
 
-        <div class="month-nav">
-            <a href="?date={{ prev_date }}">&larr;</a>
-            <h2>{{ month_name }} {{ year }}</h2>
-            <a href="?date={{ next_date }}">&rarr;</a>
-        </div>
-        <div class="kpi-row">
-            <div class="kpi"><div class="label">Working Days</div><div class="value">{{ working_days }}</div></div>
-            <div class="kpi"><div class="label">Holidays</div><div class="value">{{ holiday_count }}</div></div>
-            <div class="kpi"><div class="label">Paid Holidays</div><div class="value">{{ paid_holiday_count }}</div></div>
-            <div class="kpi"><div class="label">Comp Off</div><div class="value">{{ comp_off_count }}</div></div>
-        </div>
         <p class="working-days">Working days = calendar days minus Sundays — Paid Holiday/Comp Off don't reduce this, they add to each employee's Paid Days instead (see the per-employee column below).</p>
 
         <div class="card">
@@ -217,6 +220,7 @@
                 <button type="button" class="tab-btn active" data-tab="company">Company Workers</button>
                 <button type="button" class="tab-btn" data-tab="helpers">Helpers</button>
                 <button type="button" class="tab-btn" data-tab="staff">Staff</button>
+                <button type="button" class="tab-btn" data-tab="contractors">Contractors</button>
                 <button type="button" class="tab-btn" data-tab="operators">Operators</button>
             </div>
 
@@ -234,7 +238,7 @@
                                     <th colspan="1" data-expanded-colspan="5" class="num grp-fixed group-toggle" data-group="fixed">Fixed Salary <span class="group-arrow">&#9656;</span></th>
                                     <th rowspan="2" class="num grp-attendance">Paid Days</th><th rowspan="2" class="num grp-attendance">Adjust Days</th><th rowspan="2" class="num grp-attendance sum-cell">Earned Days</th>
                                     <th colspan="1" data-expanded-colspan="3" class="num group-toggle" data-group="earned">Earned Breakdown <span class="group-arrow">&#9656;</span></th>
-                                    <th colspan="2" data-expanded-colspan="6" class="num group-toggle" data-group="pfesi">PF + ESI <span class="group-arrow">&#9656;</span></th>
+                                    <th colspan="1" data-expanded-colspan="6" class="num group-toggle" data-group="pfesi">PF + ESI <span class="group-arrow">&#9656;</span></th>
                                     <th rowspan="2" class="num grp-deduction-emp">Deductions</th><th rowspan="2" class="num grp-deduction-emp sum-cell">Total Deductions</th><th rowspan="2" class="num">Additions</th>
                                     <th rowspan="2" class="net grp-highlight">NET</th>
                                 </tr>
@@ -247,12 +251,12 @@
                                     <th class="num sub-th detail-earned">Earned Basic+DA</th>
                                     <th class="num sub-th detail-earned">Earned HRA</th>
                                     <th class="num sub-th sum-cell">Earned Total Wages</th>
-                                    <th class="num grp-deduction-employer sub-th detail-pfesi">PF (Employer)</th>
-                                    <th class="num grp-deduction-employer sub-th detail-pfesi">ESI (Employer)</th>
-                                    <th class="num grp-deduction-employer sub-th sum-cell">PF+ESI (Employer)</th>
                                     <th class="num grp-deduction-emp sub-th detail-pfesi">PF (Employee)</th>
                                     <th class="num grp-deduction-emp sub-th detail-pfesi">ESI (Employee)</th>
                                     <th class="num grp-deduction-emp sub-th sum-cell">PF+ESI (Employee)</th>
+                                    <th class="num grp-deduction-employer sub-th detail-pfesi">PF (Employer)</th>
+                                    <th class="num grp-deduction-employer sub-th detail-pfesi">ESI (Employer)</th>
+                                    <th class="num grp-deduction-employer sub-th sum-cell detail-pfesi">PF+ESI (Employer)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -280,12 +284,12 @@
                                     <td class="num value-cell detail-earned">{{ row.calc.earned_basic_da }}</td>
                                     <td class="num value-cell detail-earned">{{ row.calc.earned_hra }}</td>
                                     <td class="num sum-cell">{{ row.calc.earned_total }}</td>
-                                    <td class="num grp-deduction-employer value-cell detail-pfesi">{{ row.calc.pf_employer }}</td>
-                                    <td class="num grp-deduction-employer value-cell detail-pfesi">{{ row.calc.esi_employer }}</td>
-                                    <td class="num grp-deduction-employer sum-cell">{{ row.calc.pf_esi_employer }}</td>
                                     <td class="num grp-deduction-emp value-cell detail-pfesi">{{ row.calc.pf }}</td>
                                     <td class="num grp-deduction-emp value-cell detail-pfesi">{{ row.calc.esi }}</td>
                                     <td class="num grp-deduction-emp sum-cell">{{ row.calc.pf_esi_employee }}</td>
+                                    <td class="num grp-deduction-employer value-cell detail-pfesi">{{ row.calc.pf_employer }}</td>
+                                    <td class="num grp-deduction-employer value-cell detail-pfesi">{{ row.calc.esi_employer }}</td>
+                                    <td class="num grp-deduction-employer sum-cell detail-pfesi">{{ row.calc.pf_esi_employer }}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num grp-deduction-emp sum-cell">{{ row.calc.total_deduction }}</td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
@@ -307,12 +311,12 @@
                                     <td class="num detail-earned">{{ company_totals.calc.earned_basic_da }}</td>
                                     <td class="num detail-earned">{{ company_totals.calc.earned_hra }}</td>
                                     <td class="num">{{ company_totals.calc.earned_total }}</td>
-                                    <td class="num detail-pfesi">{{ company_totals.calc.pf_employer }}</td>
-                                    <td class="num detail-pfesi">{{ company_totals.calc.esi_employer }}</td>
-                                    <td class="num">{{ company_totals.calc.pf_esi_employer }}</td>
                                     <td class="num detail-pfesi">{{ company_totals.calc.pf }}</td>
                                     <td class="num detail-pfesi">{{ company_totals.calc.esi }}</td>
                                     <td class="num">{{ company_totals.calc.pf_esi_employee }}</td>
+                                    <td class="num detail-pfesi">{{ company_totals.calc.pf_employer }}</td>
+                                    <td class="num detail-pfesi">{{ company_totals.calc.esi_employer }}</td>
+                                    <td class="num detail-pfesi">{{ company_totals.calc.pf_esi_employer }}</td>
                                     <td class="num">{{ company_totals.deductions }}</td>
                                     <td class="num">{{ company_totals.calc.total_deduction }}</td>
                                     <td class="num">{{ company_totals.additions }}</td>
@@ -339,10 +343,11 @@
                         <table class="simple">
                             <thead>
                                 <tr>
-                                    <th>Code</th><th>Employee</th><th class="num">Basic Salary</th>
-                                    <th class="num">Paid Days</th><th class="num">Adjust Days</th>
-                                    <th class="num">Deductions</th><th class="num">Additions</th>
-                                    <th class="num">Earned Salary</th><th class="net">NET</th>
+                                    <th>Code</th><th>Employee</th><th class="num grp-fixed">Basic Salary</th>
+                                    <th class="num grp-attendance">Paid Days</th><th class="num grp-attendance">Adjust Days</th><th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num sum-cell">Earned Salary</th>
+                                    <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
+                                    <th class="net grp-highlight">NET</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -351,13 +356,14 @@
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
-                                    <td class="num">{{ row.employee.basic_salary }}</td>
-                                    <td class="num">{{ row.paid_days }}</td>
-                                    <td class="num"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
-                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_days }}</td>
+                                    <td class="num grp-attendance"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
+                                    <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num sum-cell">{{ row.calc.earned_salary }}</td>
+                                    <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
-                                    <td class="num">{{ row.calc.earned_salary }}</td>
-                                    <td class="net">{{ row.calc.net }}</td>
+                                    <td class="net grp-highlight">{{ row.calc.net }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -367,9 +373,10 @@
                                     <td class="num">{{ helper_totals.basic_salary }}</td>
                                     <td class="num">{{ helper_totals.paid_days }}</td>
                                     <td class="num">{{ helper_totals.adjust_days }}</td>
+                                    <td class="num">{{ helper_totals.earned_days }}</td>
+                                    <td class="num">{{ helper_totals.calc.earned_salary }}</td>
                                     <td class="num">{{ helper_totals.deductions }}</td>
                                     <td class="num">{{ helper_totals.additions }}</td>
-                                    <td class="num">{{ helper_totals.calc.earned_salary }}</td>
                                     <td class="net">{{ helper_totals.calc.net }}</td>
                                 </tr>
                             </tfoot>
@@ -392,10 +399,11 @@
                         <table class="simple">
                             <thead>
                                 <tr>
-                                    <th>Code</th><th>Employee</th><th class="num">Basic Salary</th>
-                                    <th class="num">Paid Days</th><th class="num">Adjust Days</th>
-                                    <th class="num">Deductions</th><th class="num">Additions</th>
-                                    <th class="num">Earned Salary</th><th>TDS?</th><th class="net">NET</th>
+                                    <th>Code</th><th>Employee</th><th class="num grp-fixed">Basic Salary</th>
+                                    <th class="num grp-attendance">Paid Days</th><th class="num grp-attendance">Adjust Days</th><th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num sum-cell">Earned Salary</th>
+                                    <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
+                                    <th>TDS?</th><th class="net grp-highlight">NET</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -404,14 +412,15 @@
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
-                                    <td class="num">{{ row.employee.basic_salary }}</td>
-                                    <td class="num">{{ row.paid_days }}</td>
-                                    <td class="num"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
-                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_days }}</td>
+                                    <td class="num grp-attendance"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
+                                    <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num sum-cell">{{ row.calc.earned_salary }}</td>
+                                    <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
-                                    <td class="num">{{ row.calc.earned_salary }}</td>
                                     <td><input type="checkbox" disabled {% if row.employee.tds_enabled %}checked{% endif %}></td>
-                                    <td class="net">{{ row.calc.net }}</td>
+                                    <td class="net grp-highlight">{{ row.calc.net }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -421,9 +430,10 @@
                                     <td class="num">{{ staff_totals.basic_salary }}</td>
                                     <td class="num">{{ staff_totals.paid_days }}</td>
                                     <td class="num">{{ staff_totals.adjust_days }}</td>
+                                    <td class="num">{{ staff_totals.earned_days }}</td>
+                                    <td class="num">{{ staff_totals.calc.earned_salary }}</td>
                                     <td class="num">{{ staff_totals.deductions }}</td>
                                     <td class="num">{{ staff_totals.additions }}</td>
-                                    <td class="num">{{ staff_totals.calc.earned_salary }}</td>
                                     <td></td>
                                     <td class="net">{{ staff_totals.calc.net }}</td>
                                 </tr>
@@ -434,6 +444,62 @@
                 </form>
                 {% else %}
                     <p class="empty-state">No employees with subcategory "Staff" active this month.</p>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-panel="contractors" style="display:none;">
+                {% if contractor_rows %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                    <input type="hidden" name="tab" value="contractors">
+                    <div class="table-wrap">
+                        <table class="simple">
+                            <thead>
+                                <tr>
+                                    <th>Code</th><th>Employee</th><th class="num grp-fixed">Basic Salary</th>
+                                    <th class="num grp-attendance">Paid Days</th><th class="num grp-attendance">Adjust Days</th><th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num sum-cell">Earned Salary</th>
+                                    <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
+                                    <th class="net grp-highlight">NET</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in contractor_rows %}
+                                <tr>
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <td>{{ row.employee.code }}</td>
+                                    <td>{{ row.employee.name }}</td>
+                                    <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_days }}</td>
+                                    <td class="num grp-attendance"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
+                                    <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num sum-cell">{{ row.calc.earned_salary }}</td>
+                                    <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
+                                    <td class="net grp-highlight">{{ row.calc.net }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2">Total</td>
+                                    <td class="num">{{ contractor_totals.basic_salary }}</td>
+                                    <td class="num">{{ contractor_totals.paid_days }}</td>
+                                    <td class="num">{{ contractor_totals.adjust_days }}</td>
+                                    <td class="num">{{ contractor_totals.earned_days }}</td>
+                                    <td class="num">{{ contractor_totals.calc.earned_salary }}</td>
+                                    <td class="num">{{ contractor_totals.deductions }}</td>
+                                    <td class="num">{{ contractor_totals.additions }}</td>
+                                    <td class="net">{{ contractor_totals.calc.net }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="save-bar"><button type="submit">Save Contractors</button></div>
+                </form>
+                {% else %}
+                    <p class="empty-state">No employees in the "Contractor" department active this month.</p>
                 {% endif %}
             </div>
 
@@ -448,9 +514,10 @@
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th>
-                                    <th class="num">Manual Amount</th>
-                                    <th class="num">Deductions</th><th class="num">Additions</th>
-                                    <th>Hold</th><th>Notes</th><th class="net">NET</th>
+                                    <th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num grp-fixed">Manual Amount</th>
+                                    <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
+                                    <th>Hold</th><th>Notes</th><th class="net grp-highlight">NET</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -459,18 +526,20 @@
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
-                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
-                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num grp-fixed value-cell"><input class="adj-input" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
+                                    <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
                                     <td><input type="checkbox" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
                                     <td><input class="adj-input" type="text" name="notes_{{ row.employee.id }}" value="{{ row.notes }}"></td>
-                                    <td class="net">{{ row.calc.net }}</td>
+                                    <td class="net grp-highlight">{{ row.calc.net }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                             <tfoot>
                                 <tr>
                                     <td colspan="2">Total</td>
+                                    <td class="num">{{ operator_totals.earned_days }}</td>
                                     <td class="num">{{ operator_totals.manual_amount }}</td>
                                     <td class="num">{{ operator_totals.deductions }}</td>
                                     <td class="num">{{ operator_totals.additions }}</td>

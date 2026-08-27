@@ -11,12 +11,8 @@
         </details>
         <a href="{% url 'calendar' %}"{% if current == "calendar" %} class="current"{% endif %}>Holiday Calendar</a>
         <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
-        <details class="nav-dropdown">
-            <summary>Reports</summary>
-            <div class="nav-dropdown-menu">
-                <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
-            </div>
-        </details>
+        <a href="{% url 'cash_withdrawal' %}"{% if current == "cash_withdrawal" %} class="current"{% endif %}>Cash Withdrawal</a>
+        <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT</a>
         <form method="post" action="{% url 'logout' %}" style="display:inline;">
             {% csrf_token %}
             <button type="submit">Logout ({{ user.username }})</button>

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -94,7 +95,8 @@
         .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
         .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
 
-        h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
+        h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
+        .page-header-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
         h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 700px; }
 
@@ -107,7 +109,7 @@
             margin-bottom: 1.5rem;
         }
 
-        .month-nav { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.25rem; }
+        .month-nav { display: flex; align-items: center; gap: 0.9rem; }
         .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; }
         .month-nav a {
             color: var(--navy);
@@ -126,12 +128,17 @@
         }
         .month-nav a:hover { background: var(--navy); color: var(--yellow); }
 
-        .kpi-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.25rem; min-width: 160px; flex: 1; }
-        .kpi .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.3rem; }
-        .kpi .value { font-size: 1.5rem; font-weight: 700; color: var(--navy); }
+        .kpi-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-left: auto; }
+        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.6rem 0.9rem; min-width: 130px; }
+        .kpi .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.2rem; }
+        .kpi .value { font-size: 1.15rem; font-weight: 700; color: var(--navy); }
 
-        .tab-row { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; }
+        .tab-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+        .tab-btn.download-btn { text-decoration: none; }
+        .tab-btn:disabled { opacity: 0.6; cursor: default; }
+        .report-status { font-size: 0.8rem; color: var(--text-muted); }
+        .report-status.error { color: #b3261e; }
+        .report-status.success { color: #1e7e34; }
         .tab-btn {
             padding: 0.5rem 1rem;
             border-radius: 999px;
@@ -147,56 +154,21 @@
         .tab-btn.active { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
 
         .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-        table.simple { border-collapse: collapse; width: 100%; }
+        table.simple { border-collapse: collapse; width: auto; }
         table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
         table.simple td.num, table.simple th.num { text-align: right; }
-        table.simple tfoot td { font-weight: 700; background: #fafbfc; border-top: 2px solid var(--border); }
+        table.simple tfoot td { font-weight: 700; background: #FFF9B0; border-top: 2px solid var(--border); }
         table.simple tr.dept-row td { font-weight: 700; background: #FCE4D6; color: var(--navy-deep); }
         .dept-headcount { font-weight: 400; color: var(--text-muted); font-size: 0.8em; }
+        /* Top 3 OT earners within each department (summary_rows is already
+           sorted by OT amount descending per department in the view). */
+        table.simple tr.top3-row td { background: #EAF4FC; font-weight: 700; }
+        table.simple tbody tr.top3-row:hover td { background: #dcecfa; }
 
         .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
-
-        .report-toolbar { display: flex; gap: 0.5rem; justify-content: flex-end; margin-bottom: 1rem; }
-        .toolbar-btn {
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-decoration: none;
-            color: var(--navy);
-            background: var(--surface);
-            border: 1px solid var(--border);
-            cursor: pointer;
-            font-family: inherit;
-            box-shadow: var(--shadow);
-        }
-        .toolbar-btn:hover { background: var(--bg); }
-        .print-only-title { display: none; }
-
-        /* Each tab's Print button only prints whatever panel is currently
-           active on screen (the other panel already carries an inline
-           display:none from the tab-switch JS, which print respects same
-           as any other media) — this just strips the surrounding chrome
-           and gives the wide Full Monthly grid a landscape page. */
-        @media print {
-            .topbar, .month-nav, .tab-row, .report-toolbar, .caption { display: none !important; }
-            .print-only-title { display: block; }
-            .card { box-shadow: none; border: none; padding: 0; }
-            body { background: #fff; }
-            @page { size: landscape; margin: 10mm; }
-            table.month, table.simple { font-size: 0.65rem; }
-            .grid-scroll { overflow: visible; border: none; }
-            /* table.simple only has a bottom-border per row on screen (flat
-               UI style) — a printed report reads better as a proper ruled
-               grid, so give every cell a full border here. table.month
-               already has full cell borders on screen; just darken them
-               for a crisper printed line. */
-            table.simple, table.simple th, table.simple td { border: 1px solid #000; border-collapse: collapse; }
-            table.month, table.month th, table.month td { border: 1px solid #000; }
-        }
 
         /* --- Full Monthly OT grid (same look/logic as the dashboard's OT
            View tab, permanently on instead of toggled — see
@@ -220,6 +192,8 @@
         table.month td.dept-header { position: static; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
         table.month tr.dept:hover td { filter: brightness(0.97); }
         table.month .toggle-icon { display: inline-block; width: 0.9em; }
+        table.month tfoot td { font-weight: 700; background: #FFF9B0; border-top: 2px solid #666; }
+        table.month tfoot td.label { background: #FFF9B0; }
 
         table.month td[data-tooltip] { cursor: help; position: relative; }
         /* Bump the hovered cell itself above the sticky thead (z-index 2/3)
@@ -253,6 +227,16 @@
 
         table.month td.summary-highlight { background: #FFF9B0; }
         table.month tr.dept td.summary-highlight { background: #FCE4D6; }
+        /* Total OT gets its own light grey (not the yellow used by OT
+           Rate/hr and OT Amount) — matching the download's grid sheet. */
+        table.month td.ot-total-highlight { background: #F2F2F2; }
+        table.month tr.dept td.ot-total-highlight { background: #FCE4D6; }
+        /* Top 3 OT earners per department (row.is_top3, set in
+           _ot_details_context) — same light blue + bold as the Monthly
+           Summary tab and the download's two sheets. Day cells keep their
+           own heat/special/shift-flag colors (those rules use !important),
+           so this only shows through on the label and summary columns. */
+        table.month tr.top3-row td { background: #EAF4FC; font-weight: 700; }
 
         table.month td.editable-cell { position: relative; cursor: default; }
         table.month td.shift-flag-M-OT::before,
@@ -296,53 +280,217 @@
         .month-legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin-bottom: 1.1rem; font-size: 0.8rem; }
         .month-legend .legend-item { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-muted); background: var(--bg); padding: 0.25rem 0.6rem 0.25rem 0.4rem; border-radius: 999px; }
         .month-legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
+
+        /* --- OT View tab (moved here from the Attendance dashboard) --- */
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.85rem; max-width: 500px; }
+        .msg.success { background: #e6f4ea; color: #1e7e34; }
+        .msg.error { background: #fdecea; color: #b3261e; }
+        .lock-banner {
+            background: #fdecea; color: #b3261e; border: 1px solid #f3c6c1; border-radius: 8px;
+            padding: 0.5rem 0.9rem; font-size: 0.85rem; margin: 0 0 1rem;
+        }
+        .dept-summary summary { cursor: pointer; list-style: none; margin-bottom: 0.9rem; }
+        .dept-summary summary::-webkit-details-marker { display: none; }
+        .dept-summary summary h2 { display: inline-block; margin: 0; }
+        .dept-summary summary h2::before { content: "▸ "; }
+        .dept-summary[open] summary h2::before { content: "▾ "; }
+        .tab-lock-icon {
+            display: inline-flex; align-items: center; justify-content: center; margin-left: 0.4rem;
+            line-height: 1; cursor: pointer; border-radius: 999px; padding: 0.25rem;
+            background: var(--surface); box-shadow: 0 1px 2px rgba(16,24,40,0.15);
+        }
+        .tab-lock-icon:hover { transform: scale(1.12); }
+        .tab-lock-icon svg { display: block; }
+        .tab-lock-icon .icon-locked { color: #dc2626; }
+        .tab-lock-icon .icon-unlocked { color: #16a34a; }
+
+        table.month.grid-editable td.editable-cell { cursor: pointer; }
+        table.month.grid-editable td.editable-cell.just-saved { outline: 3px solid var(--navy); outline-offset: -3px; transition: outline-color 2s ease; }
+        table.month.grid-editable th.editable-header { cursor: pointer; }
+        table.month.grid-editable th.editable-header:hover { filter: brightness(0.95); }
+        table.month.grid-editable.locked td.editable-cell,
+        table.month.grid-editable.locked th.editable-header { cursor: not-allowed; }
+        table.month.grid-editable.locked th.editable-header:hover { filter: none; }
+
+        /* Click-to-edit popup for a single day cell — fixes a missed punch
+           and/or sets the shift code. One shared modal reused for every
+           cell (rather than a form per cell) so the grid doesn't bloat. */
+        .edit-overlay {
+            position: fixed; inset: 0; background: rgba(17,17,20,0.45);
+            backdrop-filter: blur(2px);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .edit-overlay.open { display: flex; }
+        body.modal-open table.month td[data-tooltip]:hover::after { display: none; }
+        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 300px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+        .edit-modal h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+        .edit-modal .edit-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.9rem; }
+        .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
+        .edit-modal input, .edit-modal select {
+            display: block; width: 100%; margin-top: 0.25rem; padding: 0.45rem 0.6rem;
+            border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
+            transition: border-color .15s ease;
+        }
+        .edit-modal input:focus, .edit-modal select:focus { outline: none; border-color: var(--navy); }
+        .edit-modal input:disabled { background: #f0f0f0; color: #999; }
+        .edit-modal .edit-staff-note { font-size: 0.75rem; color: #999; margin: -0.3rem 0 0.6rem; }
+        .shift-toggle-label { font-size: 0.8rem; color: #444; margin-bottom: 0.35rem; }
+        .shift-toggle { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.7rem; }
+        .shift-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+        .shift-toggle label {
+            padding: 0.4rem 0.7rem; border: 1px solid #ccc; border-radius: 999px;
+            font-size: 0.8rem; font-weight: 600; color: #444; cursor: pointer;
+            user-select: none; margin: 0; transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .shift-toggle input:checked + label { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+        .shift-toggle input:disabled + label { background: #f0f0f0; color: #bbb; border-color: #e0e0e0; cursor: default; }
+        .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
+        .edit-modal button {
+            padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
+            background: #fff; cursor: pointer; font-size: 0.85rem; transition: background .15s ease;
+        }
+        .edit-modal button:hover { background: var(--bg); }
+        .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
+        .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
     </style>
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="ot_details" %}
     <div class="page">
-        <h1>OT Details</h1>
-        <p class="caption">Overtime hours, rate, and amount per employee for the selected month — the same numbers as the Attendance dashboard's OT View tab, laid out as flat tables instead of a day &times; employee grid.</p>
-
-        {% if not has_data %}
-            <div class="card"><p class="empty-state">No attendance data uploaded yet.</p></div>
-        {% else %}
+        {% for message in messages %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+        <div class="page-header-row">
+            <h1>OT Details</h1>
+            {% if has_data %}
             <div class="month-nav">
                 <a href="?date={{ prev_date }}">&larr;</a>
                 <h2>{{ month_name }} {{ year }}</h2>
                 <a href="?date={{ next_date }}">&rarr;</a>
             </div>
+            {% endif %}
+            {% if has_data and not empty %}
+            <div class="kpi-row">
+                <div class="kpi">
+                    <div class="label">Employees with OT</div>
+                    <div class="value">{{ summary_rows|length }}</div>
+                </div>
+                <div class="kpi">
+                    <div class="label">Total OT Hours</div>
+                    <div class="value">{{ summary_total_hours }}</div>
+                </div>
+                <div class="kpi">
+                    <div class="label">Total OT Amount</div>
+                    <div class="value">{{ summary_total_amount }}</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
 
+        {% if not has_data %}
+            <div class="card"><p class="empty-state">No attendance data uploaded yet.</p></div>
+        {% else %}
             {% if empty %}
                 <div class="card"><p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p></div>
             {% else %}
-                <div class="kpi-row">
-                    <div class="kpi">
-                        <div class="label">Employees with OT</div>
-                        <div class="value">{{ summary_rows|length }}</div>
-                    </div>
-                    <div class="kpi">
-                        <div class="label">Total OT Hours</div>
-                        <div class="value">{{ summary_total_hours }}</div>
-                    </div>
-                    <div class="kpi">
-                        <div class="label">Total OT Amount</div>
-                        <div class="value">{{ summary_total_amount }}</div>
-                    </div>
-                </div>
-
                 <div class="card">
                     <div class="tab-row">
-                        <button type="button" class="tab-btn active" data-tab="summary">Monthly Summary</button>
+                        <button type="button" class="tab-btn active" data-tab="otview">OT View
+                            <span class="tab-lock-icon" data-label="OT View" data-action="{% if is_locked_ot %}unlock{% else %}lock{% endif %}" title="{% if is_locked_ot %}Unlock{% else %}Lock{% endif %} OT View">{% if is_locked_ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="summary">Monthly Summary</button>
                         <button type="button" class="tab-btn" data-tab="grid">Full Monthly View</button>
+                        <a class="tab-btn download-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}">Download (.xlsx)</a>
+                        <button type="button" class="tab-btn" id="sendOtTelegramBtn">Send to Telegram</button>
+                        <span id="sendOtTelegramStatus" class="report-status"></span>
                     </div>
 
-                    <div class="tab-panel" data-panel="summary">
-                        <div class="report-toolbar">
-                            <button type="button" class="toolbar-btn print-btn">Print</button>
-                            <a class="toolbar-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}">Download (.xlsx)</a>
+                    <div class="tab-panel" data-panel="otview">
+                        {% if is_locked_ot %}
+                            <p class="lock-banner">🔒 OT View is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>
+                        {% endif %}
+                        {% if dept_ot_summary %}
+                        <details class="dept-summary">
+                            <summary><h2>By department</h2></summary>
+                            <div class="table-wrap">
+                                <table class="simple">
+                                    <tr><th>Department</th><th>Headcount (with OT)</th><th>Most OT</th><th>Least OT</th><th>Total OT hours</th></tr>
+                                    {% for d in dept_ot_summary %}
+                                    <tr>
+                                        <td>{{ d.department }}</td>
+                                        <td>{{ d.headcount }}</td>
+                                        <td>{{ d.top_name }} ({{ d.top_hours }}h)</td>
+                                        <td>{{ d.lowest_name }} ({{ d.lowest_hours }}h)</td>
+                                        <td>{{ d.total_hours }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </table>
+                            </div>
+                        </details>
+                        {% endif %}
+                        {% if editable_table_rows %}
+                        <div class="month-legend">
+                            <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
+                            <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
+                            <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
+                            <span class="legend-item"><span class="swatch" style="background:#FFF9B0"></span>Confirmed OT shift</span>
+                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #2E7D32"></span>M-OT</span>
+                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT</span>
+                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT</span>
+                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #1565C0"></span>Full-OT</span>
                         </div>
-                        <h2 class="print-only-title">OT Monthly Summary — {{ month_name }} {{ year }}</h2>
+                        <p class="caption">Click any day cell to fix a missed punch or set its shift code. Click a date's column header to set that shift for everyone that day (Staff excluded). Every employee is listed, grouped by department — rows with no OT shift (real or suggested) are hidden until they get one. Click a department row to collapse it.</p>
+                        <div class="grid-scroll">
+                            <table class="month grid-editable" id="otViewGrid">
+                                <colgroup>
+                                    <col class="label-col">
+                                    {% for d in day_headers %}<col class="day-col">{% endfor %}
+                                    <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th class="label"></th>
+                                        {% for d in day_headers %}<th class="editable-header {% if d.special %}special-{{ d.special }}{% endif %}" data-date="{{ d.date_iso }}" data-day-type="{{ d.special }}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
+                                        <th class="ot-total-col">Total OT</th>
+                                        <th class="ot-total-col">OT Rate/hr</th>
+                                        <th class="ot-total-col">OT Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in editable_table_rows %}
+                                    <tr class="{% if row.is_dept %}dept{% endif %}">
+                                        {% if row.is_dept %}
+                                            <td class="label dept-header" colspan="{{ total_cols }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
+                                        {% else %}
+                                            <td class="label" title="{{ row.label }}">{{ row.label }}</td>
+                                        {% for cell in row.day_cells %}
+                                            <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{{ cell.value }}</td>
+                                        {% endfor %}
+                                            <td class="ot-total-highlight ot-total-col">{{ row.total_ot }}</td>
+                                            <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
+                                            <td class="summary-highlight ot-total-col">{{ row.total_ot_amount }}</td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td class="label" colspan="{{ day_headers|length|add:1 }}">Total</td>
+                                        <td class="ot-total-col">{{ summary_total_hours }}</td>
+                                        <td class="ot-total-col"></td>
+                                        <td class="ot-total-col">{{ summary_total_amount }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        {% else %}
+                            <p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="tab-panel" data-panel="summary" style="display:none;">
                         {% if summary_rows %}
                         <div class="table-wrap">
                             <table class="simple">
@@ -354,31 +502,25 @@
                                         <th class="num">OT Hours</th>
                                         <th class="num">OT Rate/hr</th>
                                         <th class="num">OT Amount</th>
-                                        <th class="num">Dept OT Hours</th>
-                                        <th class="num">Dept OT Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for row in summary_rows %}
                                     {% if row.is_dept %}
                                     <tr class="dept-row">
-                                        <td colspan="3">{{ row.department }} <span class="dept-headcount">({{ row.headcount }})</span></td>
-                                        <td class="num"></td>
-                                        <td class="num"></td>
-                                        <td class="num"></td>
-                                        <td class="num">{{ row.ot_hours }}</td>
-                                        <td class="num">{{ row.ot_amount }}</td>
+                                        <td colspan="6">
+                                            {{ row.department }} <span class="dept-headcount">({{ row.headcount }})</span>
+                                            — {{ row.ot_hours }} hrs, ₹{{ row.ot_amount }}
+                                        </td>
                                     </tr>
                                     {% else %}
-                                    <tr>
+                                    <tr class="{% if row.is_top3 %}top3-row{% endif %}">
                                         <td>{{ row.emp_code }}</td>
                                         <td>{{ row.emp_name }}</td>
                                         <td>{{ row.department }}</td>
                                         <td class="num">{{ row.ot_hours }}</td>
                                         <td class="num">{{ row.ot_rate }}</td>
                                         <td class="num">{{ row.ot_amount }}</td>
-                                        <td class="num"></td>
-                                        <td class="num"></td>
                                     </tr>
                                     {% endif %}
                                     {% endfor %}
@@ -389,8 +531,6 @@
                                         <td class="num">{{ summary_total_hours }}</td>
                                         <td></td>
                                         <td class="num">{{ summary_total_amount }}</td>
-                                        <td></td>
-                                        <td></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -401,11 +541,6 @@
                     </div>
 
                     <div class="tab-panel" data-panel="grid" style="display:none;">
-                        <div class="report-toolbar">
-                            <button type="button" class="toolbar-btn print-btn">Print</button>
-                            <a class="toolbar-btn" href="{% url 'ot_details_download_grid' %}?date={{ current_date }}">Download (.xlsx)</a>
-                        </div>
-                        <h2 class="print-only-title">OT Full Monthly View — {{ month_name }} {{ year }}</h2>
                         {% if table_rows %}
                         <div class="month-legend">
                             <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
@@ -438,7 +573,7 @@
                                 </thead>
                                 <tbody>
                                     {% for row in table_rows %}
-                                    <tr class="{% if row.is_dept %}dept{% endif %}">
+                                    <tr class="{% if row.is_dept %}dept{% elif row.is_top3 %}top3-row{% endif %}">
                                         {% if row.is_dept %}
                                             <td class="label dept-header" colspan="{{ total_cols }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
                                         {% else %}
@@ -446,13 +581,21 @@
                                         {% for cell in row.day_cells %}
                                             <td class="editable-cell {% if cell.special %}special-{{ cell.special }}{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{{ cell.value }}</td>
                                         {% endfor %}
-                                            <td class="summary-highlight ot-total-col">{{ row.total_ot }}</td>
+                                            <td class="ot-total-highlight ot-total-col">{{ row.total_ot }}</td>
                                             <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
                                             <td class="summary-highlight ot-total-col">{{ row.total_ot_amount }}</td>
                                         {% endif %}
                                     </tr>
                                     {% endfor %}
                                 </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td class="label" colspan="{{ day_headers|length|add:1 }}">Total</td>
+                                        <td class="ot-total-col">{{ summary_total_hours }}</td>
+                                        <td class="ot-total-col"></td>
+                                        <td class="ot-total-col">{{ summary_total_amount }}</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                         {% else %}
@@ -460,33 +603,131 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <div class="edit-overlay" id="editOverlay">
+                    <div class="edit-modal">
+                        <h3>Edit attendance</h3>
+                        <p class="edit-meta"><span id="editEmpLabel"></span> — <span id="editDateLabel"></span></p>
+                        <form method="post" action="{% url 'edit_record' %}" id="editForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="emp_code" id="editEmpCode">
+                            <input type="hidden" name="date" id="editDate">
+                            <input type="hidden" name="view" value="ot">
+                            <input type="hidden" name="next" id="editNext" value="{{ request.get_full_path }}">
+                            <label>Time In
+                                <input type="text" name="time_in" id="editTimeIn" placeholder="HH:MM">
+                            </label>
+                            <label>Time Out
+                                <input type="text" name="time_out" id="editTimeOut" placeholder="HH:MM">
+                            </label>
+                            <div id="editShiftLabel">
+                                <p class="shift-toggle-label">Shift</p>
+                                <div class="shift-toggle" id="editShiftGroup">
+                                    <input type="radio" name="shift" value="" id="editShift-none">
+                                    <label for="editShift-none">—</label>
+                                    <input type="radio" name="shift" value="GS" id="editShift-gs">
+                                    <label for="editShift-gs">GS</label>
+                                    <input type="radio" name="shift" value="M-OT" id="editShift-mot">
+                                    <label for="editShift-mot">M-OT</label>
+                                    <input type="radio" name="shift" value="E-OT" id="editShift-eot">
+                                    <label for="editShift-eot">E-OT</label>
+                                    <input type="radio" name="shift" value="ME-OT" id="editShift-meot">
+                                    <label for="editShift-meot">ME-OT</label>
+                                    <input type="radio" name="shift" value="Full-OT" id="editShift-fullot">
+                                    <label for="editShift-fullot">Full-OT</label>
+                                </div>
+                            </div>
+                            <p class="edit-staff-note" id="editStaffNote" style="display:none;">Shift isn't editable for Staff — they're excluded from shift-based OT (see Time Off instead).</p>
+                            <div class="edit-actions">
+                                <button type="button" id="editCancel">Cancel</button>
+                                <button type="submit">Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="edit-overlay" id="bulkOverlay">
+                    <div class="edit-modal">
+                        <h3>Set date</h3>
+                        <p class="edit-meta"><span id="bulkDateLabel"></span></p>
+                        <form method="post" action="{% url 'bulk_set_shift' %}" id="bulkForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="date" id="bulkDate">
+                            <input type="hidden" name="view" value="ot">
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <label>Shift (all employees except Staff)
+                                <input type="text" name="shift" id="bulkShift" list="shiftOptions" placeholder="GS">
+                                <datalist id="shiftOptions">
+                                    <option value="GS">
+                                    <option value="M-OT">
+                                    <option value="E-OT">
+                                    <option value="ME-OT">
+                                    <option value="Full-OT">
+                                </datalist>
+                            </label>
+                            <label>Calendar day type
+                                <select name="day_type" id="bulkDayType">
+                                    <option value="">— none —</option>
+                                    {% for code, label in day_types %}
+                                    <option value="{{ code }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <div class="edit-actions">
+                                <button type="button" id="bulkCancel">Cancel</button>
+                                <button type="submit">Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="edit-overlay" id="lockOverlay">
+                    <div class="edit-modal">
+                        <h3 id="lockModalTitle">{% if is_locked_ot %}Unlock{% else %}Lock{% endif %} OT View</h3>
+                        <p class="edit-meta" id="lockModalMeta">Enter the PIN to {% if is_locked_ot %}unlock{% else %}lock{% endif %} the OT View for {{ month_name }} {{ year }}.</p>
+                        <form method="post" action="{% url 'toggle_month_lock' %}" id="lockForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="year" value="{{ year }}">
+                            <input type="hidden" name="month" value="{{ month }}">
+                            <input type="hidden" name="view" value="ot">
+                            <input type="hidden" name="action" id="lockAction" value="{% if is_locked_ot %}unlock{% else %}lock{% endif %}">
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <label>PIN
+                                <input type="password" name="pin" id="lockPin" inputmode="numeric" autocomplete="off">
+                            </label>
+                            <div class="edit-actions">
+                                <button type="button" id="lockCancel">Cancel</button>
+                                <button type="submit" id="lockSubmit">{% if is_locked_ot %}Unlock{% else %}Lock{% endif %}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             {% endif %}
         {% endif %}
     </div>
+    <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
     <script>
-        document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        // Scoped to [data-tab] so the Download link (a plain .tab-btn with
+        // no data-tab, since it navigates instead of switching panels)
+        // doesn't get treated as a switchable tab.
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+                document.querySelectorAll('.tab-btn[data-tab]').forEach(function (b) { b.classList.remove('active'); });
                 document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
                 btn.classList.add('active');
                 document.querySelector('.tab-panel[data-panel="' + btn.dataset.tab + '"]').style.display = '';
             });
         });
 
-        // Each tab's Print button lives inside its own panel, so it's only
-        // clickable while that panel is the active (visible) one — the
-        // print stylesheet just hides chrome (nav/tabs/toolbar) and lets
-        // the browser print whatever's already on screen.
-        document.querySelectorAll('.print-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () { window.print(); });
-        });
-
-        // Full Monthly View grid: the server already sends only employees
-        // (and departments) with real OT that month (see _ot_only_rows in
-        // views.py) — this just swaps shift-flagged/suggested cells to show
-        // In/Out time instead of worked hours, and wires up department
-        // collapse. Runs once on load; the table is already in the DOM even
-        // while its tab is hidden.
+        // Both month grids on this page (the editable OT View and the
+        // read-only Full Monthly View, which only lists employees with
+        // real OT that month — see _ot_only_rows in views.py) share this:
+        // swap shift-flagged/suggested cells to show In/Out time instead
+        // of worked hours, and wire up department collapse. Runs once on
+        // load; both tables are already in the DOM even while hidden.
+        // #otViewGrid's collapse is excluded here — it also needs to hide
+        // employees with no OT shift at all, so it gets its own combined
+        // handler below instead of this plain toggle.
         (function () {
             function toHHMM(value) {
                 var parts = (value || '').split(':');
@@ -512,13 +753,226 @@
                 }
                 return rows;
             }
-            document.querySelectorAll('table.month tr.dept').forEach(function (deptRow) {
+            document.querySelectorAll('table.month:not(#otViewGrid) tr.dept').forEach(function (deptRow) {
                 var employees = employeeRowsOf(deptRow);
                 deptRow.querySelector('td.label').addEventListener('click', function () {
                     var collapsed = deptRow.classList.toggle('collapsed');
                     deptRow.querySelector('.toggle-icon').textContent = collapsed ? '▸' : '▾';
                     employees.forEach(function (row) {
                         row.style.display = collapsed ? 'none' : '';
+                    });
+                });
+            });
+        })();
+
+        // OT View tab (moved here from the Attendance dashboard) — the
+        // editable grid lists the full roster, so department collapse
+        // also needs to hide employees with no OT shift (real or
+        // suggested) at all, plus click-to-edit/bulk-set/lock, same as
+        // the dashboard grid used to provide.
+        (function () {
+            var grid = document.getElementById('otViewGrid');
+            if (!grid) return;
+            var isOtLocked = {{ is_locked_ot|yesno:"true,false" }};
+            if (isOtLocked) grid.classList.add('locked');
+
+            function employeeRowsOf(deptRow) {
+                var rows = [];
+                var sib = deptRow.nextElementSibling;
+                while (sib && !sib.classList.contains('dept')) {
+                    rows.push(sib);
+                    sib = sib.nextElementSibling;
+                }
+                return rows;
+            }
+            function rowHasShiftFlag(row) {
+                return row.querySelector('td[class*="shift-flag-"], td.gs-show-time') !== null;
+            }
+            function refreshVisibility() {
+                grid.querySelectorAll('tr.dept').forEach(function (deptRow) {
+                    var collapsed = deptRow.classList.contains('collapsed');
+                    var employees = employeeRowsOf(deptRow);
+                    var deptHasShiftFlag = employees.some(rowHasShiftFlag);
+                    employees.forEach(function (row) {
+                        row.style.display = (collapsed || !rowHasShiftFlag(row)) ? 'none' : '';
+                    });
+                    deptRow.style.display = deptHasShiftFlag ? '' : 'none';
+                });
+            }
+            grid.querySelectorAll('tr.dept').forEach(function (deptRow) {
+                deptRow.querySelector('td.label').addEventListener('click', function () {
+                    var collapsed = deptRow.classList.toggle('collapsed');
+                    deptRow.querySelector('.toggle-icon').textContent = collapsed ? '▸' : '▾';
+                    refreshVisibility();
+                });
+            });
+            refreshVisibility();
+
+            var editOverlay = document.getElementById('editOverlay');
+            var editNextInput = document.getElementById('editNext');
+            var editNextBase = editNextInput.value;
+            grid.querySelectorAll('td.editable-cell').forEach(function (cell) {
+                cell.addEventListener('click', function () {
+                    if (isOtLocked || !cell.dataset.emp || !cell.dataset.date) return;
+                    document.getElementById('editEmpCode').value = cell.dataset.emp;
+                    document.getElementById('editDate').value = cell.dataset.date;
+                    document.getElementById('editEmpLabel').textContent = cell.dataset.emp;
+                    document.getElementById('editDateLabel').textContent = cell.dataset.date;
+                    document.getElementById('editTimeIn').value = cell.dataset.in || '';
+                    document.getElementById('editTimeOut').value = cell.dataset.out || '';
+                    var isStaff = cell.dataset.staff === '1';
+                    var shiftValue = cell.dataset.shift || '';
+                    document.querySelectorAll('#editShiftGroup input[type=radio]').forEach(function (r) {
+                        r.checked = (r.value === shiftValue);
+                        r.disabled = isStaff;
+                    });
+                    document.getElementById('editStaffNote').style.display = isStaff ? 'block' : 'none';
+                    // Carry the clicked cell's identity through the save's
+                    // redirect (as a URL fragment, since it's a plain
+                    // POST-redirect-GET) so the page can scroll back to it
+                    // and flash it once the reload lands.
+                    editNextInput.value = editNextBase
+                        + '#cell=' + encodeURIComponent(cell.dataset.emp) + '::' + encodeURIComponent(cell.dataset.date);
+                    editOverlay.classList.add('open');
+                    document.body.classList.add('modal-open');
+                });
+            });
+            document.getElementById('editCancel').addEventListener('click', function () {
+                editOverlay.classList.remove('open');
+                document.body.classList.remove('modal-open');
+            });
+
+            var bulkOverlay = document.getElementById('bulkOverlay');
+            grid.querySelectorAll('th.editable-header').forEach(function (th) {
+                th.addEventListener('click', function () {
+                    if (isOtLocked || !th.dataset.date) return;
+                    document.getElementById('bulkDate').value = th.dataset.date;
+                    document.getElementById('bulkDateLabel').textContent = th.dataset.date;
+                    document.getElementById('bulkShift').value = '';
+                    document.getElementById('bulkDayType').value = th.dataset.dayType || '';
+                    bulkOverlay.classList.add('open');
+                    document.body.classList.add('modal-open');
+                });
+            });
+            document.getElementById('bulkCancel').addEventListener('click', function () {
+                bulkOverlay.classList.remove('open');
+                document.body.classList.remove('modal-open');
+            });
+
+            var lockOverlay = document.getElementById('lockOverlay');
+            var tabLockIcon = document.querySelector('.tab-lock-icon');
+            if (lockOverlay && tabLockIcon) {
+                tabLockIcon.addEventListener('click', function (e) {
+                    // The icon sits inside the OT View tab button, so a
+                    // click would otherwise also switch tabs — stop it
+                    // here (it's already the active tab anyway).
+                    e.preventDefault();
+                    e.stopPropagation();
+                    lockOverlay.classList.add('open');
+                    document.body.classList.add('modal-open');
+                });
+                document.getElementById('lockCancel').addEventListener('click', function () {
+                    lockOverlay.classList.remove('open');
+                    document.body.classList.remove('modal-open');
+                });
+            }
+
+            // After a single-cell save (see editNext above), the redirect
+            // back here carries the saved cell's identity in the URL
+            // fragment — scroll to it and flash it so the edit is easy to
+            // spot again.
+            if (location.hash.indexOf('#cell=') === 0) {
+                var parts = location.hash.slice('#cell='.length).split('::');
+                var savedEmp = decodeURIComponent(parts[0] || '');
+                var savedDate = decodeURIComponent(parts[1] || '');
+                var savedCell = null;
+                grid.querySelectorAll('td.editable-cell').forEach(function (cell) {
+                    if (cell.dataset.emp === savedEmp && cell.dataset.date === savedDate) savedCell = cell;
+                });
+                if (savedCell) {
+                    savedCell.scrollIntoView({ block: 'center', inline: 'center' });
+                    savedCell.classList.add('just-saved');
+                    setTimeout(function () { savedCell.classList.remove('just-saved'); }, 2000);
+                }
+                history.replaceState(null, '', location.pathname + location.search);
+            }
+        })();
+
+        // "Send to Telegram" — screenshots both tables (regardless of which
+        // tab is currently active) and posts each as a photo via the same
+        // endpoint the Mark Attendance Month view's "Send Report" button
+        // uses, so the two send as separate Telegram messages one after
+        // the other.
+        (function () {
+            var btn = document.getElementById('sendOtTelegramBtn');
+            if (!btn) return;
+            var statusEl = document.getElementById('sendOtTelegramStatus');
+
+            function getCookie(name) {
+                var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return match ? match.pop() : '';
+            }
+
+            function captureAndSend(panelSelector, tableSelector, caption, filename, scale) {
+                var panel = document.querySelector(panelSelector);
+                var table = document.querySelector(tableSelector);
+                if (!panel || !table) return Promise.resolve({ ok: false, error: 'Nothing to capture.' });
+                var wasHidden = panel.style.display === 'none';
+                if (wasHidden) panel.style.display = '';
+                return html2canvas(table, { backgroundColor: '#ffffff', scale: scale })
+                    .then(function (canvas) {
+                        if (wasHidden) panel.style.display = 'none';
+                        return new Promise(function (resolve) {
+                            canvas.toBlob(function (blob) {
+                                var formData = new FormData();
+                                formData.append('image', blob, filename);
+                                formData.append('caption', caption);
+                                formData.append('topic', 'ot_cash');
+                                fetch('{% url "send_telegram_report" %}', {
+                                    method: 'POST',
+                                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                                    body: formData,
+                                })
+                                    .then(function (r) { return r.json(); })
+                                    .then(resolve)
+                                    .catch(function () {
+                                        resolve({ ok: false, error: 'Failed to reach the server.' });
+                                    });
+                            }, 'image/png');
+                        });
+                    })
+                    .catch(function (err) {
+                        if (wasHidden) panel.style.display = 'none';
+                        return { ok: false, error: 'Failed to capture the table: ' + ((err && err.message) || String(err)) };
+                    });
+            }
+
+            btn.addEventListener('click', function () {
+                var monthLabel = '{{ month_name|escapejs }} {{ year|escapejs }}';
+                btn.disabled = true;
+                statusEl.className = 'report-status';
+                statusEl.textContent = 'Sending summary…';
+
+                captureAndSend(
+                    '.tab-panel[data-panel="summary"]', '.tab-panel[data-panel="summary"] table.simple',
+                    'OT Monthly Summary — ' + monthLabel, 'ot-summary.png', 2
+                ).then(function (summaryResult) {
+                    statusEl.textContent = 'Sending full monthly view…';
+                    // Lower scale for the wide day x employee grid — at
+                    // scale:2 a full month's columns produces a multi-MB
+                    // PNG that's slow to capture and upload; 1.5 keeps it
+                    // legible while cutting both well below what was
+                    // timing out.
+                    return captureAndSend(
+                        '.tab-panel[data-panel="grid"]', '.tab-panel[data-panel="grid"] table.month',
+                        'OT Full Monthly View — ' + monthLabel, 'ot-full-monthly.png', 1.5
+                    ).then(function (gridResult) {
+                        btn.disabled = false;
+                        var ok = summaryResult.ok && gridResult.ok;
+                        statusEl.textContent =
+                            'Summary: ' + (summaryResult.ok ? 'sent' : 'failed (' + (summaryResult.error || 'error') + ')') +
+                            ' — Full View: ' + (gridResult.ok ? 'sent' : 'failed (' + (gridResult.error || 'error') + ')');
+                        statusEl.className = 'report-status ' + (ok ? 'success' : 'error');
                     });
                 });
             });

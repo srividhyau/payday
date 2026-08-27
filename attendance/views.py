@@ -1,4 +1,5 @@
 import calendar as py_calendar
+import copy
 import html
 import json
 import logging
@@ -22,7 +23,8 @@ from src import metrics, payroll
 from .forms import UploadForm
 from .importer import import_file
 from .models import (
-    AttendanceRecord, Department, Employee, MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
+    AttendanceRecord, CashWithdrawal, Department, Employee, MonthLock, SalaryAdjustment, SpecialDay,
+    UploadBatch,
 )
 
 logger = logging.getLogger(__name__)
@@ -334,7 +336,7 @@ def dashboard_view(request):
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
     current_view = request.GET.get("view", "all")
-    if current_view not in ("all", "issues", "ot"):
+    if current_view not in ("all", "issues"):
         current_view = "all"
     locked_views = set(
         MonthLock.objects.filter(year=year, month=month).values_list("view", flat=True)
@@ -350,7 +352,7 @@ def dashboard_view(request):
         "current_view": current_view,
         "current_view_label": dict(MonthLock.VIEW_CHOICES)[current_view],
         "is_locked": current_view in locked_views,
-        "lock_status": {v: (v in locked_views) for v, _ in MonthLock.VIEW_CHOICES},
+        "lock_status": {v: (v in locked_views) for v, _ in MonthLock.VIEW_CHOICES if v != MonthLock.VIEW_OT},
     }
 
     daily = daily_all[(daily_all["date"].dt.year == year) & (daily_all["date"].dt.month == month)]
@@ -366,9 +368,8 @@ def dashboard_view(request):
     comp_offs = metrics.comp_off_dates(daily)
 
     emp_rate_map = dict(Employee.objects.values_list("code", "ot_rate_per_hour"))
-    grid = _build_month_grid(daily, special_days, emp_rate_map, ot_tooltip=(current_view == "ot"))
+    grid = _build_month_grid(daily, special_days, emp_rate_map)
     working_days = grid["working_days"]
-    shift_ot_table = grid["shift_ot_table"]
     issues = grid["issues"]
 
     emp_summary = metrics.employee_summary(daily, working_days, shift_ot_map=grid["emp_ot_totals"])
@@ -383,7 +384,6 @@ def dashboard_view(request):
         d["high_leave"] = high_leave.get(d["department"], [])
 
     dept_missed_punch = metrics.department_missed_punch_summary(daily, issues)
-    dept_ot_summary = metrics.department_ot_summary(shift_ot_table)
 
     context = {
         **month_nav,
@@ -398,13 +398,15 @@ def dashboard_view(request):
         "missed_punch_count": len(issues),
         "dept_summary": dept_summary_rows,
         "dept_missed_punch": dept_missed_punch,
-        "dept_ot_summary": dept_ot_summary,
         "day_labels": grid["day_labels"],
         "day_headers": grid["day_headers"],
         "summary_cols": grid["summary_cols"],
         "table_rows": grid["table_rows"],
         "heat_colors": metrics.HEAT_COLORS,
-        "total_cols": grid["total_cols"],
+        # Not grid["total_cols"] — that includes the 3 OT columns, which
+        # only the OT page's grid renders now that OT View has moved
+        # there (see _ot_details_context).
+        "total_cols": 1 + len(grid["day_headers"]) + len(grid["summary_cols"]),
         "day_types": SpecialDay.TYPE_CHOICES,
     }
     return render(request, "attendance/dashboard.html", context)
@@ -488,8 +490,9 @@ def edit_record_view(request):
     """HR correction for a single employee/date cell — fixes a missed punch
     (time_in/time_out) and/or sets the shift code (GS/M-OT/E-OT/ME-OT/
     Full-OT) so it feeds correctly into the OT view. Triggered by the
-    dashboard grid's click-to-edit popup; redirects back to wherever the
-    popup was opened from."""
+    click-to-edit popup on either the Attendance dashboard's grid or the
+    OT page's OT View tab; redirects back to wherever the popup was
+    opened from."""
     next_url = request.POST.get("next") or "dashboard"
     if request.method != "POST":
         return redirect(next_url)
@@ -533,8 +536,9 @@ def bulk_set_shift_view(request):
     """Sets the shift code for every employee on one date at once, and/or
     the company-wide calendar day type (Holiday/Paid Holiday/Comp Off) for
     that same date — one popup, triggered by clicking a day column header
-    in the dashboard grid, instead of separate shift and calendar-editing
-    flows. Staff subcategory employees are excluded from the shift update,
+    in the Attendance dashboard's grid or the OT page's OT View tab,
+    instead of separate shift and calendar-editing flows. Staff
+    subcategory employees are excluded from the shift update,
     matching overtime_view's own exclusion (shift-based OT never applies
     to them); the calendar day type still applies company-wide."""
     next_url = request.POST.get("next") or "dashboard"
@@ -577,11 +581,11 @@ def bulk_set_shift_view(request):
 @login_required
 def toggle_month_lock_view(request):
     """Locks or unlocks one calendar month's attendance data for one of
-    the three dashboard views (All/Missed Punch/OT View) independently,
-    gated by the shared PIN (settings.ATTENDANCE_LOCK_PIN) — there's no
-    user login in this app, so the PIN is the only check on either
-    direction. Triggered by the dashboard's lock-toggle button next to the
-    view tabs."""
+    the Attendance dashboard's All/Missed Punch views or the OT page's OT
+    View tab independently, gated by the shared PIN (see
+    settings.ATTENDANCE_LOCK_PIN) — there's no user login in this app, so
+    the PIN is the only check on either direction. Triggered by the
+    lock-toggle button next to the view/tab it applies to."""
     next_url = request.POST.get("next") or "dashboard"
     if request.method != "POST":
         return redirect(next_url)
@@ -619,19 +623,21 @@ def toggle_month_lock_view(request):
     return redirect(next_url)
 
 
-def _notify_telegram(text: str, parse_mode: str | None = None) -> tuple[bool, str]:
-    """Posts a text message to the configured bot/chat/topic (see
-    settings.TELEGRAM_*). Never raises — returns (ok, error) so a caller
-    that needs to know (the Day view's "Send Report" button) can surface a
-    failure, while a best-effort caller (the bulk save notification) can
-    just ignore the result."""
+def _notify_telegram(text: str, parse_mode: str | None = None, topic_id: str = "") -> tuple[bool, str]:
+    """Posts a text message to the configured bot/chat (see
+    settings.TELEGRAM_*) and the given topic (message_thread_id) — each
+    feature area passes its own settings.TELEGRAM_TOPIC_ID_* so Attendance/
+    OT/Cash Withdrawal land in separate topics of the same group. Never
+    raises — returns (ok, error) so a caller that needs to know (the Day
+    view's "Send Report" button) can surface a failure, while a best-effort
+    caller (the bulk save notification) can just ignore the result."""
     token = settings.TELEGRAM_BOT_TOKEN
     chat_id = settings.TELEGRAM_CHAT_ID
     if not token or not chat_id:
         return False, "Telegram isn't configured (missing bot token or chat id)."
     payload = {"chat_id": chat_id, "text": text}
-    if settings.TELEGRAM_TOPIC_ID:
-        payload["message_thread_id"] = settings.TELEGRAM_TOPIC_ID
+    if topic_id:
+        payload["message_thread_id"] = topic_id
     if parse_mode:
         payload["parse_mode"] = parse_mode
     request_obj = urllib.request.Request(
@@ -658,19 +664,21 @@ def _notify_telegram(text: str, parse_mode: str | None = None) -> tuple[bool, st
         return False, str(exc)
 
 
-def _telegram_send_photo(photo_bytes: bytes, filename: str, caption: str = "") -> tuple[bool, str]:
-    """Posts an image to the configured Telegram bot/chat/topic via
-    sendPhoto. Unlike _notify_telegram, this one reports back (ok, error)
-    instead of swallowing failures — it's triggered by an explicit "Send
-    Report" click, so the user needs to know if it didn't go through."""
+def _telegram_send_photo(photo_bytes: bytes, filename: str, caption: str = "", topic_id: str = "") -> tuple[bool, str]:
+    """Posts an image to the configured Telegram bot/chat via sendPhoto,
+    into the given topic (message_thread_id) — see _notify_telegram for
+    why this takes an explicit topic_id instead of one global setting.
+    Unlike _notify_telegram, this one reports back (ok, error) instead of
+    swallowing failures — it's triggered by an explicit "Send Report"
+    click, so the user needs to know if it didn't go through."""
     token = settings.TELEGRAM_BOT_TOKEN
     chat_id = settings.TELEGRAM_CHAT_ID
     if not token or not chat_id:
         return False, "Telegram isn't configured (missing bot token or chat id)."
 
     fields = {"chat_id": chat_id, "caption": caption[:1024]}
-    if settings.TELEGRAM_TOPIC_ID:
-        fields["message_thread_id"] = settings.TELEGRAM_TOPIC_ID
+    if topic_id:
+        fields["message_thread_id"] = topic_id
 
     boundary = uuid.uuid4().hex
     body = bytearray()
@@ -693,7 +701,11 @@ def _telegram_send_photo(photo_bytes: bytes, filename: str, caption: str = "") -
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
     )
     try:
-        urllib.request.urlopen(request_obj, timeout=20)
+        # 45s, not 20 — a scale:2 screenshot of the Full Monthly View's wide
+        # day x employee grid can run several MB, and the OT Details "Send
+        # to Telegram" button sends two of these back-to-back, so the
+        # second upload has to wait on the first's full round trip too.
+        urllib.request.urlopen(request_obj, timeout=45)
         logger.info("Telegram photo sent.")
         return True, ""
     except urllib.error.HTTPError as exc:
@@ -856,7 +868,8 @@ def mark_attendance_view(request):
             if other_count:
                 breakdown += f", {other_count} Other"
             _notify_telegram(
-                f"🗓 Attendance marked — {dept.name} — {target_date:%d %b %Y}\n{saved} employee(s): {breakdown}"
+                f"🗓 Attendance marked — {dept.name} — {target_date:%d %b %Y}\n{saved} employee(s): {breakdown}",
+                topic_id=settings.TELEGRAM_TOPIC_ID_ATTENDANCE,
             )
         return redirect(redirect_url)
 
@@ -955,7 +968,7 @@ def send_day_attendance_report_view(request):
         f"<pre>{html.escape(table_text)}</pre>"
     )
     try:
-        ok, error = _notify_telegram(text, parse_mode="HTML")
+        ok, error = _notify_telegram(text, parse_mode="HTML", topic_id=settings.TELEGRAM_TOPIC_ID_ATTENDANCE)
     except Exception:
         logger.exception("send_day_attendance_report_view failed unexpectedly.")
         return JsonResponse({"ok": False, "error": "Unexpected server error."}, status=500)
@@ -1006,12 +1019,22 @@ def mark_attendance_month_view(request):
     return render(request, "attendance/mark_attendance_month.html", context)
 
 
+_TELEGRAM_PHOTO_TOPICS = {
+    "attendance": lambda: settings.TELEGRAM_TOPIC_ID_ATTENDANCE,
+    "ot_cash": lambda: settings.TELEGRAM_TOPIC_ID_OT_CASH,
+}
+
+
 @login_required
 def send_telegram_report_view(request):
     """Receives a screenshot (captured client-side via html2canvas — see
-    mark_attendance_month.html's "Send Report" button) and forwards it to
-    Telegram as a photo. JSON in, JSON out: the button is a fetch() call,
-    not a form submit, so it can re-enable itself and show an error inline
+    mark_attendance_month.html's "Send Report" button, and the same
+    endpoint reused by OT Details and Cash Withdrawal's "Send to
+    Telegram") and forwards it to Telegram as a photo, in the topic named
+    by the "topic" field (see _TELEGRAM_PHOTO_TOPICS — one shared endpoint
+    serving three feature areas needs the caller to say which topic it
+    belongs in). JSON in, JSON out: the button is a fetch() call, not a
+    form submit, so it can re-enable itself and show an error inline
     instead of navigating away."""
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "POST required."}, status=405)
@@ -1019,8 +1042,10 @@ def send_telegram_report_view(request):
     if not image:
         return JsonResponse({"ok": False, "error": "No image provided."}, status=400)
     caption = request.POST.get("caption", "").strip()
+    topic_key = request.POST.get("topic", "attendance")
+    get_topic_id = _TELEGRAM_PHOTO_TOPICS.get(topic_key, _TELEGRAM_PHOTO_TOPICS["attendance"])
     try:
-        ok, error = _telegram_send_photo(image.read(), image.name or "report.png", caption)
+        ok, error = _telegram_send_photo(image.read(), image.name or "report.png", caption, topic_id=get_topic_id())
     except Exception:
         logger.exception("send_telegram_report_view failed unexpectedly.")
         return JsonResponse({"ok": False, "error": "Unexpected server error."}, status=500)
@@ -1093,11 +1118,14 @@ def _salary_decimal(request, field: str, emp_id) -> Decimal:
 
 @login_required
 def salary_view(request):
-    """One page, one month at a time, four tabs (Company Workers/Helpers/
-    Staff/Operators) — each a bulk-editable table of that month's payroll
-    adjustments (Adjust Days/Deductions/Additions, plus Manual Amount for
-    Operators), with Gross/PF/ESI/NET computed via src/payroll.py from
-    Employee.basic_salary/hra/da and this month's attendance. Save is one
+    """One page, one month at a time, five tabs (Company Workers/Helpers/
+    Staff/Contractors/Operators) — each a bulk-editable table of that
+    month's payroll adjustments (Adjust Days/Deductions/Additions, plus
+    Manual Amount for Operators), with Gross/PF/ESI/NET computed via
+    src/payroll.py from Employee.basic_salary/hra/da and this month's
+    attendance. Contractors are prorated like Helpers/Staff but matched via
+    Employee.department (the "Contractor" department) rather than
+    subcategory. Save is one
     upsert-by-(employee, year, month) per row, same bulk shape as
     mark_attendance_view's day-view save — one tab's table = one POST."""
     date_param = request.GET.get("date") or request.POST.get("date")
@@ -1186,6 +1214,7 @@ def salary_view(request):
                 "employee": emp,
                 "paid_days": paid_days,
                 "adjust_days": adjust_days,
+                "earned_days": round(paid_days + adjust_days, 2),
                 "deductions": deductions,
                 "additions": additions,
                 "manual_amount": manual_amount,
@@ -1204,6 +1233,7 @@ def salary_view(request):
         totals = {
             "paid_days": sum((r["paid_days"] for r in rows), Decimal(0)),
             "adjust_days": sum((r["adjust_days"] for r in rows), Decimal(0)),
+            "earned_days": sum((r["earned_days"] for r in rows), Decimal(0)),
             "deductions": sum((r["deductions"] for r in rows), Decimal(0)),
             "additions": sum((r["additions"] for r in rows), Decimal(0)),
         }
@@ -1211,7 +1241,7 @@ def salary_view(request):
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
             totals["da"] = sum((r["employee"].da for r in rows), Decimal(0))
             totals["hra"] = sum((r["employee"].hra for r in rows), Decimal(0))
-        elif kind in ("helper", "staff"):
+        elif kind in ("helper", "staff", "contractors"):
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
         elif kind == "operators":
             totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
@@ -1243,6 +1273,12 @@ def salary_view(request):
         rows = build_rows(employees, tab_key)
         context[f"{tab_key}_rows"] = rows
         context[f"{tab_key}_totals"] = sum_rows(rows, tab_key)
+    contractor_rows = build_rows(
+        Employee.objects.filter(department__name__iexact="Contractor").active_during(month_start, month_end).order_by("name"),
+        "contractors",
+    )
+    context["contractor_rows"] = contractor_rows
+    context["contractor_totals"] = sum_rows(contractor_rows, "contractors")
     operator_rows = build_rows(
         Employee.objects.filter(category__iexact="Operator").active_during(month_start, month_end).order_by("name"),
         "operators",
@@ -1252,14 +1288,122 @@ def salary_view(request):
     return render(request, "attendance/salary.html", context)
 
 
+@login_required
+def cash_withdrawal_view(request):
+    """Monthly cash-register log — money withdrawn for fixed purposes
+    outside of payroll (petty cash, office expenses, an advance, etc.), each a
+    simple Purpose/Description/Amount row logged against a month as a
+    whole (no specific day), listed and totaled like Salary/OT Details.
+    Not employee-linked — this is general cash bookkeeping, not a payroll
+    adjustment."""
+    date_param = request.GET.get("date") or request.POST.get("date")
+    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    year, month = current.year, current.month
+    prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
+    next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+    if request.method == "POST":
+        if request.POST.get("action") == "delete":
+            CashWithdrawal.objects.filter(id=request.POST.get("entry_id")).delete()
+            messages.success(request, "Entry deleted.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+
+        purpose = request.POST.get("purpose", "").strip()
+        amount_raw = request.POST.get("amount", "").strip()
+        description = request.POST.get("description", "").strip()
+        try:
+            amount = Decimal(amount_raw)
+        except InvalidOperation:
+            _error(request, "Enter a valid amount.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+        if not purpose:
+            _error(request, "Purpose is required.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+
+        CashWithdrawal.objects.create(year=year, month=month, purpose=purpose, amount=amount, description=description)
+        messages.success(request, "Cash withdrawal recorded.")
+        logger.info("Cash withdrawal recorded: %s-%s %s %s by user=%s", year, month, purpose, amount, request.user)
+        return redirect(f"{request.path}?date={current.isoformat()}")
+
+    entries = CashWithdrawal.objects.filter(year=year, month=month)
+    total_amount = sum((e.amount for e in entries), Decimal(0))
+
+    context = {
+        "current": current,
+        "year": year,
+        "month": month,
+        "month_name": py_calendar.month_name[month],
+        "prev_date": prev_date.isoformat(),
+        "next_date": next_date.isoformat(),
+        "entries": entries,
+        "total_amount": total_amount,
+    }
+    return render(request, "attendance/cash_withdrawal.html", context)
+
+
+@login_required
+def cash_withdrawal_download_view(request):
+    """Downloads one month's Cash Withdrawal log (Purpose/Description/
+    Amount, same rows as the page) as a single-sheet .xlsx with a bold
+    yellow Total row, matching the OT Details downloads' styling."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    current = _parse_month_date(request.GET.get("date"), date_cls.today().replace(day=1))
+    year, month = current.year, current.month
+    entries = CashWithdrawal.objects.filter(year=year, month=month)
+    total_amount = sum((e.amount for e in entries), Decimal(0))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Cash Withdrawal"
+
+    month_label = f"{py_calendar.month_name[month]} {year}"
+    ws.append([f"Cash Withdrawal — {month_label}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+    headers = ["Purpose", "Description", "Amount"]
+    ws.append(headers)
+    header_row_num = ws.max_row
+    header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+    for cell in ws[header_row_num]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    for entry in entries:
+        ws.append([entry.purpose, entry.description, float(entry.amount)])
+
+    ws.append(["Total", "", float(total_amount)])
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="FFF9B0", end_color="FFF9B0", fill_type="solid")
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+
+    widths = [24, 36, 14]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"cash-withdrawal-{year}-{month:02d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
 def _ot_details_context(date_param: str | None) -> dict:
-    """Computes everything the OT Details report (page and downloads) need
-    for one month — the same shift-based OT numbers as the dashboard's OT
-    View tab (see overtime_view), as a Monthly Summary grouped by
-    department (one row per employee within each department: total OT
-    hours/rate/amount, plus a department header row with its subtotal).
-    Shared by ot_details_view and the two download views so they can
-    never drift apart."""
+    """Computes everything the OT page (page and downloads) needs for one
+    month — the shift-based OT numbers (see overtime_view) as a Monthly
+    Summary grouped by department (one row per employee within each
+    department: total OT hours/rate/amount, plus a department header row
+    with its subtotal), the read-only Full Monthly View grid, and the
+    editable OT View grid (formerly the Attendance dashboard's OT View
+    tab — see edit_record_view/bulk_set_shift_view/toggle_month_lock_view,
+    which are shared with that dashboard and are agnostic of which page's
+    grid triggered them). Shared by ot_details_view and the two download
+    views so they can never drift apart."""
     daily_all = _load_daily_data()
     month_keys_all = (
         sorted({(ts.year, ts.month) for ts in daily_all["date"]}) if not daily_all.empty else []
@@ -1292,6 +1436,14 @@ def _ot_details_context(date_param: str | None) -> dict:
     emp_rate_map = dict(Employee.objects.values_list("code", "ot_rate_per_hour"))
     grid = _build_month_grid(daily, special_days, emp_rate_map, ot_tooltip=True)
     shift_ot_table = grid["shift_ot_table"]
+    # Snapshot the full, unrestricted grid for the editable OT View tab
+    # before _restrict_to_ot_cells (below) mutates grid["table_rows"] in
+    # place for the read-only Full Monthly View tab — same dicts, so
+    # without this copy the editable tab would end up with cells blanked
+    # out too.
+    editable_table_rows = copy.deepcopy(grid["table_rows"])
+    dept_ot_summary = metrics.department_ot_summary(shift_ot_table)
+    is_locked_ot = MonthLock.objects.filter(year=year, month=month, view=MonthLock.VIEW_OT).exists()
 
     summary_rows = []
     if not shift_ot_table.empty:
@@ -1316,6 +1468,8 @@ def _ot_details_context(date_param: str | None) -> dict:
 
         for dept in sorted(emp_rows_by_dept):
             emp_rows = sorted(emp_rows_by_dept[dept], key=lambda row: -row["ot_amount"])
+            for i, row in enumerate(emp_rows):
+                row["is_top3"] = i < 3
             dept_hours = round(sum(row["ot_hours"] for row in emp_rows), 2)
             dept_amount = round(sum(row["ot_amount"] for row in emp_rows), 2)
             summary_rows.append({
@@ -1330,6 +1484,14 @@ def _ot_details_context(date_param: str | None) -> dict:
     summary_total_hours = round(sum(r["ot_hours"] for r in summary_rows if not r["is_dept"]), 2)
     summary_total_amount = round(sum(r["ot_amount"] for r in summary_rows if not r["is_dept"]), 2)
 
+    top3_codes = {r["emp_code"] for r in summary_rows if not r["is_dept"] and r.get("is_top3")}
+    table_rows = _restrict_to_ot_cells(_ot_only_rows(grid["table_rows"]))
+    for row in table_rows:
+        if row["is_dept"]:
+            continue
+        emp_code = next((c["emp_code"] for c in row["day_cells"] if c["emp_code"]), "")
+        row["is_top3"] = emp_code in top3_codes
+
     return {
         **month_nav,
         "empty": False,
@@ -1337,23 +1499,30 @@ def _ot_details_context(date_param: str | None) -> dict:
         "summary_total_hours": summary_total_hours,
         "summary_total_amount": summary_total_amount,
         "day_headers": grid["day_headers"],
-        "table_rows": _restrict_to_ot_cells(_ot_only_rows(grid["table_rows"])),
+        "table_rows": table_rows,
         # Not grid["total_cols"] — that's sized for dashboard.html's grid,
         # which renders 5 extra summary_cols (Work Days/Comp Off/etc.)
         # this report's grid never shows (label + day columns + 3 OT
         # columns only).
         "total_cols": 1 + len(grid["day_headers"]) + 3,
         "heat_colors": metrics.HEAT_COLORS,
+        # For the editable OT View tab (moved here from the Attendance
+        # dashboard) — the full roster (not just employees with OT this
+        # month), so a fresh OT shift can still be assigned to anyone.
+        "editable_table_rows": editable_table_rows,
+        "dept_ot_summary": dept_ot_summary,
+        "is_locked_ot": is_locked_ot,
+        "day_types": SpecialDay.TYPE_CHOICES,
     }
 
 
 @login_required
 def ot_details_view(request):
-    """Reports > OT Details page — see _ot_details_context for the actual
-    computation. Renders as two tabs, each with its own Print/Download:
-    Monthly Summary (grouped by department) and Full Monthly View (the
-    day x employee grid), scoped to one calendar month with prev/next
-    nav."""
+    """OT page — see _ot_details_context for the actual computation.
+    Renders as three tabs: OT View (the editable day x employee grid,
+    moved here from the Attendance dashboard), Monthly Summary (grouped
+    by department), and Full Monthly View (the read-only day x employee
+    grid), scoped to one calendar month with prev/next nav."""
     context = _ot_details_context(request.GET.get("date"))
     return render(request, "attendance/ot_details.html", context)
 
@@ -1371,32 +1540,23 @@ def _apply_grid_borders(ws, min_row: int, max_row: int, max_col: int) -> None:
             cell.border = border
 
 
-@login_required
-def ot_details_download_view(request):
-    """Downloads the OT Details Monthly Summary (grouped by department,
-    one row per employee: OT hours, OT rate, OT amount, plus a department
-    subtotal row) for one month as an .xlsx — same numbers as the report
-    page's Monthly Summary tab, via the same _ot_details_context, just
-    formatted as a workbook instead of HTML."""
+def _write_ot_summary_sheet(ws, context) -> None:
+    """Fills in the OT Monthly Summary sheet (grouped by department, one
+    row per employee: OT hours, OT rate, OT amount, plus a department
+    subtotal row) — same numbers as the report page's Monthly Summary tab.
+    The top 3 OT earners in each department (already sorted first, see
+    _ot_details_context) get a light blue fill and bold text, matching the
+    page."""
+    from openpyxl.styles import Font, PatternFill
     import openpyxl
-    from openpyxl.styles import Font
 
-    context = _ot_details_context(request.GET.get("date"))
-    if not context.get("has_data") or context.get("empty"):
-        raise Http404("No OT data for that month.")
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "OT Summary"
+    top3_fill = PatternFill(start_color="EAF4FC", end_color="EAF4FC", fill_type="solid")
 
     month_label = f"{context['month_name']} {context['year']}"
     ws.append([f"OT Monthly Summary — {month_label}"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([])
-    headers = [
-        "Code", "Employee", "Department", "OT Hours", "OT Rate/hr", "OT Amount",
-        "Dept OT Hours", "Dept OT Amount",
-    ]
+    headers = ["Code", "Employee", "Department", "OT Hours", "OT Rate/hr", "OT Amount"]
     ws.append(headers)
     header_row_num = ws.max_row
     for cell in ws[header_row_num]:
@@ -1404,77 +1564,115 @@ def ot_details_download_view(request):
 
     for row in context["summary_rows"]:
         if row["is_dept"]:
-            ws.append([
-                row["department"], "", "", "", "", "", row["ot_hours"], row["ot_amount"],
-            ])
+            # Dept OT Hours/Amount used to be their own trailing columns
+            # (blank on every employee row) — folded into the department
+            # row's own label instead, next to the headcount.
+            label = f"{row['department']} ({row['headcount']}) — {row['ot_hours']} hrs, {row['ot_amount']}"
+            ws.append([label])
+            ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=len(headers))
             for cell in ws[ws.max_row]:
                 cell.font = Font(bold=True)
         else:
             ws.append([
                 row["emp_code"], row["emp_name"], row["department"],
-                row["ot_hours"], row["ot_rate"], row["ot_amount"], "", "",
+                row["ot_hours"], row["ot_rate"], row["ot_amount"],
             ])
+            if row.get("is_top3"):
+                for cell in ws[ws.max_row]:
+                    cell.fill = top3_fill
+                    cell.font = Font(bold=True)
 
-    ws.append([
-        "", "", "Total", context["summary_total_hours"], "", context["summary_total_amount"], "", "",
-    ])
+    ws.append(["", "", "Total", context["summary_total_hours"], "", context["summary_total_amount"]])
     for cell in ws[ws.max_row]:
         cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="FFF9B0", end_color="FFF9B0", fill_type="solid")
 
     _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
 
-    widths = [10, 26, 22, 12, 12, 14, 14, 16]
+    widths = [10, 26, 22, 12, 12, 14]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    filename = f"ot-summary-{context['year']}-{context['month']:02d}.xlsx"
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    wb.save(response)
-    return response
 
-
-@login_required
-def ot_details_download_grid_view(request):
-    """Downloads the OT Details Full Monthly View (day x employee grid,
-    grouped by department, OT-relevant cells only — see _restrict_to_ot_cells)
-    for one month as an .xlsx, via the same _ot_details_context used by the
-    report page and the summary download."""
+def _write_ot_grid_sheet(ws, context) -> None:
+    """Fills in the OT Full Monthly View sheet (day x employee grid,
+    grouped by department, OT-relevant cells only — see
+    _restrict_to_ot_cells). Every hours/rate/amount column is written as a
+    real number (not the HTML grid's display-formatted strings), header
+    cells get a grey fill, the Total OT column gets a light grey fill on
+    every row, the top 3 OT earners per department (row["is_top3"], set in
+    _ot_details_context by matching summary_rows' ranking to each row's
+    employee code) get the same light blue fill + bold as the Summary
+    sheet — overriding the Total OT column's grey for that row — and a
+    bold Total row sums Total OT/OT Amount across all employees; grid
+    borders cover the whole table including that row."""
+    from openpyxl.styles import Font, PatternFill
     import openpyxl
-    from openpyxl.styles import Font
 
-    context = _ot_details_context(request.GET.get("date"))
-    if not context.get("has_data") or context.get("empty"):
-        raise Http404("No OT data for that month.")
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "OT Full Monthly View"
+    top3_fill = PatternFill(start_color="EAF4FC", end_color="EAF4FC", fill_type="solid")
+    total_ot_col_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
 
     month_label = f"{context['month_name']} {context['year']}"
     day_headers = context["day_headers"]
     ws.append([f"OT Full Monthly View — {month_label}"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([])
-    headers = ["Employee"] + [d["label"] for d in day_headers] + ["Total OT", "OT Rate/hr", "OT Amount"]
+    # day_headers' "label" is a display string ("1", "2", ... the
+    # day-of-month) — write it as a real number, same fix as the day cells
+    # below, so the header row isn't text either.
+    day_number_headers = [
+        int(d["label"]) if d["label"].isdigit() else d["label"] for d in day_headers
+    ]
+    headers = ["Employee"] + day_number_headers + ["Total OT", "OT Rate/hr", "OT Amount"]
     ws.append(headers)
     header_row_num = ws.max_row
+    header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
     for cell in ws[header_row_num]:
         cell.font = Font(bold=True)
+        cell.fill = header_fill
+    total_ot_col = headers.index("Total OT") + 1
 
+    total_ot_sum = Decimal(0)
+    total_amount_sum = Decimal(0)
     for row in context["table_rows"]:
         if row["is_dept"]:
             ws.append([row["label"].lstrip("▸ ").strip()])
             for cell in ws[ws.max_row]:
                 cell.font = Font(bold=True)
         else:
+            # cell["value"] is the day's full worked hours; the on-screen
+            # grid immediately swaps that to cell["shift_ot_hours"] (the
+            # real per-day OT credit) via JS for every non-blank cell (see
+            # the "Full Monthly View grid" script below) — do the same
+            # substitution here so the sheet matches what's actually shown
+            # on screen instead of the full work-hours fallback.
+            day_values = [
+                float(cell["shift_ot_hours"]) if cell["shift_ot_hours"] != "" else None
+                for cell in row["day_cells"]
+            ]
             ws.append(
-                [row["label"].strip()]
-                + [cell["value"] for cell in row["day_cells"]]
-                + [row["total_ot"], row["ot_rate"], row["total_ot_amount"]]
+                [row["label"].strip()] + day_values
+                + [row["total_ot"] or None, row["ot_rate"] or None, row["total_ot_amount"] or None]
             )
+            if row["total_ot"]:
+                total_ot_sum += Decimal(str(row["total_ot"]))
+            if row["total_ot_amount"]:
+                total_amount_sum += Decimal(str(row["total_ot_amount"]))
+
+            data_row_num = ws.max_row
+            if row.get("is_top3"):
+                for cell in ws[data_row_num]:
+                    cell.fill = top3_fill
+                    cell.font = Font(bold=True)
+            else:
+                ws.cell(row=data_row_num, column=total_ot_col).fill = total_ot_col_fill
+
+    ws.append(
+        ["Total"] + [None] * len(day_headers) + [float(total_ot_sum), None, float(total_amount_sum)]
+    )
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="FFF9B0", end_color="FFF9B0", fill_type="solid")
 
     _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
 
@@ -1484,10 +1682,32 @@ def ot_details_download_grid_view(request):
     for i in range(2 + len(day_headers), 5 + len(day_headers)):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 12
 
+
+@login_required
+def ot_details_download_view(request):
+    """Downloads both OT Details views for one month as a single .xlsx with
+    two sheets — "OT Summary" (Monthly Summary tab) and "OT Full Monthly
+    View" (day x employee grid) — via the same _ot_details_context used by
+    the report page, so the two sheets and the on-screen tabs can never
+    drift apart."""
+    import openpyxl
+
+    context = _ot_details_context(request.GET.get("date"))
+    if not context.get("has_data") or context.get("empty"):
+        raise Http404("No OT data for that month.")
+
+    wb = openpyxl.Workbook()
+    summary_ws = wb.active
+    summary_ws.title = "OT Summary"
+    _write_ot_summary_sheet(summary_ws, context)
+
+    grid_ws = wb.create_sheet("OT Full Monthly View")
+    _write_ot_grid_sheet(grid_ws, context)
+
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    filename = f"ot-full-monthly-{context['year']}-{context['month']:02d}.xlsx"
+    filename = f"ot-details-{context['year']}-{context['month']:02d}.xlsx"
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response

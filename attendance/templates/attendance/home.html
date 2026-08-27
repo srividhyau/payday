@@ -159,12 +159,8 @@
         <a href="{% url 'dashboard' %}">Device Records</a>
         <a href="{% url 'calendar' %}">Holiday Calendar</a>
         <a href="{% url 'salary' %}">Salary</a>
-        <details class="nav-dropdown">
-            <summary>Reports</summary>
-            <div class="nav-dropdown-menu">
-                <a href="{% url 'ot_details' %}">OT Details</a>
-            </div>
-        </details>
+        <a href="{% url 'cash_withdrawal' %}">Cash Withdrawal</a>
+        <a href="{% url 'ot_details' %}">OT</a>
         <form method="post" action="{% url 'logout' %}" style="display:inline;">
             {% csrf_token %}
             <button type="submit">Logout ({{ user.username }})</button>

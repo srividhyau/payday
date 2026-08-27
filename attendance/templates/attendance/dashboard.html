@@ -389,80 +389,12 @@
             color: transparent;
         }
 
-        /* "Show OT view": same idea as issues-only, but for shift-based OT
-           — every cell without a shift flag goes blank, EXCEPT a GS day
-           whose punches (or a worked Holiday/Paid Holiday/Comp Off) look
-           like they should have had an OT shift code (see
-           metrics.suggest_shift_code), or any House Keeping GS day at all
-           (that department has no fixed schedule, so every day's time is
-           relevant there — see gs_show_time in views.py). These stay
-           visible showing In/Out time on two lines instead (see
-           swapCellValues in the script); the suggestion stripe (below)
-           only appears when there's an actual suggestion, so a House
-           Keeping day under 8.5h shows its time with no color. The JS
-           swaps shift-flagged cells' numbers from worked hours to
-           shift-based OT hours, replicating the old standalone /ot/ page
-           inside this grid. */
-        table.month.ot-view td.editable-cell:not(.label):not(.shift-flag-M-OT):not(.shift-flag-E-OT):not(.shift-flag-ME-OT):not(.shift-flag-Full-OT):not(.gs-show-time):not(.punch-issue) {
-            background: transparent !important;
-            color: transparent;
-        }
-        /* Cells showing In/Out time stay visible in OT view, but their
-           hour-based heat-map background doesn't apply here — only the
-           suggestion stripe (below) carries background meaning. The
-           stripe itself only shows in OT view — unlike a real shift-flag,
-           a suggestion has no business being visible in All/Missed Punch. */
-        table.month.ot-view td.editable-cell.gs-show-time {
-            background: transparent !important;
-        }
-        /* A day with a real OT shift actually set (not just suggested)
-           gets a solid yellow background in OT view, so it reads clearly
-           as "this one's confirmed" — everything else (plain GS) stays
-           background-free. The shift-flag stripe still shows on top for
-           which OT type it is. */
-        table.month.ot-view td.editable-cell.shift-flag-M-OT,
-        table.month.ot-view td.editable-cell.shift-flag-E-OT,
-        table.month.ot-view td.editable-cell.shift-flag-ME-OT,
-        table.month.ot-view td.editable-cell.shift-flag-Full-OT {
-            background: #FFF9B0 !important;
-            color: #1a1a1a;
-        }
-        table.month.ot-view td.gs-suggest-M-OT::before,
-        table.month.ot-view td.gs-suggest-E-OT::before,
-        table.month.ot-view td.gs-suggest-ME-OT::before,
-        table.month.ot-view td.gs-suggest-Full-OT::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            width: 4px;
-        }
-        table.month.ot-view td.gs-suggest-M-OT::before { background: #2E7D32; }
-        table.month.ot-view td.gs-suggest-E-OT::before { background: #800000; }
-        table.month.ot-view td.gs-suggest-ME-OT::before { background: #EF6C00; }
-        table.month.ot-view td.gs-suggest-Full-OT::before { background: #1565C0; }
-
-        /* Missed Punch and OT views both drop the 5 summary columns (Work
-           Days, Comp Off, Time Off, Paid Holiday, Personal Leave) — OT
-           view shows a single Total OT column instead. */
+        /* Missed Punch view also drops the 5 summary columns (Work Days,
+           Comp Off, Time Off, Paid Holiday, Personal Leave). */
         table.month.issues-only col.summary-col-cell,
         table.month.issues-only th.summary-col-cell,
-        table.month.issues-only td.summary-col-cell,
-        table.month.ot-view col.summary-col-cell,
-        table.month.ot-view th.summary-col-cell,
-        table.month.ot-view td.summary-col-cell {
+        table.month.issues-only td.summary-col-cell {
             display: none;
-        }
-        table.month col.ot-total-col,
-        table.month th.ot-total-col,
-        table.month td.ot-total-col {
-            display: none;
-        }
-        table.month.ot-view col.ot-total-col { display: table-column; }
-        table.month.ot-view th.ot-total-col,
-        table.month.ot-view td.ot-total-col {
-            display: table-cell;
         }
 
         table.month td.editable-cell { cursor: pointer; }
@@ -630,30 +562,12 @@
                     </table>
                 </div>
             </div>
-            <div class="dept-view" data-view="ot" style="display:none;">
-                <div class="table-wrap">
-                    <table class="simple">
-                        <tr><th>Department</th><th>Headcount (with OT)</th><th>Most OT</th><th>Least OT</th><th>Total OT hours</th></tr>
-                        {% for d in dept_ot_summary %}
-                        <tr>
-                            <td>{{ d.department }}</td>
-                            <td>{{ d.headcount }}</td>
-                            <td>{{ d.top_name }} ({{ d.top_hours }}h)</td>
-                            <td>{{ d.lowest_name }} ({{ d.lowest_hours }}h)</td>
-                            <td>{{ d.total_hours }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="5">No shift-based OT this month.</td></tr>
-                        {% endfor %}
-                    </table>
-                </div>
-            </div>
             </details>
         </div>
 
         <div class="card">
             <h2>Month Attendance</h2>
-            <p class="caption">Click any day cell to fix a missed punch or set its shift code (e.g. M-OT/E-OT/ME-OT/Full-OT for the Overtime view). Click a date's column header to set that shift for everyone that day (Staff excluded).</p>
+            <p class="caption">Click any day cell to fix a missed punch or set its shift code (e.g. M-OT/E-OT/ME-OT/Full-OT to pre-authorize overtime — see the OT page's OT View tab for a dedicated view of these). Click a date's column header to set that shift for everyone that day (Staff excluded).</p>
             <div class="legend">
                 <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.red }}"></span>0.5–5h</span>
                 <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.green }}"></span>5–9.5h</span>
@@ -678,9 +592,6 @@
                     <a href="?date={{ current_date }}&view=issues" class="view-btn{% if current_view == 'issues' %} active{% endif %}" data-view="issues">Missed Punch
                         <span class="tab-lock-icon" data-view="issues" data-label="Missed Punch" data-action="{% if lock_status.issues %}unlock{% else %}lock{% endif %}" title="{% if lock_status.issues %}Unlock{% else %}Lock{% endif %} Missed Punch">{% if lock_status.issues %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
                     </a>
-                    <a href="?date={{ current_date }}&view=ot" class="view-btn{% if current_view == 'ot' %} active{% endif %}" data-view="ot">OT View
-                        <span class="tab-lock-icon" data-view="ot" data-label="OT View" data-action="{% if lock_status.ot %}unlock{% else %}lock{% endif %}" title="{% if lock_status.ot %}Unlock{% else %}Lock{% endif %} OT View">{% if lock_status.ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
-                    </a>
                 </div>
             </div>
             <div class="grid-scroll">
@@ -689,18 +600,12 @@
                         <col class="label-col">
                         {% for d in day_labels %}<col class="day-col">{% endfor %}
                         {% for c in summary_cols %}<col class="summary-col summary-col-cell">{% endfor %}
-                        <col class="summary-col ot-total-col">
-                        <col class="summary-col ot-total-col">
-                        <col class="summary-col ot-total-col">
                     </colgroup>
                     <thead>
                         <tr>
                             <th class="label"></th>
                             {% for d in day_headers %}<th class="editable-header {% if d.special %}special-{{ d.special }}{% endif %}" data-date="{{ d.date_iso }}" data-day-type="{{ d.special }}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
                             {% for c in summary_cols %}<th class="summary-col-cell">{{ c }}</th>{% endfor %}
-                            <th class="ot-total-col">Total OT</th>
-                            <th class="ot-total-col">OT Rate/hr</th>
-                            <th class="ot-total-col">OT Amount</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -716,9 +621,6 @@
                             {% for value in row.summary_cells %}
                                 <td class="summary-highlight summary-col-cell">{{ value }}</td>
                             {% endfor %}
-                                <td class="summary-highlight ot-total-col">{{ row.total_ot }}</td>
-                                <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
-                                <td class="summary-highlight ot-total-col">{{ row.total_ot_amount }}</td>
                             {% endif %}
                         </tr>
                         {% endfor %}
@@ -908,43 +810,9 @@
             return row.querySelector('td.punch-issue') !== null;
         }
 
-        function rowHasShiftFlag(row) {
-            return row.querySelector('td[class*="shift-flag-"], td.gs-show-time') !== null;
-        }
-
-        function toHHMM(value) {
-            var parts = (value || '').split(':');
-            return parts.length >= 2 ? parts[0] + ':' + parts[1] : (value || '—');
-        }
-
-        function formatInOut(cell) {
-            return toHHMM(cell.dataset.in) + '\n' + toHHMM(cell.dataset.out);
-        }
-
-        function swapCellValues(showOt) {
-            document.querySelectorAll('table.month td.editable-cell[class*="shift-flag-"]').forEach(function (cell) {
-                cell.textContent = showOt ? (cell.dataset.shiftOt || '') : (cell.dataset.value || '');
-            });
-            document.querySelectorAll('table.month td.editable-cell.gs-show-time').forEach(function (cell) {
-                if (showOt) {
-                    cell.textContent = formatInOut(cell);
-                    cell.style.whiteSpace = 'pre-line';
-                } else {
-                    cell.textContent = cell.dataset.value || '';
-                    cell.style.whiteSpace = '';
-                }
-            });
-        }
-
         function refreshVisibility() {
             var issuesOn = currentView === 'issues';
-            var otOn = currentView === 'ot';
             document.querySelector('table.month').classList.toggle('issues-only', issuesOn);
-            document.querySelector('table.month').classList.toggle('ot-view', otOn);
-            swapCellValues(otOn);
-            document.querySelectorAll('.legend-hours').forEach(function (el) {
-                el.style.display = otOn ? 'none' : '';
-            });
             document.querySelectorAll('.dept-view').forEach(function (el) {
                 el.style.display = el.dataset.view === currentView ? '' : 'none';
             });
@@ -952,15 +820,11 @@
                 var collapsed = deptRow.classList.contains('collapsed');
                 var employees = employeeRowsOf(deptRow);
                 var deptHasIssue = employees.some(rowHasIssue);
-                var deptHasShiftFlag = employees.some(rowHasShiftFlag);
                 employees.forEach(function (row) {
                     var hideByIssues = issuesOn && !rowHasIssue(row);
-                    var hideByOt = otOn && !rowHasShiftFlag(row);
-                    row.style.display = (collapsed || hideByIssues || hideByOt) ? 'none' : '';
+                    row.style.display = (collapsed || hideByIssues) ? 'none' : '';
                 });
-                var hideDeptByIssues = issuesOn && !deptHasIssue;
-                var hideDeptByOt = otOn && !deptHasShiftFlag;
-                deptRow.style.display = (hideDeptByIssues || hideDeptByOt) ? 'none' : '';
+                deptRow.style.display = (issuesOn && !deptHasIssue) ? 'none' : '';
             });
         }
 
@@ -972,10 +836,10 @@
             });
         });
 
-        // The All/Missed Punch/OT View tabs are now real links (?view=...)
-        // so the choice survives a reload/back-button and can be shared —
-        // the active tab and currentView above are set server-side. Only
-        // the cell-blanking/row-hiding still needs to run once on load.
+        // The All/Missed Punch tabs are now real links (?view=...) so the
+        // choice survives a reload/back-button and can be shared — the
+        // active tab and currentView above are set server-side. Only the
+        // row-hiding still needs to run once on load.
         refreshVisibility();
 
         var lockOverlay = document.getElementById('lockOverlay');
