@@ -99,11 +99,24 @@
         }
         .view-toggle a.active { background: var(--navy); color: var(--yellow); }
         .view-toggle #sendReportBtn {
-            font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.9rem; border-radius: 999px;
+            position: relative;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
             border: 1px solid var(--navy); background: var(--navy); color: var(--yellow); cursor: pointer;
         }
+        .view-toggle #sendReportBtn svg { display: block; }
         .view-toggle #sendReportBtn:hover { background: var(--navy-deep); }
         .view-toggle #sendReportBtn:disabled { opacity: 0.6; cursor: default; }
+        /* Custom tooltip instead of relying on the native title attribute
+           (inconsistent delay/visibility across browsers). */
+        .view-toggle #sendReportBtn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
+            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+            padding: 0.35rem 0.65rem; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
         .view-toggle .report-status { margin-left: auto; }
         .report-status { font-size: 0.8rem; color: var(--text-muted); }
         .report-status.error { color: #b3261e; }
@@ -293,7 +306,9 @@
             <a href="{% url 'mark_attendance_month' %}{% if dept %}?department={{ dept.id }}{% endif %}">Month view</a>
             {% if dept and rows %}
                 <span id="sendReportStatus" class="report-status"></span>
-                <button type="button" id="sendReportBtn">Send Report</button>
+                <button type="button" id="sendReportBtn" data-tooltip="Send screenshot to Telegram" aria-label="Send screenshot to Telegram">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
             {% endif %}
         </div>
 

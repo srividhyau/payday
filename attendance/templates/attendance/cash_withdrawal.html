@@ -70,6 +70,7 @@
         .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
         .msg.success { background: #e6f4ea; color: #1e7e34; }
         .msg.error { background: #fdecea; color: #b3261e; }
+        .msg.info { background: #e8f0fe; color: var(--navy); }
 
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.35rem 1.5rem; margin-bottom: 1.5rem; }
         .card h2 { font-size: 1rem; margin: 0 0 1rem; color: var(--navy); }
@@ -116,13 +117,27 @@
         .delete-btn:hover { background: #fdecea; }
 
         .action-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-        .action-btn {
-            padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+        .icon-btn {
+            position: relative;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
             color: var(--text-muted); background: var(--bg); border: 1px solid var(--border);
-            cursor: pointer; font-family: inherit; text-decoration: none;
+            cursor: pointer; text-decoration: none; font-family: inherit;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
         }
-        .action-btn:hover { background: var(--surface); }
-        .action-btn:disabled { opacity: 0.6; cursor: default; }
+        .icon-btn:hover { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+        .icon-btn svg { display: block; }
+        .icon-btn:disabled { opacity: 0.6; cursor: default; }
+        /* Custom tooltip instead of relying on the native title attribute
+           (inconsistent delay/visibility across browsers). */
+        .icon-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
+            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+            padding: 0.35rem 0.65rem; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
         .report-status { font-size: 0.8rem; color: var(--text-muted); }
         .report-status.error { color: #b3261e; }
         .report-status.success { color: #1e7e34; }
@@ -153,11 +168,16 @@
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
 
+        {% if is_salary_viewer %}
+            <div class="msg info">👁️ View-only access — you can view and download, but not add/delete entries or send to Telegram.</div>
+        {% endif %}
+
         <!-- Table cells can't contain a <form> that itself wraps multiple
              <td>s (invalid nesting, unreliable across browsers) — each row's
              inputs/button instead reference a form declared here via the
              HTML5 form="" attribute, which works regardless of where the
              form element sits in the document. -->
+        {% if not is_salary_viewer %}
         <form id="cash-add-form" method="post">
             {% csrf_token %}
             <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
@@ -170,11 +190,18 @@
             <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
         </form>
         {% endfor %}
+        {% endif %}
 
         <div class="action-row">
-            <a class="action-btn" href="{% url 'cash_withdrawal_download' %}?date={{ current|date:'Y-m-d' }}">Download (.xlsx)</a>
-            <button type="button" class="action-btn" id="sendCashTelegramBtn">Send to Telegram</button>
+            <a class="icon-btn" href="{% url 'cash_withdrawal_download' %}?date={{ current|date:'Y-m-d' }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+            </a>
+            {% if not is_salary_viewer %}
+            <button type="button" class="icon-btn" id="sendCashTelegramBtn" data-tooltip="Send screenshot to Telegram" aria-label="Send screenshot to Telegram">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
             <span id="sendCashTelegramStatus" class="report-status"></span>
+            {% endif %}
         </div>
 
         <div class="card">
@@ -189,18 +216,20 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% if not is_salary_viewer %}
                         <tr class="add-row no-capture">
                             <td><input class="row-input" type="text" name="purpose" form="cash-add-form" placeholder="e.g. Petty Cash, Office Expenses" required></td>
                             <td><input class="row-input" type="text" name="description" form="cash-add-form" placeholder="Optional notes"></td>
                             <td><input class="row-input" type="number" name="amount" form="cash-add-form" step="0.01" min="0" required></td>
                             <td><button type="submit" form="cash-add-form" class="add-btn">Add</button></td>
                         </tr>
+                        {% endif %}
                         {% for entry in entries %}
                         <tr>
                             <td>{{ entry.purpose }}</td>
                             <td>{{ entry.description }}</td>
                             <td class="num">{{ entry.amount }}</td>
-                            <td class="no-capture"><button type="submit" form="cash-delete-form-{{ entry.id }}" class="delete-btn">Delete</button></td>
+                            <td class="no-capture">{% if not is_salary_viewer %}<button type="submit" form="cash-delete-form-{{ entry.id }}" class="delete-btn">Delete</button>{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

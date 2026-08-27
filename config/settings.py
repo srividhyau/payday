@@ -46,8 +46,8 @@ TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 TELEGRAM_TOPIC_ID_ATTENDANCE = os.environ.get('TELEGRAM_TOPIC_ID_ATTENDANCE', '')
 TELEGRAM_TOPIC_ID_OT_CASH = os.environ.get('TELEGRAM_TOPIC_ID_OT_CASH', '')
-# Not wired into any view yet — Salary has no Telegram send feature so
-# far; recorded here so the topic is ready whenever that's built.
+# Used by the Salary page's "Send to Telegram" button (see
+# _TELEGRAM_PHOTO_TOPICS in attendance/views.py).
 TELEGRAM_TOPIC_ID_SALARY = os.environ.get('TELEGRAM_TOPIC_ID_SALARY', '')
 
 
@@ -85,6 +85,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'attendance.middleware.SalaryViewerRestrictionMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -100,6 +101,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'attendance.context_processors.role_flags',
             ],
         },
     },

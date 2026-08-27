@@ -223,12 +223,14 @@ class SalaryAdjustment(models.Model):
 
 
 class MonthLock(models.Model):
-    """Marks one calendar month's attendance as frozen for one of three
-    editable grids — the Attendance dashboard's All and Missed Punch
-    views, plus the OT page's OT View tab — each locked/unlocked
-    independently, even though they share the same underlying data, so
-    e.g. OT View can stay locked after payroll while Missed Punch remains
-    open for corrections. Locking/unlocking both require the PIN (see
+    """Marks one calendar month's attendance/payroll as frozen for one of
+    several editable views — the Attendance dashboard's All and Missed
+    Punch views, the OT page's OT View tab, and each of the Salary page's
+    five tabs — each locked/unlocked independently, even though several
+    of them share the same underlying data, so e.g. OT View can stay
+    locked after payroll while Missed Punch remains open for corrections,
+    or Company Workers salary can be finalized while Operators is still
+    being entered. Locking/unlocking both require the PIN (see
     settings.ATTENDANCE_LOCK_PIN) — there's no user login in this app, so
     the PIN is the only gate. Presence of a row for (year, month, view)
     means that view is locked for that month."""
@@ -236,15 +238,25 @@ class MonthLock(models.Model):
     VIEW_ALL = "all"
     VIEW_ISSUES = "issues"
     VIEW_OT = "ot"
+    VIEW_SALARY_COMPANY = "salary_company"
+    VIEW_SALARY_HELPER = "salary_helper"
+    VIEW_SALARY_STAFF = "salary_staff"
+    VIEW_SALARY_CONTRACTORS = "salary_contractors"
+    VIEW_SALARY_OPERATORS = "salary_operators"
     VIEW_CHOICES = [
         (VIEW_ALL, "All"),
         (VIEW_ISSUES, "Missed Punch"),
         (VIEW_OT, "OT View"),
+        (VIEW_SALARY_COMPANY, "Salary — Company Workers"),
+        (VIEW_SALARY_HELPER, "Salary — Helpers"),
+        (VIEW_SALARY_STAFF, "Salary — Staff"),
+        (VIEW_SALARY_CONTRACTORS, "Salary — Contractors"),
+        (VIEW_SALARY_OPERATORS, "Salary — Operators"),
     ]
 
     year = models.IntegerField()
     month = models.IntegerField()
-    view = models.CharField(max_length=10, choices=VIEW_CHOICES, default=VIEW_ALL)
+    view = models.CharField(max_length=24, choices=VIEW_CHOICES, default=VIEW_ALL)
     locked_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

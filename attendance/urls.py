@@ -26,6 +26,8 @@ urlpatterns = [
     ),
     path("log-client-error/", views.log_client_error_view, name="log_client_error"),
     path("salary/", views.salary_view, name="salary"),
+    path("salary/download/", views.salary_download_view, name="salary_download"),
+    path("salary/download/bank/", views.salary_bank_download_view, name="salary_bank_download"),
     path("cash-withdrawal/", views.cash_withdrawal_view, name="cash_withdrawal"),
     path("cash-withdrawal/download/", views.cash_withdrawal_download_view, name="cash_withdrawal_download"),
 ]

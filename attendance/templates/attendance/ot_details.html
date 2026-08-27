@@ -134,11 +134,31 @@
         .kpi .value { font-size: 1.15rem; font-weight: 700; color: var(--navy); }
 
         .tab-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-        .tab-btn.download-btn { text-decoration: none; }
         .tab-btn:disabled { opacity: 0.6; cursor: default; }
         .report-status { font-size: 0.8rem; color: var(--text-muted); }
         .report-status.error { color: #b3261e; }
         .report-status.success { color: #1e7e34; }
+        .icon-btn {
+            position: relative;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
+            color: var(--text-muted); background: var(--bg); border: 1px solid var(--border);
+            cursor: pointer; text-decoration: none; font-family: inherit;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .icon-btn:hover { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+        .icon-btn svg { display: block; }
+        .icon-btn:disabled { opacity: 0.6; cursor: default; }
+        /* Custom tooltip instead of relying on the native title attribute
+           (inconsistent delay/visibility across browsers). */
+        .icon-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
+            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+            padding: 0.35rem 0.65rem; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
         .tab-btn {
             padding: 0.5rem 1rem;
             border-radius: 999px;
@@ -400,8 +420,12 @@
                         </button>
                         <button type="button" class="tab-btn" data-tab="summary">Monthly Summary</button>
                         <button type="button" class="tab-btn" data-tab="grid">Full Monthly View</button>
-                        <a class="tab-btn download-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}">Download (.xlsx)</a>
-                        <button type="button" class="tab-btn" id="sendOtTelegramBtn">Send to Telegram</button>
+                        <a class="icon-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+                        </a>
+                        <button type="button" class="icon-btn" id="sendOtTelegramBtn" data-tooltip="Send screenshot to Telegram" aria-label="Send screenshot to Telegram">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
                         <span id="sendOtTelegramStatus" class="report-status"></span>
                     </div>
 

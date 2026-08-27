@@ -17,6 +17,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 
 from src import metrics, payroll
 
@@ -580,12 +581,16 @@ def bulk_set_shift_view(request):
 
 @login_required
 def toggle_month_lock_view(request):
-    """Locks or unlocks one calendar month's attendance data for one of
-    the Attendance dashboard's All/Missed Punch views or the OT page's OT
-    View tab independently, gated by the shared PIN (see
+    """Locks or unlocks one calendar month's attendance/payroll data for
+    one or more views at once — the Attendance dashboard's All/Missed
+    Punch views, the OT page's OT View tab, or any of the Salary page's
+    five tabs — gated by the shared PIN (see
     settings.ATTENDANCE_LOCK_PIN) — there's no user login in this app, so
-    the PIN is the only check on either direction. Triggered by the
-    lock-toggle button next to the view/tab it applies to."""
+    the PIN is the only check on either direction. Triggered by a single
+    lock-toggle button next to the view/tab it applies to (one "view"
+    field) or a bulk lock/unlock picker with several checked "view"
+    checkboxes (e.g. Salary's "Lock tabs" picker) — request.POST.getlist
+    handles both the same way."""
     next_url = request.POST.get("next") or "dashboard"
     if request.method != "POST":
         return redirect(next_url)
@@ -597,29 +602,39 @@ def toggle_month_lock_view(request):
         _error(request, "Missing month.")
         return redirect(next_url)
 
-    view = request.POST.get("view", "all")
-    if view not in dict(MonthLock.VIEW_CHOICES):
-        view = MonthLock.VIEW_ALL
+    view_choices = dict(MonthLock.VIEW_CHOICES)
+    views = [v for v in request.POST.getlist("view") if v in view_choices]
+    if not views:
+        _error(request, "Select at least one tab/view to lock or unlock.")
+        return redirect(next_url)
 
     pin = request.POST.get("pin", "").strip()
     action = request.POST.get("action", "")
     if pin != settings.ATTENDANCE_LOCK_PIN:
         messages.error(request, "Incorrect PIN.")
         logger.warning(
-            "Incorrect lock PIN attempt: view=%s %s-%s by user=%s", view, year, month, request.user,
+            "Incorrect lock PIN attempt: view=%s %s-%s by user=%s", ",".join(views), year, month, request.user,
         )
         return redirect(next_url)
 
-    view_label = dict(MonthLock.VIEW_CHOICES)[view]
-    if action == "lock":
-        MonthLock.objects.get_or_create(year=year, month=month, view=view)
-        messages.success(request, f"{view_label} is now locked for {py_calendar.month_name[month]} {year}.")
-    elif action == "unlock":
-        MonthLock.objects.filter(year=year, month=month, view=view).delete()
-        messages.success(request, f"{view_label} is now unlocked for {py_calendar.month_name[month]} {year}.")
-    logger.info(
-        "Month lock %s: view=%s %s-%s by user=%s", action, view, year, month, request.user,
-    )
+    labels = []
+    for view in views:
+        if action == "lock":
+            MonthLock.objects.get_or_create(year=year, month=month, view=view)
+        elif action == "unlock":
+            MonthLock.objects.filter(year=year, month=month, view=view).delete()
+        labels.append(view_choices[view])
+        logger.info(
+            "Month lock %s: view=%s %s-%s by user=%s", action, view, year, month, request.user,
+        )
+
+    if action in ("lock", "unlock"):
+        verb = "locked" if action == "lock" else "unlocked"
+        are_is = "is" if len(labels) == 1 else "are"
+        messages.success(
+            request,
+            f"{', '.join(labels)} {are_is} now {verb} for {py_calendar.month_name[month]} {year}.",
+        )
     return redirect(next_url)
 
 
@@ -1022,6 +1037,7 @@ def mark_attendance_month_view(request):
 _TELEGRAM_PHOTO_TOPICS = {
     "attendance": lambda: settings.TELEGRAM_TOPIC_ID_ATTENDANCE,
     "ot_cash": lambda: settings.TELEGRAM_TOPIC_ID_OT_CASH,
+    "salary": lambda: settings.TELEGRAM_TOPIC_ID_SALARY,
 }
 
 
@@ -1105,6 +1121,30 @@ _SALARY_SUBCATEGORY_TABS = [
     ("staff", "Staff", "Staff"),
 ]
 
+# (tabs= query value, sheet label, _salary_context rows key) for all five
+# Salary tabs — shared by salary_download_view and salary_bank_download_view
+# for their ?tabs=... tab-picker filtering, and by the tab-picker forms in
+# salary.html (the checkbox "value"s there must match these keys).
+_SALARY_TAB_KEYS = [
+    ("company", "Company Workers", "company_rows"),
+    ("helper", "Helpers", "helper_rows"),
+    ("staff", "Staff", "staff_rows"),
+    ("contractors", "Contractors", "contractor_rows"),
+    ("operators", "Operators", "operator_rows"),
+]
+
+# tab_key -> MonthLock.view constant — each Salary tab locks/unlocks
+# independently (e.g. Company Workers can be finalized while Operators is
+# still being entered), same PIN-gated mechanism as the Attendance
+# dashboard/OT page (see toggle_month_lock_view).
+_SALARY_LOCK_VIEWS = {
+    "company": MonthLock.VIEW_SALARY_COMPANY,
+    "helper": MonthLock.VIEW_SALARY_HELPER,
+    "staff": MonthLock.VIEW_SALARY_STAFF,
+    "contractors": MonthLock.VIEW_SALARY_CONTRACTORS,
+    "operators": MonthLock.VIEW_SALARY_OPERATORS,
+}
+
 
 def _salary_decimal(request, field: str, emp_id) -> Decimal:
     raw = request.POST.get(f"{field}_{emp_id}", "").strip()
@@ -1116,58 +1156,32 @@ def _salary_decimal(request, field: str, emp_id) -> Decimal:
         return Decimal(0)
 
 
-@login_required
-def salary_view(request):
-    """One page, one month at a time, five tabs (Company Workers/Helpers/
-    Staff/Contractors/Operators) — each a bulk-editable table of that
-    month's payroll adjustments (Adjust Days/Deductions/Additions, plus
-    Manual Amount for Operators), with Gross/PF/ESI/NET computed via
-    src/payroll.py from Employee.basic_salary/hra/da and this month's
-    attendance. Contractors are prorated like Helpers/Staff but matched via
-    Employee.department (the "Contractor" department) rather than
-    subcategory. Save is one
-    upsert-by-(employee, year, month) per row, same bulk shape as
-    mark_attendance_view's day-view save — one tab's table = one POST."""
-    date_param = request.GET.get("date") or request.POST.get("date")
-    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+def _row_missing_bank_details(row: dict) -> bool:
+    """True if this employee can't go into the Bank Excel — either
+    they're on Hold (nothing being paid out this month, so it's not
+    actually missing anything) or their Employee record has no Account
+    No / IFSC Code on file yet. Shared by _salary_context (to flag it on
+    the page) and _write_salary_bank_sheet (to actually skip the row)."""
+    if row["hold"]:
+        return False
+    emp = row["employee"]
+    return not emp.account_no or not emp.ifsc_code
+
+
+def _salary_context(current: date_cls) -> dict:
+    """Computes one month's Salary page context — five tabs (Company
+    Workers/Helpers/Staff/Contractors/Operators), each a bulk-editable
+    table of that month's payroll adjustments (Adjust Days/Deductions/
+    Additions, plus Manual Amount for Operators), with Gross/PF/ESI/NET
+    computed via src/payroll.py from Employee.basic_salary/hra/da and
+    this month's attendance. Contractors are prorated like Helpers/Staff
+    but matched via Employee.department (the "Contractor" department)
+    rather than subcategory. Shared by salary_view and
+    salary_download_view so the .xlsx sheets can never drift from what
+    the page shows."""
     year, month = current.year, current.month
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
-
-    if request.method == "POST":
-        tab = request.POST.get("tab", "")
-        employee_ids = request.POST.getlist("employee_id")
-        saved = 0
-        for emp_id in employee_ids:
-            emp = Employee.objects.filter(id=emp_id).first()
-            if not emp:
-                continue
-            manual_amount_raw = request.POST.get(f"manual_amount_{emp_id}", "").strip()
-            manual_amount = None
-            if manual_amount_raw:
-                try:
-                    manual_amount = Decimal(manual_amount_raw)
-                except InvalidOperation:
-                    manual_amount = None
-            SalaryAdjustment.objects.update_or_create(
-                employee=emp, year=year, month=month,
-                defaults={
-                    "adjust_days": _salary_decimal(request, "adjust_days", emp_id),
-                    "deductions": _salary_decimal(request, "deductions", emp_id),
-                    "additions": _salary_decimal(request, "additions", emp_id),
-                    "manual_amount": manual_amount,
-                    "hold": request.POST.get(f"hold_{emp_id}") == "on",
-                    "notes": request.POST.get(f"notes_{emp_id}", "").strip(),
-                },
-            )
-            saved += 1
-        messages.success(request, f"Saved salary adjustments for {saved} employee(s) ({tab}).")
-        logger.info(
-            "Salary adjustments saved: tab=%s %s-%s saved=%s by user=%s",
-            tab, year, month, saved, request.user,
-        )
-        return redirect(f"{request.path}?date={current.isoformat()}")
-
     _, days_in_month = py_calendar.monthrange(year, month)
     month_start, month_end = current.replace(day=1), current.replace(day=days_in_month)
 
@@ -1210,6 +1224,13 @@ def salary_view(request):
                 calc = payroll.compute_prorated_pay(
                     emp.basic_salary, paid_days, working_days, adjust_days, deductions, additions,
                 )
+            hold = adj.hold if adj else False
+            if hold:
+                # Held pay is still computed in full above (so Gross/PF/
+                # ESI/etc. keep reading correctly for records) — only NET
+                # goes to 0, since nothing is actually being paid out this
+                # month (see SalaryAdjustment.hold's help text).
+                calc = {**calc, "net": Decimal(0)}
             rows.append({
                 "employee": emp,
                 "paid_days": paid_days,
@@ -1218,7 +1239,7 @@ def salary_view(request):
                 "deductions": deductions,
                 "additions": additions,
                 "manual_amount": manual_amount,
-                "hold": adj.hold if adj else False,
+                "hold": hold,
                 "notes": adj.notes if adj else "",
                 "calc": calc,
             })
@@ -1253,6 +1274,12 @@ def salary_view(request):
         totals["calc"] = {k: round(v, 2) for k, v in calc_totals.items()}
         return totals
 
+    locked_views = set(
+        MonthLock.objects.filter(year=year, month=month, view__in=_SALARY_LOCK_VIEWS.values())
+        .values_list("view", flat=True)
+    )
+    lock_status = {tab_key: (view in locked_views) for tab_key, view in _SALARY_LOCK_VIEWS.items()}
+
     context = {
         "current": current,
         "year": year,
@@ -1264,6 +1291,7 @@ def salary_view(request):
         "holiday_count": holiday_count,
         "paid_holiday_count": paid_holiday_count,
         "comp_off_count": comp_off_count,
+        "lock_status": lock_status,
     }
     for tab_key, _label, subcategory in _SALARY_SUBCATEGORY_TABS:
         employees = (
@@ -1285,7 +1313,411 @@ def salary_view(request):
     )
     context["operator_rows"] = operator_rows
     context["operator_totals"] = sum_rows(operator_rows, "operators")
+
+    context["missing_bank_details"] = [
+        {"emp_code": r["employee"].code, "emp_name": r["employee"].name, "tab_label": tab_label}
+        for tab_label, rows_key in [
+            ("Company Workers", "company_rows"), ("Helpers", "helper_rows"), ("Staff", "staff_rows"),
+            ("Contractors", "contractor_rows"), ("Operators", "operator_rows"),
+        ]
+        for r in context[rows_key]
+        if _row_missing_bank_details(r)
+    ]
+    return context
+
+
+@login_required
+def salary_view(request):
+    """Salary page — see _salary_context for the actual computation. Save
+    is one upsert-by-(employee, year, month) per row, same bulk shape as
+    mark_attendance_view's day-view save — one tab's table = one POST."""
+    date_param = request.GET.get("date") or request.POST.get("date")
+    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    year, month = current.year, current.month
+
+    if request.method == "POST":
+        tab = request.POST.get("tab", "")
+        lock_view = _SALARY_LOCK_VIEWS.get(tab)
+        if lock_view and MonthLock.objects.filter(year=year, month=month, view=lock_view).exists():
+            _error(request, "This tab is locked for this month — unlock it first to make changes.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+
+        employee_ids = request.POST.getlist("employee_id")
+        saved = 0
+        for emp_id in employee_ids:
+            emp = Employee.objects.filter(id=emp_id).first()
+            if not emp:
+                continue
+            manual_amount_raw = request.POST.get(f"manual_amount_{emp_id}", "").strip()
+            manual_amount = None
+            if manual_amount_raw:
+                try:
+                    manual_amount = Decimal(manual_amount_raw)
+                except InvalidOperation:
+                    manual_amount = None
+            SalaryAdjustment.objects.update_or_create(
+                employee=emp, year=year, month=month,
+                defaults={
+                    "adjust_days": _salary_decimal(request, "adjust_days", emp_id),
+                    "deductions": _salary_decimal(request, "deductions", emp_id),
+                    "additions": _salary_decimal(request, "additions", emp_id),
+                    "manual_amount": manual_amount,
+                    "hold": request.POST.get(f"hold_{emp_id}") == "on",
+                    "notes": request.POST.get(f"notes_{emp_id}", "").strip(),
+                },
+            )
+            saved += 1
+        messages.success(request, f"Saved salary adjustments for {saved} employee(s) ({tab}).")
+        logger.info(
+            "Salary adjustments saved: tab=%s %s-%s saved=%s by user=%s",
+            tab, year, month, saved, request.user,
+        )
+        return redirect(f"{request.path}?date={current.isoformat()}")
+
+    context = _salary_context(current)
     return render(request, "attendance/salary.html", context)
+
+
+# Same background colors as the page's column-group shading (see
+# table.simple th/td.grp-* in salary.html) — keyed by the same group names
+# so a sheet's header/data cells can be filled to match the on-screen tab
+# exactly. The Total row is deliberately NOT shaded per-group (the page's
+# tfoot cells don't carry any grp-* class either — the whole row just gets
+# a uniform pale yellow, same as every other download on this site).
+_SALARY_GROUP_FILLS = {
+    "fixed": "ECEEF0",
+    "attendance": "B4C7E7",
+    "deduction-emp": "FFF2CC",
+    "deduction-employer": "FFE0B2",
+    "highlight": "FFFF00",
+}
+
+
+# (tab key, sheet title, headers, row-builder, totals-row-builder) for each
+# of the five Salary tabs' .xlsx sheets — see salary_download_view. Kept as
+# plain functions (not a shared column set) since Company Workers' PF/ESI
+# breakdown, Staff's TDS? column and Operators' Manual Amount/Notes each
+# need their own shape; every row/total list must line up with its own
+# headers list position-for-position, and so must col_groups (one entry
+# per header — a key into _SALARY_GROUP_FILLS, or None for an unshaded
+# column) — see _write_salary_sheet.
+def _salary_company_sheet_rows(rows, totals):
+    headers = [
+        "Code", "Employee", "Basic", "DA", "Basic+DA", "HRA", "Gross",
+        "Paid Days", "Adjust Days", "Earned Days",
+        "Earned Basic+DA", "Earned HRA", "Earned Total Wages",
+        "PF (Employee)", "ESI (Employee)", "PF+ESI (Employee)",
+        "PF (Employer)", "ESI (Employer)", "PF+ESI (Employer)",
+        "Deductions", "Total Deductions", "Additions", "Hold", "NET",
+    ]
+    col_groups = [
+        None, None, "fixed", "fixed", "fixed", "fixed", "fixed",
+        "attendance", "attendance", "attendance",
+        None, None, None,
+        "deduction-emp", "deduction-emp", "deduction-emp",
+        "deduction-employer", "deduction-employer", "deduction-employer",
+        "deduction-emp", "deduction-emp", None, None, "highlight",
+    ]
+    data_rows = [
+        [
+            r["employee"].code, r["employee"].name,
+            float(r["employee"].basic_salary), float(r["employee"].da), float(r["calc"]["basic_da"]),
+            float(r["employee"].hra), float(r["calc"]["gross"]),
+            float(r["paid_days"]), float(r["adjust_days"]), float(r["calc"]["earned_days"]),
+            float(r["calc"]["earned_basic_da"]), float(r["calc"]["earned_hra"]), float(r["calc"]["earned_total"]),
+            float(r["calc"]["pf"]), float(r["calc"]["esi"]), float(r["calc"]["pf_esi_employee"]),
+            float(r["calc"]["pf_employer"]), float(r["calc"]["esi_employer"]), float(r["calc"]["pf_esi_employer"]),
+            float(r["deductions"]), float(r["calc"]["total_deduction"]), float(r["additions"]),
+            "Yes" if r["hold"] else "No", float(r["calc"]["net"]),
+        ]
+        for r in rows
+    ]
+    # totals["calc"] is {} when the tab has zero rows this month (see
+    # sum_rows) — .get(..., 0) so an empty tab still downloads a Total row
+    # of zeros instead of a KeyError, matching the template's silent
+    # {{ totals.calc.net }} on a missing key.
+    c = totals["calc"]
+    total_row = [
+        "", "Total",
+        float(totals["basic_salary"]), float(totals["da"]), float(c.get("basic_da", 0)),
+        float(totals["hra"]), float(c.get("gross", 0)),
+        float(totals["paid_days"]), float(totals["adjust_days"]), float(c.get("earned_days", 0)),
+        float(c.get("earned_basic_da", 0)), float(c.get("earned_hra", 0)), float(c.get("earned_total", 0)),
+        float(c.get("pf", 0)), float(c.get("esi", 0)), float(c.get("pf_esi_employee", 0)),
+        float(c.get("pf_employer", 0)), float(c.get("esi_employer", 0)), float(c.get("pf_esi_employer", 0)),
+        float(totals["deductions"]), float(c.get("total_deduction", 0)), float(totals["additions"]),
+        "", float(c.get("net", 0)),
+    ]
+    return headers, col_groups, data_rows, total_row
+
+
+def _salary_prorated_sheet_rows(rows, totals, with_tds: bool):
+    """Helpers/Contractors (with_tds=False) and Staff (with_tds=True) —
+    same compute_prorated_pay shape, Staff just adds a TDS? column."""
+    headers = [
+        "Code", "Employee", "Basic Salary", "Paid Days", "Adjust Days", "Earned Days",
+        "Earned Salary", "Deductions", "Additions", "Hold",
+    ]
+    col_groups = [None, None, "fixed", "attendance", "attendance", "attendance", None, "deduction-emp", None, None]
+    if with_tds:
+        headers.append("TDS?")
+        col_groups.append(None)
+    headers.append("NET")
+    col_groups.append("highlight")
+
+    data_rows = []
+    for r in rows:
+        row = [
+            r["employee"].code, r["employee"].name, float(r["employee"].basic_salary),
+            float(r["paid_days"]), float(r["adjust_days"]), float(r["earned_days"]),
+            float(r["calc"]["earned_salary"]), float(r["deductions"]), float(r["additions"]),
+            "Yes" if r["hold"] else "No",
+        ]
+        if with_tds:
+            row.append("Yes" if r["employee"].tds_enabled else "No")
+        row.append(float(r["calc"]["net"]))
+        data_rows.append(row)
+
+    # totals["calc"] is {} when the tab has zero rows this month — see the
+    # matching comment in _salary_company_sheet_rows.
+    c = totals["calc"]
+    total_row = [
+        "", "Total", float(totals["basic_salary"]),
+        float(totals["paid_days"]), float(totals["adjust_days"]), float(totals["earned_days"]),
+        float(c.get("earned_salary", 0)), float(totals["deductions"]), float(totals["additions"]), "",
+    ]
+    if with_tds:
+        total_row.append("")
+    total_row.append(float(c.get("net", 0)))
+    return headers, col_groups, data_rows, total_row
+
+
+def _salary_operator_sheet_rows(rows, totals):
+    headers = ["Code", "Employee", "Earned Days", "Manual Amount", "Deductions", "Additions", "Hold", "Notes", "NET"]
+    col_groups = [None, None, "attendance", "fixed", "deduction-emp", None, None, None, "highlight"]
+    data_rows = [
+        [
+            r["employee"].code, r["employee"].name, float(r["earned_days"]),
+            float(r["manual_amount"] or 0), float(r["deductions"]), float(r["additions"]),
+            "Yes" if r["hold"] else "No", r["notes"], float(r["calc"]["net"]),
+        ]
+        for r in rows
+    ]
+    # totals["calc"] is {} when the tab has zero rows this month — see the
+    # matching comment in _salary_company_sheet_rows.
+    total_row = [
+        "", "Total", float(totals["earned_days"]), float(totals["manual_amount"]),
+        float(totals["deductions"]), float(totals["additions"]), "", "", float(totals["calc"].get("net", 0)),
+    ]
+    return headers, col_groups, data_rows, total_row
+
+
+def _write_salary_sheet(
+    ws, label: str, month_label: str, headers: list, col_groups: list, data_rows: list, total_row: list,
+) -> None:
+    """Fills in one Salary tab's sheet — title row, header row, data rows,
+    then a bold yellow Total row (matching the OT Details/Cash Withdrawal
+    downloads' styling — see _apply_grid_borders). Header and data cells
+    are shaded per col_groups (one entry per header, a key into
+    _SALARY_GROUP_FILLS or None) so the sheet reads the same color-coded
+    columns as the on-screen tab; an unshaded header still gets a plain
+    grey fill so it reads as a header, but unshaded data cells are left
+    white, same as the page. The Total row is deliberately uniform (no
+    per-group shading), matching the page's tfoot."""
+    from openpyxl.styles import Font, PatternFill
+    import openpyxl
+
+    ws.append([f"{label} — {month_label}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+    ws.append(headers)
+    header_row_num = ws.max_row
+    default_header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+    group_fills = {
+        key: PatternFill(start_color=color, end_color=color, fill_type="solid")
+        for key, color in _SALARY_GROUP_FILLS.items()
+    }
+    for cell, group in zip(ws[header_row_num], col_groups):
+        cell.font = Font(bold=True)
+        cell.fill = group_fills.get(group, default_header_fill)
+
+    for row in data_rows:
+        ws.append(row)
+        for cell, group in zip(ws[ws.max_row], col_groups):
+            if group:
+                cell.fill = group_fills[group]
+                if group == "highlight":
+                    cell.font = Font(bold=True)
+
+    ws.append(total_row)
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="FFF9B0", end_color="FFF9B0", fill_type="solid")
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+
+    ws.column_dimensions["A"].width = 10
+    ws.column_dimensions["B"].width = 22
+    for i in range(3, len(headers) + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 14
+
+
+@login_required
+def salary_download_view(request):
+    """Downloads one month's Salary page as a single .xlsx with one sheet
+    per selected tab (see _SALARY_TAB_KEYS; ?tabs=company&tabs=helper&...
+    from the page's tab-picker, or every tab if none were given) — via
+    the same _salary_context used by the page, so the sheets and the
+    on-screen tabs can never drift apart."""
+    import openpyxl
+
+    date_param = request.GET.get("date")
+    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    context = _salary_context(current)
+    month_label = f"{context['month_name']} {context['year']}"
+
+    sheet_builders = {
+        "company": lambda: _salary_company_sheet_rows(context["company_rows"], context["company_totals"]),
+        "helper": lambda: _salary_prorated_sheet_rows(context["helper_rows"], context["helper_totals"], with_tds=False),
+        "staff": lambda: _salary_prorated_sheet_rows(context["staff_rows"], context["staff_totals"], with_tds=True),
+        "contractors": lambda: (
+            _salary_prorated_sheet_rows(context["contractor_rows"], context["contractor_totals"], with_tds=False)
+        ),
+        "operators": lambda: _salary_operator_sheet_rows(context["operator_rows"], context["operator_totals"]),
+    }
+    selected_keys = set(request.GET.getlist("tabs")) or {key for key, _, _ in _SALARY_TAB_KEYS}
+    selected = [(label, key) for key, label, _ in _SALARY_TAB_KEYS if key in selected_keys]
+    if not selected:
+        _error(request, "Select at least one tab to download.")
+        return redirect(f"{reverse('salary')}?date={current.isoformat()}")
+
+    wb = openpyxl.Workbook()
+    first = True
+    for label, key in selected:
+        ws = wb.active if first else wb.create_sheet(label)
+        if first:
+            ws.title = label
+            first = False
+        headers, col_groups, data_rows, total_row = sheet_builders[key]()
+        _write_salary_sheet(ws, label, month_label, headers, col_groups, data_rows, total_row)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"salary-{context['year']}-{context['month']:02d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+# Company name printed into every bank sheet's REMITTER'S NAME column
+# (see _salary_bank_row) — the account number next to it is deliberately
+# left blank in every row, same as the July template; finance fills that
+# in centrally when uploading to the bank's own portal.
+_SALARY_BANK_REMITTER_NAME = "MV INDUSTRIAL CORPORATION"
+
+# Column layout lifted directly from the July template's per-department
+# Bank Sheet tabs (Workers_Bank_Sheet, Helpers_Bank_Sheet, Op_Bank_Sheet,
+# etc.) — a blank spacer right after EMP NAME, then a literal "~" spacer
+# between every other column pair, and two columns (10, 2) that are
+# fixed constants in every row, including the header. Replicated exactly,
+# typos in "BENFICIARY'S" included, since this file is meant to be
+# uploaded as-is to the bank's NEFT bulk-transfer portal, which expects
+# that exact shape.
+_SALARY_BANK_SHEET_HEADER = [
+    "EMP NAME", None, "TRANSFER TYPE", "~", "REMITTER'S ACCOUNT", "~", "REMITTER'S NAME", "~",
+    "IFSC CODE", "~", "ACCOUNT NO", "~", 10, "~", "AMOUNT OF TRANSFER", "~",
+    "BENEFICIARY'S NAME", "~", "BENFICIARY'S BRANCH NAME", "~", 2, "~", "BENFICIARY'S BANK NAME",
+]
+
+
+def _salary_bank_row(emp: Employee, amount) -> list:
+    """One data row for a Bank Sheet — see _SALARY_BANK_SHEET_HEADER for
+    the column layout this must line up with position-for-position."""
+    return [
+        emp.name, None, "NEFT", "~", None, "~", _SALARY_BANK_REMITTER_NAME, "~",
+        emp.ifsc_code, "~", emp.account_no, "~", 10, "~", float(amount), "~",
+        emp.account_name or emp.name, "~", emp.branch, "~", 2, "~", emp.bank_name,
+    ]
+
+
+def _write_salary_bank_sheet(ws, rows: list) -> None:
+    """Fills in one tab's Bank Sheet — header starts at row 1 with no
+    title above it (unlike this app's other downloads), matching the
+    July template's bank sheets exactly since this file gets uploaded
+    straight to the bank, not read by a person. Skips employees on Hold
+    and employees missing Account No/IFSC Code (see
+    _row_missing_bank_details — those are flagged on the Salary page
+    itself instead, via _salary_context's missing_bank_details)."""
+    from openpyxl.styles import Font
+
+    ws.append(_SALARY_BANK_SHEET_HEADER)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for r in rows:
+        if _row_missing_bank_details(r) or r["hold"]:
+            continue
+        ws.append(_salary_bank_row(r["employee"], r["calc"]["net"]))
+
+    ws.column_dimensions["A"].width = 22
+    for col in ("C", "E", "G", "I", "K", "M", "O", "Q", "S", "U", "W"):
+        ws.column_dimensions[col].width = 16
+    for col in ("B", "D", "F", "H", "J", "L", "N", "P", "R", "T", "V"):
+        ws.column_dimensions[col].width = 3
+
+
+@login_required
+def salary_bank_download_view(request):
+    """Downloads one month's Salary page as a NEFT bulk-transfer .xlsx —
+    one sheet per selected tab (see _SALARY_TAB_KEYS; ?tabs=company&
+    tabs=helper&... from the page's tab-picker, or every tab if none were
+    given), same column layout as the July template's Bank Sheet tabs
+    (see _write_salary_bank_sheet). Employees on Hold are left out of the
+    file (nothing being paid out this month) — but if anyone else in a
+    selected tab is missing bank details, the whole download is refused
+    instead of silently going out short one person's transfer; fix the
+    missing Employee record(s) (also listed on the Salary page itself,
+    see missing_bank_details in _salary_context) and try again."""
+    import openpyxl
+
+    date_param = request.GET.get("date")
+    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    context = _salary_context(current)
+
+    selected_keys = set(request.GET.getlist("tabs")) or {key for key, _, _ in _SALARY_TAB_KEYS}
+    selected = [(label, rows_key) for key, label, rows_key in _SALARY_TAB_KEYS if key in selected_keys]
+    if not selected:
+        _error(request, "Select at least one tab to download the Bank Excel for.")
+        return redirect(f"{reverse('salary')}?date={current.isoformat()}")
+
+    selected_labels = {label for label, _ in selected}
+    missing = [m for m in context["missing_bank_details"] if m["tab_label"] in selected_labels]
+    if missing:
+        names = ", ".join(f"{m['emp_code']} {m['emp_name']} ({m['tab_label']})" for m in missing)
+        _error(
+            request,
+            f"Bank Excel not downloaded — missing bank details for: {names}. "
+            "Add their Account No/IFSC Code first.",
+        )
+        return redirect(f"{reverse('salary')}?date={current.isoformat()}")
+
+    wb = openpyxl.Workbook()
+    first = True
+    for label, rows_key in selected:
+        ws = wb.active if first else wb.create_sheet(label)
+        if first:
+            ws.title = label
+            first = False
+        _write_salary_bank_sheet(ws, context[rows_key])
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"salary-bank-{context['year']}-{context['month']:02d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 @login_required
@@ -1543,13 +1975,15 @@ def _apply_grid_borders(ws, min_row: int, max_row: int, max_col: int) -> None:
 def _write_ot_summary_sheet(ws, context) -> None:
     """Fills in the OT Monthly Summary sheet (grouped by department, one
     row per employee: OT hours, OT rate, OT amount, plus a department
-    subtotal row) — same numbers as the report page's Monthly Summary tab.
-    The top 3 OT earners in each department (already sorted first, see
-    _ot_details_context) get a light blue fill and bold text, matching the
-    page."""
+    subtotal row) — same numbers and colors as the report page's Monthly
+    Summary tab: department rows get the same peach fill as the page's
+    tr.dept-row, and the top 3 OT earners in each department (already
+    sorted first, see _ot_details_context) get the page's light blue fill
+    and bold text."""
     from openpyxl.styles import Font, PatternFill
     import openpyxl
 
+    dept_fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
     top3_fill = PatternFill(start_color="EAF4FC", end_color="EAF4FC", fill_type="solid")
 
     month_label = f"{context['month_name']} {context['year']}"
@@ -1559,8 +1993,10 @@ def _write_ot_summary_sheet(ws, context) -> None:
     headers = ["Code", "Employee", "Department", "OT Hours", "OT Rate/hr", "OT Amount"]
     ws.append(headers)
     header_row_num = ws.max_row
+    header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
     for cell in ws[header_row_num]:
         cell.font = Font(bold=True)
+        cell.fill = header_fill
 
     for row in context["summary_rows"]:
         if row["is_dept"]:
@@ -1572,6 +2008,7 @@ def _write_ot_summary_sheet(ws, context) -> None:
             ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=len(headers))
             for cell in ws[ws.max_row]:
                 cell.font = Font(bold=True)
+                cell.fill = dept_fill
         else:
             ws.append([
                 row["emp_code"], row["emp_name"], row["department"],
@@ -1599,18 +2036,28 @@ def _write_ot_grid_sheet(ws, context) -> None:
     grouped by department, OT-relevant cells only — see
     _restrict_to_ot_cells). Every hours/rate/amount column is written as a
     real number (not the HTML grid's display-formatted strings), header
-    cells get a grey fill, the Total OT column gets a light grey fill on
-    every row, the top 3 OT earners per department (row["is_top3"], set in
-    _ot_details_context by matching summary_rows' ranking to each row's
-    employee code) get the same light blue fill + bold as the Summary
-    sheet — overriding the Total OT column's grey for that row — and a
+    cells get a grey fill, department rows get the same peach fill as the
+    page's tr.dept, day cells get the page's Holiday/Paid Holiday/Comp Off
+    colors or its confirmed-OT-shift yellow, the Total OT column gets a
+    light grey fill on every row, the top 3 OT earners per department
+    (row["is_top3"], set in _ot_details_context by matching summary_rows'
+    ranking to each row's employee code) get the same light blue fill +
+    bold as the Summary sheet — overriding every other fill on that row,
+    same simplification the Total OT column's grey already made — and a
     bold Total row sums Total OT/OT Amount across all employees; grid
     borders cover the whole table including that row."""
     from openpyxl.styles import Font, PatternFill
     import openpyxl
 
+    dept_fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
     top3_fill = PatternFill(start_color="EAF4FC", end_color="EAF4FC", fill_type="solid")
     total_ot_col_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+    special_day_fills = {
+        "H": PatternFill(start_color="D6D6D6", end_color="D6D6D6", fill_type="solid"),
+        "PH": PatternFill(start_color="4FB3A9", end_color="4FB3A9", fill_type="solid"),
+        "CO": PatternFill(start_color="F5A85C", end_color="F5A85C", fill_type="solid"),
+    }
+    confirmed_ot_fill = PatternFill(start_color="FFF9B0", end_color="FFF9B0", fill_type="solid")
 
     month_label = f"{context['month_name']} {context['year']}"
     day_headers = context["day_headers"]
@@ -1639,6 +2086,7 @@ def _write_ot_grid_sheet(ws, context) -> None:
             ws.append([row["label"].lstrip("▸ ").strip()])
             for cell in ws[ws.max_row]:
                 cell.font = Font(bold=True)
+                cell.fill = dept_fill
         else:
             # cell["value"] is the day's full worked hours; the on-screen
             # grid immediately swaps that to cell["shift_ot_hours"] (the
@@ -1660,6 +2108,10 @@ def _write_ot_grid_sheet(ws, context) -> None:
                 total_amount_sum += Decimal(str(row["total_ot_amount"]))
 
             data_row_num = ws.max_row
+            for i, cell in enumerate(row["day_cells"]):
+                day_fill = special_day_fills.get(cell["special"]) or (confirmed_ot_fill if cell["shift_flag"] else None)
+                if day_fill:
+                    ws.cell(row=data_row_num, column=2 + i).fill = day_fill
             if row.get("is_top3"):
                 for cell in ws[data_row_num]:
                     cell.fill = top3_fill

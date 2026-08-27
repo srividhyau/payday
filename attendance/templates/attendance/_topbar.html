@@ -1,6 +1,7 @@
 <header class="topbar">
-    <a href="{% url 'home' %}" class="brand">Payday</a>
+    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% else %}{% url 'home' %}{% endif %}" class="brand">Payday</a>
     <nav>
+        {% if not is_salary_viewer %}
         <details class="nav-dropdown">
             <summary{% if current == "mark_attendance" or current == "dashboard" or current == "upload" %} class="current"{% endif %}>Attendance</summary>
             <div class="nav-dropdown-menu">
@@ -10,9 +11,12 @@
             </div>
         </details>
         <a href="{% url 'calendar' %}"{% if current == "calendar" %} class="current"{% endif %}>Holiday Calendar</a>
+        {% endif %}
         <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
         <a href="{% url 'cash_withdrawal' %}"{% if current == "cash_withdrawal" %} class="current"{% endif %}>Cash Withdrawal</a>
+        {% if not is_salary_viewer %}
         <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT</a>
+        {% endif %}
         <form method="post" action="{% url 'logout' %}" style="display:inline;">
             {% csrf_token %}
             <button type="submit">Logout ({{ user.username }})</button>
