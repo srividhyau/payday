@@ -317,6 +317,10 @@
            hours-based heat-map colors since there's no worked-hours value
            to color-code on a day the employee wasn't in at all. */
         table.month td.leave-day { background: #ececec; }
+        /* Earned Leave — its own color (distinct from the plain grey
+           Absent/PL gets) so a day spent from the EL balance reads at a
+           glance, matching the EL & Comp-Off page's own bookkeeping. */
+        table.month td.el-day { background: #EDE7F6; color: #4A148C; font-weight: 700; }
 
         /* Header gets a lighter tint of the same color, just enough to flag
            the column — the full-strength color stays on the data cells,
@@ -616,7 +620,7 @@
                             {% else %}
                                 <td class="label" title="{{ row.label }}">{{ row.label }}</td>
                             {% for cell in row.day_cells %}
-                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.leave %}leave-day{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{{ cell.value }}</td>
+                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% elif cell.leave %}leave-day{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}EL{% else %}{{ cell.value }}{% endif %}</td>
                             {% endfor %}
                             {% for value in row.summary_cells %}
                                 <td class="summary-highlight summary-col-cell">{{ value }}</td>
@@ -644,6 +648,14 @@
                     </label>
                     <label>Time Out
                         <input type="text" name="time_out" id="editTimeOut" placeholder="HH:MM">
+                    </label>
+                    <label>Status
+                        <select name="status" id="editStatus">
+                            <option value="">Auto (from Time In/Out)</option>
+                            {% for code, label in status_choices %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
                     </label>
                     <div id="editShiftLabel">
                         <p class="shift-toggle-label">Shift</p>
@@ -749,6 +761,15 @@
                     document.getElementById('editDateLabel').textContent = cell.dataset.date;
                     document.getElementById('editTimeIn').value = cell.dataset.in || '';
                     document.getElementById('editTimeOut').value = cell.dataset.out || '';
+                    // Only pre-select the Status dropdown when the day is
+                    // already on one of the statuses nothing auto-derives
+                    // (recompute_from_punch only ever produces P/HD/A) —
+                    // otherwise leave it on "Auto" so editing just the
+                    // punch times keeps recomputing status as it always
+                    // has, instead of accidentally freezing it.
+                    var forcedStatuses = ['PH', 'CO', 'PL', 'WO', 'H', 'EL', 'PM'];
+                    var currentStatus = cell.dataset.status || '';
+                    document.getElementById('editStatus').value = forcedStatuses.indexOf(currentStatus) !== -1 ? currentStatus : '';
                     var isStaff = cell.dataset.staff === '1';
                     var shiftValue = cell.dataset.shift || '';
                     document.querySelectorAll('#editShiftGroup input[type=radio]').forEach(function (r) {

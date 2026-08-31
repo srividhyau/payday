@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Payday — Cash Withdrawal</title>
+    <title>Payday — Cash Register</title>
     <style>
         :root {
             --bg: #f8fafc;
@@ -26,7 +26,7 @@
             color: var(--text);
             -webkit-font-smoothing: antialiased;
         }
-        .page { width: 100%; max-width: 900px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+        .page { width: 100%; max-width: 1000px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
 
         .topbar {
             display: flex; align-items: center; justify-content: space-between;
@@ -88,6 +88,8 @@
         .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.6rem 0.9rem; min-width: 130px; }
         .kpi .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.2rem; }
         .kpi .value { font-size: 1.15rem; font-weight: 700; color: var(--navy); }
+        .kpi.balance .value { color: #1e7e34; }
+        .kpi.balance.negative .value { color: #b3261e; }
 
         .row-input {
             width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 6px;
@@ -95,6 +97,7 @@
         }
         .row-input:focus { outline: none; border-color: var(--navy); }
         input.row-input[type="number"] { text-align: right; }
+        select.row-input { background: #fff; }
         .add-row td { background: #fafbff; }
         .add-btn {
             background: var(--navy); color: var(--yellow); font-weight: 700; border: none;
@@ -104,17 +107,49 @@
 
         .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
         table.simple { border-collapse: collapse; width: 100%; }
-        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
         table.simple td.num, table.simple th.num { text-align: right; }
-        table.simple tfoot td { font-weight: 700; background: #FFF9B0; border-top: 2px solid var(--border); }
+        table.simple tr.opening td, table.simple tr.closing td { font-weight: 700; background: #FFF9B0; }
+        table.simple td.type-in { color: #1e7e34; font-weight: 600; }
+        table.simple td.type-out { color: #b3261e; font-weight: 600; }
+        table.simple td.balance-cell { font-weight: 700; color: var(--navy); }
         .delete-btn {
             background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
             padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
         }
         .delete-btn:hover { background: #fdecea; }
+
+        .action-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .icon-btn {
+            position: relative;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
+            color: var(--text-muted); background: var(--bg); border: 1px solid var(--border);
+            cursor: pointer; text-decoration: none; font-family: inherit;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .icon-btn:hover { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+        .icon-btn svg { display: block; }
+        .icon-btn:disabled { opacity: 0.6; cursor: default; }
+        .icon-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
+            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+            padding: 0.35rem 0.65rem; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
+        .report-status { font-size: 0.8rem; color: var(--text-muted); }
+        .report-status.error { color: #b3261e; }
+        .report-status.success { color: #1e7e34; }
+        /* Add-row inputs and per-row Delete buttons are UI chrome, not
+           ledger data — hidden only while html2canvas is capturing for
+           the Telegram send, so the screenshot reads like a clean report. */
+        table.simple.capturing .no-capture { display: none; }
+        .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
         .edit-btn {
             background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
             padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; font-family: inherit; margin-right: 0.3rem;
@@ -131,12 +166,12 @@
         .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
         .edit-modal h3 { margin: 0 0 0.9rem; font-size: 1.05rem; }
         .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
-        .edit-modal input {
+        .edit-modal input, .edit-modal select {
             display: block; width: 100%; margin-top: 0.25rem; padding: 0.45rem 0.6rem;
             border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
             transition: border-color .15s ease;
         }
-        .edit-modal input:focus { outline: none; border-color: var(--navy); }
+        .edit-modal input:focus, .edit-modal select:focus { outline: none; border-color: var(--navy); }
         .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
         .edit-modal button {
             padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
@@ -145,52 +180,24 @@
         .edit-modal button:hover { background: var(--bg); }
         .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
         .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
-
-        .action-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-        .icon-btn {
-            position: relative;
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
-            color: var(--text-muted); background: var(--bg); border: 1px solid var(--border);
-            cursor: pointer; text-decoration: none; font-family: inherit;
-            transition: background .15s ease, color .15s ease, border-color .15s ease;
-        }
-        .icon-btn:hover { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
-        .icon-btn svg { display: block; }
-        .icon-btn:disabled { opacity: 0.6; cursor: default; }
-        /* Custom tooltip instead of relying on the native title attribute
-           (inconsistent delay/visibility across browsers). */
-        .icon-btn[data-tooltip]:hover::after {
-            content: attr(data-tooltip);
-            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
-            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
-            padding: 0.35rem 0.65rem; border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
-        }
-        .report-status { font-size: 0.8rem; color: var(--text-muted); }
-        .report-status.error { color: #b3261e; }
-        .report-status.success { color: #1e7e34; }
-        /* Add-row inputs and per-row Delete buttons are UI chrome, not
-           report data — hidden only while html2canvas is capturing for
-           the Telegram send, so the screenshot reads like a clean report. */
-        table.simple.capturing .no-capture { display: none; }
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="cash_withdrawal" %}
+    {% include "attendance/_topbar.html" with current="cash_register" %}
 
     <div class="page">
         <div class="page-header-row">
-            <h1>Cash Withdrawal</h1>
+            <h1>Cash Register</h1>
             <div class="month-nav">
                 <a href="?date={{ prev_date }}">&larr;</a>
                 <h2>{{ month_name }} {{ year }}</h2>
                 <a href="?date={{ next_date }}">&rarr;</a>
             </div>
             <div class="kpi-row">
-                <div class="kpi"><div class="label">Total Withdrawn</div><div class="value">{{ total_amount }}</div></div>
-                <div class="kpi"><div class="label">Entries</div><div class="value">{{ entries|length }}</div></div>
+                <div class="kpi"><div class="label">Opening Balance</div><div class="value">{{ opening_balance }}</div></div>
+                <div class="kpi"><div class="label">Cash In</div><div class="value">{{ total_in }}</div></div>
+                <div class="kpi"><div class="label">Cash Out</div><div class="value">{{ total_out }}</div></div>
+                <div class="kpi balance{% if closing_balance < 0 %} negative{% endif %}"><div class="label">Closing Balance</div><div class="value">{{ closing_balance }}</div></div>
             </div>
         </div>
 
@@ -202,79 +209,104 @@
             <div class="msg info">👁️ View-only access — you can view and download, but not add/delete entries or send to Telegram.</div>
         {% endif %}
 
+        <p class="caption" style="color:var(--text-muted); font-size:0.85rem; margin: 0 0 1rem;">Opening Balance carries over automatically from the previous month's Closing Balance — it's the running total of every entry ever recorded before this month started.</p>
+
+        {% if not is_salary_viewer %}
         <!-- Table cells can't contain a <form> that itself wraps multiple
              <td>s (invalid nesting, unreliable across browsers) — each row's
              inputs/button instead reference a form declared here via the
              HTML5 form="" attribute, which works regardless of where the
              form element sits in the document. -->
-        {% if not is_salary_viewer %}
-        <form id="cash-add-form" method="post">
+        <form id="register-add-form" method="post">
             {% csrf_token %}
             <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
         </form>
-        {% for entry in entries %}
-        <form id="cash-delete-form-{{ entry.id }}" method="post">
+        {% for row in rows %}
+        <form id="register-delete-form-{{ row.entry.id }}" method="post">
             {% csrf_token %}
             <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="entry_id" value="{{ entry.id }}">
+            <input type="hidden" name="entry_id" value="{{ row.entry.id }}">
             <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
         </form>
         {% endfor %}
         {% endif %}
 
         <div class="action-row">
-            <a class="icon-btn" href="{% url 'cash_withdrawal_download' %}?date={{ current|date:'Y-m-d' }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+            <a class="icon-btn" href="{% url 'cash_register_download' %}?date={{ current|date:'Y-m-d' }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
             </a>
             {% if not is_salary_viewer %}
-            <button type="button" class="icon-btn" id="sendCashTelegramBtn" data-tooltip="Send screenshot to Telegram" aria-label="Send screenshot to Telegram">
+            <button type="button" class="icon-btn" id="sendRegisterTelegramBtn" data-tooltip="Send screenshot to Telegram" aria-label="Send screenshot to Telegram">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
-            <span id="sendCashTelegramStatus" class="report-status"></span>
+            <span id="sendRegisterTelegramStatus" class="report-status"></span>
             {% endif %}
         </div>
 
         <div class="card">
             <div class="table-wrap">
-                <table class="simple" id="cashTable">
+                <table class="simple" id="registerTable">
                     <thead>
                         <tr>
+                            <th>Date</th>
+                            <th>Type</th>
                             <th>Purpose</th>
                             <th>Description</th>
-                            <th class="num">Amount</th>
+                            <th class="num">Cash In</th>
+                            <th class="num">Cash Out</th>
+                            <th class="num">Balance</th>
                             <th class="no-capture"></th>
                         </tr>
                     </thead>
                     <tbody>
+                        <tr class="opening">
+                            <td colspan="6">Opening Balance</td>
+                            <td class="num">{{ opening_balance }}</td>
+                            <td class="no-capture"></td>
+                        </tr>
                         {% if not is_salary_viewer %}
                         <tr class="add-row no-capture">
-                            <td><input class="row-input" type="text" name="purpose" form="cash-add-form" placeholder="e.g. Petty Cash, Office Expenses" required></td>
-                            <td><input class="row-input" type="text" name="description" form="cash-add-form" placeholder="Optional notes"></td>
-                            <td><input class="row-input" type="number" name="amount" form="cash-add-form" step="0.01" min="0" required></td>
-                            <td><button type="submit" form="cash-add-form" class="add-btn">Add</button></td>
+                            <td><input class="row-input" type="date" name="entry_date" form="register-add-form" value="{{ current|date:'Y-m-d' }}" required></td>
+                            <td>
+                                <select class="row-input" name="entry_type" form="register-add-form" required>
+                                    <option value="in">Cash In</option>
+                                    <option value="out">Cash Out</option>
+                                </select>
+                            </td>
+                            <td><input class="row-input" type="text" name="purpose" form="register-add-form" placeholder="e.g. Bank Withdrawal, Office Expenses" required></td>
+                            <td><input class="row-input" type="text" name="description" form="register-add-form" placeholder="Optional notes"></td>
+                            <td colspan="2"><input class="row-input" type="number" name="amount" form="register-add-form" step="0.01" min="0" required placeholder="Amount"></td>
+                            <td></td>
+                            <td><button type="submit" form="register-add-form" class="add-btn">Add</button></td>
                         </tr>
                         {% endif %}
-                        {% for entry in entries %}
+                        {% for row in rows %}
                         <tr>
-                            <td>{{ entry.purpose }}</td>
-                            <td>{{ entry.description }}</td>
-                            <td class="num">{{ entry.amount }}</td>
+                            <td>{{ row.entry.date|date:"d M Y" }}</td>
+                            <td class="type-{{ row.entry.entry_type }}">{{ row.entry.get_entry_type_display }}</td>
+                            <td>{{ row.entry.purpose }}</td>
+                            <td>{{ row.entry.description }}</td>
+                            <td class="num">{% if row.entry.entry_type == "in" %}{{ row.entry.amount }}{% endif %}</td>
+                            <td class="num">{% if row.entry.entry_type == "out" %}{{ row.entry.amount }}{% endif %}</td>
+                            <td class="num balance-cell">{{ row.balance }}</td>
                             <td class="no-capture">
                                 {% if not is_salary_viewer %}
-                                <button type="button" class="edit-btn" data-id="{{ entry.id }}" data-purpose="{{ entry.purpose }}" data-description="{{ entry.description }}" data-amount="{{ entry.amount }}">Edit</button>
-                                <button type="submit" form="cash-delete-form-{{ entry.id }}" class="delete-btn">Delete</button>
+                                <button type="button" class="edit-btn" data-id="{{ row.entry.id }}" data-date="{{ row.entry.date|date:'Y-m-d' }}" data-type="{{ row.entry.entry_type }}" data-purpose="{{ row.entry.purpose }}" data-description="{{ row.entry.description }}" data-amount="{{ row.entry.amount }}">Edit</button>
+                                <button type="submit" form="register-delete-form-{{ row.entry.id }}" class="delete-btn">Delete</button>
                                 {% endif %}
                             </td>
                         </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="empty-state">No cash register entries for {{ month_name }} {{ year }}.</td></tr>
                         {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="2">Total</td>
-                            <td class="num">{{ total_amount }}</td>
-                            <td></td>
+                        <tr class="closing">
+                            <td colspan="4">Closing Balance</td>
+                            <td class="num">{{ total_in }}</td>
+                            <td class="num">{{ total_out }}</td>
+                            <td class="num">{{ closing_balance }}</td>
+                            <td class="no-capture"></td>
                         </tr>
-                    </tfoot>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -288,6 +320,15 @@
                     <input type="hidden" name="action" value="edit">
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="entry_id" id="editEntryId">
+                    <label>Date
+                        <input type="date" name="entry_date" id="editDate" required>
+                    </label>
+                    <label>Type
+                        <select name="entry_type" id="editType" required>
+                            <option value="in">Cash In</option>
+                            <option value="out">Cash Out</option>
+                        </select>
+                    </label>
                     <label>Purpose
                         <input type="text" name="purpose" id="editPurpose" required>
                     </label>
@@ -309,10 +350,10 @@
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
     <script>
         (function () {
-            var btn = document.getElementById('sendCashTelegramBtn');
+            var btn = document.getElementById('sendRegisterTelegramBtn');
             if (!btn) return;
-            var statusEl = document.getElementById('sendCashTelegramStatus');
-            var table = document.getElementById('cashTable');
+            var statusEl = document.getElementById('sendRegisterTelegramStatus');
+            var table = document.getElementById('registerTable');
 
             function getCookie(name) {
                 var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
@@ -330,8 +371,8 @@
                         table.classList.remove('capturing');
                         canvas.toBlob(function (blob) {
                             var formData = new FormData();
-                            formData.append('image', blob, 'cash-withdrawal.png');
-                            formData.append('caption', 'Cash Withdrawal — {{ month_name|escapejs }} {{ year|escapejs }}');
+                            formData.append('image', blob, 'cash-register.png');
+                            formData.append('caption', 'Cash Register — {{ month_name|escapejs }} {{ year|escapejs }}');
                             formData.append('topic', 'ot_cash');
                             fetch('{% url "send_telegram_report" %}', {
                                 method: 'POST',
@@ -364,6 +405,8 @@
             document.querySelectorAll('.edit-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     document.getElementById('editEntryId').value = btn.dataset.id;
+                    document.getElementById('editDate').value = btn.dataset.date;
+                    document.getElementById('editType').value = btn.dataset.type;
                     document.getElementById('editPurpose').value = btn.dataset.purpose;
                     document.getElementById('editDescription').value = btn.dataset.description;
                     document.getElementById('editAmount').value = btn.dataset.amount;

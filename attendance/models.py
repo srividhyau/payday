@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -166,6 +167,8 @@ class AttendanceRecord(models.Model):
         ("WO", "Week Off"),
         ("H", "Holiday"),
         ("HD", "Half Day"),
+        ("EL", "Earned Leave"),
+        ("PM", "Permission"),
     ]
 
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="attendance_records")
@@ -294,10 +297,13 @@ class SpecialDay(models.Model):
 
 
 class CashWithdrawal(models.Model):
-    """One cash-register entry — money withdrawn for a fixed purpose
-    outside of payroll (e.g. petty cash, office expenses, an advance), logged
+    """One cash withdrawal — money taken out for a fixed purpose outside
+    of payroll (e.g. petty cash, office expenses, an advance), logged
     against a month as a whole (no specific day) like Salary/OT Details
-    rather than tied to an employee record."""
+    rather than tied to an employee record. Simpler and older than
+    CashRegisterEntry below — kept as its own page/menu item rather than
+    folded into the register, since the two serve different habits (a
+    quick undated list here vs. a dated running-balance ledger there)."""
 
     year = models.IntegerField()
     month = models.IntegerField()
@@ -310,3 +316,109 @@ class CashWithdrawal(models.Model):
 
     def __str__(self):
         return f"{self.year}-{self.month:02d} — {self.purpose} — {self.amount}"
+
+
+class CashRegisterEntry(models.Model):
+    """One line in the petty cash register — a real day-by-day cashbook:
+    every Cash In (e.g. withdrawn from the bank into the office cash box)
+    and Cash Out (an expense/payment made from that cash), each on its
+    own date. The running/opening/closing balance is never stored — it's
+    always computed as the signed sum of every entry up to a given point
+    (see _cash_register_context in views.py), so it can never drift out
+    of sync with the entries themselves. A month's opening balance is
+    just the running total of everything before that month started,
+    which is what gives the register its month-to-month carry-over: to
+    seed the very first balance (before this system existed), just add
+    one Cash In entry dated before your first real entry."""
+
+    TYPE_IN = "in"
+    TYPE_OUT = "out"
+    TYPE_CHOICES = [
+        (TYPE_IN, "Cash In"),
+        (TYPE_OUT, "Cash Out"),
+    ]
+
+    date = models.DateField()
+    entry_type = models.CharField(max_length=3, choices=TYPE_CHOICES)
+    purpose = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    description = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["date", "created_at", "id"]
+
+    def __str__(self):
+        sign = "+" if self.entry_type == self.TYPE_IN else "-"
+        return f"{self.date} {sign}{self.amount} — {self.purpose}"
+
+
+class LeaveLedgerEntry(models.Model):
+    """One Staff employee's EL (Earned Leave) / Comp-Off accrual for one
+    month — a monthly "closing" snapshot posted by HR (see
+    leave_ledger_view), not a live-computed balance: EL's 6-day cap and
+    encashment overflow are sequential (each month's credit depends on
+    the running balance every prior month already posted), so the
+    balance has to be carried forward row by row, the same way a real
+    leave register would be closed each month.
+
+    EL: 1 day per day the employee worked a company-wide Holiday/Paid
+    Holiday/Comp Off (SpecialDay) that month — or 0.5 if that day's
+    worked hours were 6 or fewer (a half day worked still counts, just
+    not a full one) — see src/metrics.overtime_view's "el_day_credit"
+    column (and its own _EL_FULL_DAY_HOURS constant), reused here so this
+    can never disagree with what the OT page's EL Days column already
+    shows for that day. Capped at EL_CAP days running
+    balance; whatever would push it over that cap is "encashed" instead
+    (tracked in el_encashed — this app only tracks the amount owed, HR
+    pays it by hand, see leave_ledger_view). Spent EL — a day actually
+    taken off — is captured the same way any other leave is: marking
+    that AttendanceRecord's status as "EL" (see STATUS_CHOICES). el_taken
+    counts those days for the month and is subtracted after that month's
+    credit/cap/encashment is worked out, so taking leave can't itself
+    change how much gets encashed; it can take the running balance
+    negative if more was taken than banked, which is left visible rather
+    than silently blocked (see leave_ledger_view).
+
+    Comp-Off: hours worked beyond COMP_OFF_HOUR_THRESHOLD on any day
+    that month, summed and added to a running hours balance — no cap;
+    HR grants time off against this balance manually, outside this app.
+
+    is_manual rows exist purely to seed a starting balance from before
+    this ledger existed (or to hand-correct a mistake) — HR sets
+    el_balance_after/comp_off_balance_after directly instead of letting
+    that month's attendance compute them; every later month's posting
+    still carries forward from whatever the most recent row (manual or
+    computed) says the balance was, so a seeded opening balance flows
+    through normally from then on."""
+
+    EL_CAP = Decimal("6")
+    COMP_OFF_HOUR_THRESHOLD = Decimal("8.5")
+
+    employee = models.ForeignKey("Employee", on_delete=models.CASCADE, related_name="leave_ledger_entries")
+    year = models.IntegerField()
+    month = models.IntegerField()
+
+    full_ot_days = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    el_credited = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    el_encashed = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    el_taken = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    el_balance_after = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    comp_off_hours_earned = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    comp_off_balance_after = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+
+    is_manual = models.BooleanField(default=False)
+    notes = models.CharField(max_length=255, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["employee", "year", "month"], name="unique_leave_ledger_month"),
+        ]
+        ordering = ["employee__name", "year", "month"]
+
+    def __str__(self):
+        return f"{self.employee.code} {self.year}-{self.month:02d} EL={self.el_balance_after} CompOff={self.comp_off_balance_after}h"

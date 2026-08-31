@@ -3,19 +3,31 @@
     <nav>
         {% if not is_salary_viewer %}
         <details class="nav-dropdown">
-            <summary{% if current == "mark_attendance" or current == "dashboard" or current == "upload" %} class="current"{% endif %}>Attendance</summary>
+            <summary{% if current == "mark_attendance" or current == "dashboard" or current == "upload" or current == "calendar" %} class="current"{% endif %}>Attendance</summary>
             <div class="nav-dropdown-menu">
                 <a href="{% url 'mark_attendance' %}"{% if current == "mark_attendance" %} class="current"{% endif %}>Mark Attendance</a>
                 <a href="{% url 'dashboard' %}"{% if current == "dashboard" %} class="current"{% endif %}>Device Records</a>
                 <a href="{% url 'upload' %}"{% if current == "upload" %} class="current"{% endif %}>Upload</a>
+                <a href="{% url 'calendar' %}"{% if current == "calendar" %} class="current"{% endif %}>Holiday Calendar</a>
             </div>
         </details>
-        <a href="{% url 'calendar' %}"{% if current == "calendar" %} class="current"{% endif %}>Holiday Calendar</a>
         {% endif %}
         <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
-        <a href="{% url 'cash_withdrawal' %}"{% if current == "cash_withdrawal" %} class="current"{% endif %}>Cash Withdrawal</a>
+        <details class="nav-dropdown">
+            <summary{% if current == "cash_withdrawal" or current == "cash_register" %} class="current"{% endif %}>Cash</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'cash_withdrawal' %}"{% if current == "cash_withdrawal" %} class="current"{% endif %}>Cash Withdrawal</a>
+                <a href="{% url 'cash_register' %}"{% if current == "cash_register" %} class="current"{% endif %}>Cash Register</a>
+            </div>
+        </details>
         {% if not is_salary_viewer %}
-        <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT</a>
+        <details class="nav-dropdown">
+            <summary{% if current == "ot_details" or current == "leave_ledger" %} class="current"{% endif %}>OT</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
+                <a href="{% url 'leave_ledger' %}"{% if current == "leave_ledger" %} class="current"{% endif %}>EL &amp; Comp-Off</a>
+            </div>
+        </details>
         {% endif %}
         <form method="post" action="{% url 'logout' %}" style="display:inline;">
             {% csrf_token %}

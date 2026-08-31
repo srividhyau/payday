@@ -1,0 +1,341 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — EL &amp; Comp-Off</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { width: 100%; max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.85rem 2rem; background: var(--yellow); border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky; top: 0; z-index: 30; flex-wrap: wrap; gap: 0.5rem;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .topbar nav a {
+            color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav a:hover, .topbar nav a.current { background: var(--navy); color: var(--yellow); }
+        .topbar nav button {
+            color: var(--navy); background: none; border: none; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; font-family: inherit;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav details.nav-dropdown { position: relative; }
+        .topbar nav details.nav-dropdown summary {
+            list-style: none; cursor: pointer; color: var(--navy); font-size: 0.85rem; font-weight: 600;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+        .topbar nav details.nav-dropdown summary:hover,
+        .topbar nav details.nav-dropdown[open] summary,
+        .topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
+        .topbar nav .nav-dropdown-menu {
+            position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+            padding: 0.35rem; min-width: 170px; z-index: 50;
+        }
+        .topbar nav .nav-dropdown-menu a { display: block; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: var(--navy); text-decoration: none; }
+        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
+        .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
+
+        h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
+        .page-header-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
+        .msg.success { background: #e6f4ea; color: #1e7e34; }
+        .msg.error { background: #fdecea; color: #b3261e; }
+        .msg.info { background: #e8f0fe; color: var(--navy); }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.35rem 1.5rem; margin-bottom: 1.5rem; }
+
+        .month-nav { display: flex; align-items: center; gap: 0.9rem; }
+        .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; color: var(--navy); }
+        .month-nav a {
+            color: var(--navy); text-decoration: none; font-size: 1rem; width: 2rem; height: 2rem;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
+        }
+        .month-nav a:hover { background: var(--navy); color: var(--yellow); }
+
+        .caption { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1rem; line-height: 1.5; }
+
+        .action-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .post-btn {
+            background: var(--navy); color: var(--yellow); font-weight: 700; border: none;
+            padding: 0.55rem 1.1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+        }
+        .post-btn:hover { background: var(--navy-deep); }
+        .icon-btn {
+            position: relative;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
+            color: var(--text-muted); background: var(--bg); border: 1px solid var(--border);
+            cursor: pointer; text-decoration: none; font-family: inherit;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .icon-btn:hover { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+        .icon-btn svg { display: block; }
+        .icon-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
+            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+            padding: 0.35rem 0.65rem; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
+
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+        table.simple { border-collapse: collapse; width: 100%; }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple tbody tr:last-child td { border-bottom: none; }
+        table.simple tbody tr:hover td { background: #fafbff; }
+        table.simple td.num, table.simple th.num { text-align: right; }
+        table.simple td.balance-cell { font-weight: 700; color: var(--navy); }
+        table.simple td.balance-cell.negative { color: #b3261e; }
+        .badge {
+            display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;
+        }
+        .badge.posted { background: #e6f4ea; color: #1e7e34; }
+        .badge.preview { background: #fff3cd; color: #8a6300; }
+        .badge.manual { background: #e8f0fe; color: var(--navy); margin-left: 0.3rem; }
+        .edit-btn {
+            background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
+            padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; font-family: inherit; margin-right: 0.3rem;
+        }
+        .edit-btn:hover { background: var(--bg); }
+        .delete-btn {
+            background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
+            padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
+        }
+        .delete-btn:hover { background: #fdecea; }
+        .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+        .el-dates { font-size: 0.7rem; color: var(--text-muted); font-weight: 400; white-space: normal; }
+
+        /* Two column groups (Earned Leave / Comp-Off), same "band the
+           whole column" convention the Salary page uses for its own
+           column groups — so the reader can tell at a glance which of
+           the two leave types a number belongs to, instead of eight
+           identically-styled flat columns. Lavender matches the OT
+           page's own EL-day cell color (same "EL = lavender" language
+           used there); Comp-Off gets its own distinct teal since it has
+           no existing color elsewhere in the app yet. */
+        table.simple th.grp-el, table.simple td.grp-el { background: #F3EEFC; }
+        table.simple th.grp-compoff, table.simple td.grp-compoff { background: #E0F2F1; }
+        table.simple thead tr.group-row th { font-size: 0.7rem; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.08); }
+        table.simple thead tr.group-row th.grp-el { color: #4A148C; }
+        table.simple thead tr.group-row th.grp-compoff { color: #00695C; }
+        table.simple thead tr.sub-row th { font-size: 0.68rem; padding-top: 0.35rem; }
+        table.simple td.opening-cell { color: var(--text-muted); }
+        table.simple td.taken-cell { color: #b3261e; }
+        table.simple td.credited-cell { color: #1e7e34; }
+
+        /* Generic header tooltip — same instant-on-hover pattern as the
+           icon buttons above, just not limited to .icon-btn so it can
+           sit on any <th> that needs one word of explanation instead of
+           making everyone read the caption paragraph to decode a column. */
+        th[data-tooltip] { cursor: help; position: relative; }
+        th[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
+            font-size: 0.72rem; font-weight: 600; white-space: normal; width: max-content; max-width: 220px;
+            padding: 0.4rem 0.6rem; border-radius: 6px; text-align: left; text-transform: none; letter-spacing: normal;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
+
+        /* Edit popup — same shared-modal pattern used elsewhere in this app. */
+        .edit-overlay {
+            position: fixed; inset: 0; background: rgba(17,17,20,0.45); backdrop-filter: blur(2px);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .edit-overlay.open { display: flex; }
+        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+        .edit-modal h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+        .edit-modal .edit-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.9rem; }
+        .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
+        .edit-modal input {
+            display: block; width: 100%; margin-top: 0.25rem; padding: 0.45rem 0.6rem;
+            border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
+            transition: border-color .15s ease;
+        }
+        .edit-modal input:focus { outline: none; border-color: var(--navy); }
+        .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
+        .edit-modal button {
+            padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
+            background: #fff; cursor: pointer; font-size: 0.85rem; transition: background .15s ease;
+        }
+        .edit-modal button:hover { background: var(--bg); }
+        .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
+        .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
+    </style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="leave_ledger" %}
+
+    <div class="page">
+        <div class="page-header-row">
+            <h1>EL &amp; Comp-Off</h1>
+            <div class="month-nav">
+                <a href="?date={{ prev_date }}">&larr;</a>
+                <h2>{{ month_name }} {{ year }}</h2>
+                <a href="?date={{ next_date }}">&rarr;</a>
+            </div>
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <p class="caption">
+            Staff only. Hover any column header for what it means. EL balance is capped at {{ el_cap }} days running — worked days that would push it over the cap are encashed instead (tracked here, paid by hand); a day actually taken is marked as "Earned Leave" on the Attendance page. Comp-Off has no cap. Rows not yet posted show a live preview; use "Post this month" to save it, or "Edit" one row to set a balance by hand (e.g. to seed a starting balance from before this page existed).
+        </p>
+
+        <div class="action-row">
+            <form method="post" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                <input type="hidden" name="action" value="post">
+                <button type="submit" class="post-btn">Post this month</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="table-wrap">
+                <table class="simple">
+                    <thead>
+                        <tr class="group-row">
+                            <th rowspan="2"></th>
+                            <th colspan="6" class="grp-el">Earned Leave (days)</th>
+                            <th colspan="3" class="grp-compoff">Comp-Off (hours)</th>
+                            <th rowspan="2"></th>
+                            <th rowspan="2"></th>
+                        </tr>
+                        <tr class="sub-row">
+                            <th class="num grp-el" data-tooltip="Balance carried over from last month">Opening</th>
+                            <th class="num grp-el" data-tooltip="Full/half days worked on a Holiday, Paid Holiday, or Comp Off this month — more than 6h worked counts as 1 day, 6h or less counts as 0.5">Worked</th>
+                            <th class="num grp-el" data-tooltip="Of the days worked, how many were added to the balance (capped at {{ el_cap }} days running)">Credited</th>
+                            <th class="num grp-el" data-tooltip="Worked days that couldn't be credited because the balance was already at the {{ el_cap }}-day cap — tracked here, paid by hand">Encashed</th>
+                            <th class="num grp-el" data-tooltip="Days actually taken off this month — marked as Earned Leave on the Attendance page">Taken</th>
+                            <th class="num grp-el" data-tooltip="Opening + Credited − Taken. Can go negative if more was taken than banked">Balance</th>
+                            <th class="num grp-compoff" data-tooltip="Balance carried over from last month">Opening</th>
+                            <th class="num grp-compoff" data-tooltip="Hours worked beyond {{ comp_off_threshold }}h on any day this month">Earned</th>
+                            <th class="num grp-compoff" data-tooltip="Opening + Earned — no cap, HR grants time off against this manually">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ row.employee.code }} — {{ row.employee.name }}</td>
+                            <td class="num grp-el opening-cell">{{ row.prior_el_balance }}</td>
+                            <td class="num grp-el">{{ row.full_ot_days|floatformat:"-1" }}</td>
+                            <td class="num grp-el credited-cell">{{ row.el_credited }}</td>
+                            <td class="num grp-el">{{ row.el_encashed }}</td>
+                            <td class="num grp-el{% if row.el_taken %} taken-cell{% endif %}">
+                                {{ row.el_taken }}
+                                {% if row.el_taken_dates %}
+                                <div class="el-dates">{% for d in row.el_taken_dates %}{{ d|date:"d M" }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                                {% endif %}
+                            </td>
+                            <td class="num grp-el balance-cell{% if row.el_balance_after < 0 %} negative{% endif %}">{{ row.el_balance_after }}</td>
+                            <td class="num grp-compoff opening-cell">{{ row.prior_comp_off_balance }}</td>
+                            <td class="num grp-compoff">{{ row.comp_off_hours_earned }}</td>
+                            <td class="num grp-compoff balance-cell">{{ row.comp_off_balance_after }}</td>
+                            <td>
+                                {% if row.posted %}<span class="badge posted">Posted</span>{% else %}<span class="badge preview">Preview</span>{% endif %}
+                                {% if row.is_manual %}<span class="badge manual">Manual</span>{% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="edit-btn" data-employee-id="{{ row.employee.id }}" data-employee-name="{{ row.employee.name }}" data-el-balance="{{ row.el_balance_after }}" data-comp-off-balance="{{ row.comp_off_balance_after }}" data-notes="{{ row.notes }}">Edit</button>
+                                {% if row.posted %}
+                                <form method="post" style="display:inline;" onsubmit="return confirm('Remove this posted entry? {{ row.employee.name|escapejs }} will show a fresh preview again.');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="entry_id" value="{{ row.entry_id }}">
+                                    <button type="submit" class="delete-btn">Delete</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="12" class="empty-state">No active Staff employees for {{ month_name }} {{ year }}.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="edit-overlay" id="editOverlay">
+        <div class="edit-modal">
+            <h3>Set balances by hand</h3>
+            <p class="edit-meta" id="editMeta"></p>
+            <form method="post" id="editForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit">
+                <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                <input type="hidden" name="employee_id" id="editEmployeeId">
+                <label>EL Balance (days)
+                    <input type="number" name="el_balance_after" id="editElBalance" step="0.5" min="0" required>
+                </label>
+                <label>Comp-Off Balance (hours)
+                    <input type="number" name="comp_off_balance_after" id="editCompOffBalance" step="0.01" min="0" required>
+                </label>
+                <label>Notes
+                    <input type="text" name="notes" id="editNotes" placeholder="e.g. Opening balance carried from manual register">
+                </label>
+                <div class="edit-actions">
+                    <button type="button" id="editCancel">Cancel</button>
+                    <button type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var editOverlay = document.getElementById('editOverlay');
+            document.querySelectorAll('.edit-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    document.getElementById('editEmployeeId').value = btn.dataset.employeeId;
+                    document.getElementById('editElBalance').value = btn.dataset.elBalance;
+                    document.getElementById('editCompOffBalance').value = btn.dataset.compOffBalance;
+                    document.getElementById('editNotes').value = btn.dataset.notes;
+                    document.getElementById('editMeta').textContent = btn.dataset.employeeName + ' — {{ month_name|escapejs }} {{ year|escapejs }}';
+                    editOverlay.classList.add('open');
+                });
+            });
+            document.getElementById('editCancel').addEventListener('click', function () {
+                editOverlay.classList.remove('open');
+            });
+        })();
+    </script>
+</body>
+</html>

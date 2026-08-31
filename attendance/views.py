@@ -14,7 +14,7 @@ import pandas as pd
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -24,8 +24,8 @@ from src import metrics, payroll
 from .forms import UploadForm
 from .importer import import_file
 from .models import (
-    AttendanceRecord, CashWithdrawal, Department, Employee, MonthLock, SalaryAdjustment, SpecialDay,
-    UploadBatch,
+    AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, Employee, LeaveLedgerEntry, MonthLock,
+    SalaryAdjustment, SpecialDay, UploadBatch,
 )
 
 logger = logging.getLogger(__name__)
@@ -115,13 +115,79 @@ def _load_daily_data() -> pd.DataFrame:
     return df
 
 
+def _ot_payable_table(shift_ot_table: pd.DataFrame, staff_codes: set) -> pd.DataFrame:
+    """shift_ot_table (metrics.overtime_view's output) with a Staff
+    employee's Full-OT days zeroed out of total_ot_hours — they worked a
+    declared Holiday/Paid Holiday/Comp Off (see overtime_view's
+    docstring), so that day converts to an EL day instead of paid OT
+    (see LeaveLedgerEntry), rather than adding to OT hours/amount like
+    every other subcategory's Full-OT day still does. Adds an "is_el_day"
+    column so callers can count those days separately (e.g. the OT page's
+    EL Days column) instead of just dropping them.
+
+    Used everywhere OT hours/amount get aggregated per employee —
+    _build_month_grid, and the OT page's Monthly Summary and department
+    breakdown — so none of them can drift from which days actually still
+    count as OT for Staff. The day-cell-level hover tooltip is the one
+    exception: it's built from the raw, unadjusted shift_ot_table instead
+    (see _build_month_grid's shift_ot_map), so it keeps showing what was
+    actually worked that day regardless of how the monthly total treats
+    it."""
+    if shift_ot_table.empty:
+        return shift_ot_table.assign(is_el_day=pd.Series(dtype=bool))
+    table = shift_ot_table.copy()
+    is_el_day = table["emp_code"].isin(staff_codes) & (table["full_day_ot"] == 1)
+    table["is_el_day"] = is_el_day
+    table["total_ot_hours"] = table["total_ot_hours"].where(~is_el_day, 0.0)
+    return table
+
+
+def _apply_staff_ot_display(table_rows: list, shift_ot_table: pd.DataFrame) -> None:
+    """Makes a Staff day cell read exactly like any other employee's real
+    M-OT/E-OT/ME-OT/Full-OT day: colors it by overtime_view's
+    effective_shift (their actual AttendanceRecord.shift stays whatever
+    was punched, typically "GS", so _build_month_grid never sets
+    shift_flag for them on its own) and, on a Full-OT day, sets
+    el_day_credit so the template can show "+1 EL"/"+0.5 EL" instead of
+    OT hours — that day converts to EL, not paid OT (see
+    _ot_payable_table).
+
+    Mutates table_rows in place. Called on the OT page's grid["table_rows"]
+    itself (see _ot_details_context) before it's deep-copied for the
+    editable OT View tab and separately restricted/filtered for the
+    read-only Full Monthly View tab, so a Staff employee's EL-earning day
+    reads the same "+EL" way on both — distinct from the Attendance
+    dashboard, which never calls this and keeps Staff on its own
+    hours-heat-map treatment."""
+    if shift_ot_table.empty:
+        return
+    effective_shift_map = {
+        (r.emp_code, r.date): r.effective_shift for r in shift_ot_table.itertuples(index=False)
+    }
+    el_day_credit_map = {
+        (r.emp_code, r.date): r.el_day_credit for r in shift_ot_table.itertuples(index=False)
+    }
+    for row in table_rows:
+        if row["is_dept"]:
+            continue
+        for cell in row["day_cells"]:
+            if not cell["is_staff"] or not cell["date_iso"]:
+                continue
+            key = (cell["emp_code"], pd.Timestamp(cell["date_iso"]))
+            effective_shift = effective_shift_map.get(key, "")
+            if effective_shift not in metrics.OT_SHIFT_CODES:
+                continue
+            cell["shift_flag"] = effective_shift
+            cell["el_day_credit"] = el_day_credit_map.get(key, 0.0)
+
+
 def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dict, ot_tooltip: bool = False) -> dict:
     """Builds the day x employee grid (day_headers + table_rows, matching
     the Month_Attendance pivot layout) shared by the dashboard's Month
-    Attendance grid and the OT Details report's Full Monthly tab. Also
-    returns a few intermediate values (working_days, issues,
-    shift_ot_table) that dashboard_view still needs for its own KPI/
-    department cards, so it doesn't have to recompute them."""
+    Attendance grid and the OT page's tabs. Also returns a few
+    intermediate values (working_days, issues, emp_ot_totals,
+    emp_el_days) that callers still need for their own KPI/department
+    cards, so they don't have to recompute them."""
     working_days = metrics.infer_working_days(daily)
 
     # Shift-based OT (M-OT/E-OT/ME-OT/Full-OT), same calculation as the OT
@@ -129,13 +195,25 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
     # bold-red OT text/background, which stays tied to special-day-worked
     # hours.
     shift_ot_table = metrics.overtime_view(daily)
+    # The day-cell hover tooltip uses the raw table (see time_labels
+    # below) — it should keep showing what was actually worked that day
+    # regardless of how the monthly total treats it.
     shift_ot_map = (
         {(r.emp_code, r.date): r.total_ot_hours for r in shift_ot_table.itertuples(index=False)}
         if not shift_ot_table.empty else {}
     )
+    staff_codes = (
+        set(daily.loc[daily["subcategory"] == "Staff", "emp_code"])
+        if "subcategory" in daily.columns else set()
+    )
+    ot_payable_table = _ot_payable_table(shift_ot_table, staff_codes)
     emp_ot_totals = (
-        shift_ot_table.groupby("emp_code")["total_ot_hours"].sum().to_dict()
-        if not shift_ot_table.empty else {}
+        ot_payable_table.groupby("emp_code")["total_ot_hours"].sum().to_dict()
+        if not ot_payable_table.empty else {}
+    )
+    emp_el_days = (
+        ot_payable_table[ot_payable_table["is_el_day"]].groupby("emp_code")["el_day_credit"].sum().to_dict()
+        if not ot_payable_table.empty else {}
     )
 
     first_date = pd.Timestamp(daily["date"].iloc[0])
@@ -214,26 +292,43 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
                 "ot": not is_dept and ot_map.get(key, 0) > 0,
                 "emp_code": "" if is_dept else row["Emp Code"],
                 "date_iso": "" if is_dept else pd.Timestamp(date).strftime("%Y-%m-%d"),
+                "status": "" if is_dept else (emp_status or ""),
                 "shift": "" if is_dept else shift,
                 "time_in": "" if is_dept else time_in,
                 "time_out": "" if is_dept else time_out,
                 "is_staff": not is_dept and staff_map.get(key, False),
                 "shift_flag": shift if (not is_dept and shift in metrics.OT_SHIFT_CODES) else "",
+                # Overridden per-cell (Staff, OT View tab only) by
+                # _apply_staff_ot_display — see there for why this stays 0
+                # here rather than being computed for every employee.
+                "el_day_credit": 0,
                 "shift_ot_hours": (
                     "" if is_dept or not shift_ot_map.get(key)
                     else f"{shift_ot_map[key]:.2f}".rstrip("0").rstrip(".")
                 ),
                 "suggested_shift": suggested_shift,
+                # Staff always show their punch time here (like HOUSE
+                # KEEPING) rather than needing a suggestion first — since
+                # metrics.overtime_view now treats every Staff day as
+                # "ME-OT" automatically (see its docstring), there's no
+                # shift-code-assignment step for HR to be nudged into in
+                # the first place, so the day just needs to be visible at
+                # all for its already-computed OT (shift_ot_hours above)
+                # to actually show up in this grid.
                 "gs_show_time": (
                     not is_dept and shift not in metrics.OT_SHIFT_CODES and bool(time_in) and bool(time_out)
-                    and not staff_map.get(key, False)
-                    and (bool(suggested_shift) or dept_map.get(key, "") == "HOUSE KEEPING")
+                    and (
+                        staff_map.get(key, False)
+                        or bool(suggested_shift)
+                        or dept_map.get(key, "") == "HOUSE KEEPING"
+                    )
                 ),
             })
         summary_cells = [row[c] for c in summary_cols]
         total_ot = emp_ot_totals.get(row["Emp Code"], 0) if not is_dept else 0
         ot_rate = float(emp_rate_map.get(row["Emp Code"], 0)) if not is_dept else 0
         total_ot_amount = float(total_ot) * ot_rate if not is_dept else 0
+        el_days = emp_el_days.get(row["Emp Code"], 0) if not is_dept else 0
         table_rows.append({
             "label": row["Row Labels"],
             "is_dept": is_dept,
@@ -242,12 +337,14 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
             "total_ot": "" if is_dept or not total_ot else round(float(total_ot), 2),
             "ot_rate": "" if is_dept or not ot_rate else round(ot_rate, 2),
             "total_ot_amount": "" if is_dept or not total_ot_amount else round(total_ot_amount, 2),
+            "el_days": "" if is_dept or not el_days else el_days,
         })
 
     return {
         "working_days": working_days,
         "shift_ot_table": shift_ot_table,
         "emp_ot_totals": emp_ot_totals,
+        "emp_el_days": emp_el_days,
         "issues": issues,
         "day_labels": day_labels,
         "day_headers": day_headers,
@@ -258,11 +355,14 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
 
 
 def _ot_only_rows(table_rows: list) -> list:
-    """Keeps only employee rows with actual OT that month, and drops any
-    department header left with no employees under it afterward — used by
-    the OT Details report's Full Monthly View tab, which should only ever
-    list people who had OT, not the whole roster with everything but OT
-    cells blanked out."""
+    """Keeps only employee rows with actual OT and/or EL days that month
+    (a Staff employee whose only qualifying day this month was a
+    Full-OT/EL one has total_ot == 0 — see _ot_payable_table — so el_days
+    has to be checked too, or they'd vanish from this list entirely), and
+    drops any department header left with no employees under it
+    afterward — used by the OT Details report's Full Monthly View tab,
+    which should only ever list people who had OT or EL that month, not
+    the whole roster with everything but OT cells blanked out."""
     filtered = []
     pending_dept = None
     pending_emps: list = []
@@ -277,7 +377,7 @@ def _ot_only_rows(table_rows: list) -> list:
             flush()
             pending_dept = row
             pending_emps = []
-        elif row.get("total_ot"):
+        elif row.get("total_ot") or row.get("el_days"):
             pending_emps.append(row)
     flush()
     return filtered
@@ -409,6 +509,7 @@ def dashboard_view(request):
         # there (see _ot_details_context).
         "total_cols": 1 + len(grid["day_headers"]) + len(grid["summary_cols"]),
         "day_types": SpecialDay.TYPE_CHOICES,
+        "status_choices": AttendanceRecord.STATUS_CHOICES,
     }
     return render(request, "attendance/dashboard.html", context)
 
@@ -489,8 +590,10 @@ def _month_is_locked(date_str: str, view: str) -> bool:
 @login_required
 def edit_record_view(request):
     """HR correction for a single employee/date cell — fixes a missed punch
-    (time_in/time_out) and/or sets the shift code (GS/M-OT/E-OT/ME-OT/
-    Full-OT) so it feeds correctly into the OT view. Triggered by the
+    (time_in/time_out), sets the shift code (GS/M-OT/E-OT/ME-OT/Full-OT)
+    so it feeds correctly into the OT view, and/or forces the day's
+    status (e.g. Earned Leave, Personal Leave, Comp Off) instead of
+    letting it auto-derive from the punch times. Triggered by the
     click-to-edit popup on either the Attendance dashboard's grid or the
     OT page's OT View tab; redirects back to wherever the popup was
     opened from."""
@@ -503,6 +606,7 @@ def edit_record_view(request):
     time_in = request.POST.get("time_in", "").strip()
     time_out = request.POST.get("time_out", "").strip()
     shift = request.POST.get("shift", "").strip()
+    status_override = request.POST.get("status", "").strip()
     view = request.POST.get("view", "all")
 
     if _month_is_locked(date_str, view):
@@ -522,12 +626,19 @@ def edit_record_view(request):
     # so a disabled/bypassed field can't silently change or clear it.
     if record.employee.subcategory != "Staff":
         record.shift = shift
-    record.work_hours, record.status = metrics.recompute_from_punch(time_in, time_out)
+    record.work_hours, computed_status = metrics.recompute_from_punch(time_in, time_out)
+    # An explicit status (e.g. Earned Leave — see AttendanceRecord.
+    # STATUS_CHOICES) always wins over the auto-derived P/HD/A from the
+    # punch times; leaving the picker on its blank "Auto" option (the
+    # default whenever the day's current status is itself one of P/HD/A,
+    # rather than an already-forced one — see the popup's own JS) keeps
+    # today's behavior unchanged.
+    record.status = status_override if status_override in dict(AttendanceRecord.STATUS_CHOICES) else computed_status
     record.save()
     messages.success(request, f"Updated {emp_code} on {date_str}.")
     logger.info(
-        "Record edited: emp=%s date=%s time_in=%s time_out=%s shift=%s by user=%s",
-        emp_code, date_str, time_in, time_out, shift, request.user,
+        "Record edited: emp=%s date=%s time_in=%s time_out=%s shift=%s status=%s by user=%s",
+        emp_code, date_str, time_in, time_out, shift, record.status, request.user,
     )
     return redirect(next_url)
 
@@ -1735,7 +1846,8 @@ def cash_withdrawal_view(request):
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
 
     if request.method == "POST":
-        if request.POST.get("action") == "delete":
+        action = request.POST.get("action", "add")
+        if action == "delete":
             CashWithdrawal.objects.filter(id=request.POST.get("entry_id")).delete()
             messages.success(request, "Entry deleted.")
             return redirect(f"{request.path}?date={current.isoformat()}")
@@ -1752,9 +1864,24 @@ def cash_withdrawal_view(request):
             _error(request, "Purpose is required.")
             return redirect(f"{request.path}?date={current.isoformat()}")
 
-        CashWithdrawal.objects.create(year=year, month=month, purpose=purpose, amount=amount, description=description)
-        messages.success(request, "Cash withdrawal recorded.")
-        logger.info("Cash withdrawal recorded: %s-%s %s %s by user=%s", year, month, purpose, amount, request.user)
+        if action == "edit":
+            entry = CashWithdrawal.objects.filter(id=request.POST.get("entry_id")).first()
+            if not entry:
+                _error(request, "Entry not found — it may have already been deleted.")
+                return redirect(f"{request.path}?date={current.isoformat()}")
+            entry.purpose = purpose
+            entry.amount = amount
+            entry.description = description
+            entry.save()
+            messages.success(request, "Cash withdrawal updated.")
+            logger.info(
+                "Cash withdrawal updated: id=%s %s-%s %s %s by user=%s",
+                entry.id, year, month, purpose, amount, request.user,
+            )
+        else:
+            CashWithdrawal.objects.create(year=year, month=month, purpose=purpose, amount=amount, description=description)
+            messages.success(request, "Cash withdrawal recorded.")
+            logger.info("Cash withdrawal recorded: %s-%s %s %s by user=%s", year, month, purpose, amount, request.user)
         return redirect(f"{request.path}?date={current.isoformat()}")
 
     entries = CashWithdrawal.objects.filter(year=year, month=month)
@@ -1825,6 +1952,432 @@ def cash_withdrawal_download_view(request):
     return response
 
 
+def _cash_register_signed(entry: CashRegisterEntry) -> Decimal:
+    return entry.amount if entry.entry_type == CashRegisterEntry.TYPE_IN else -entry.amount
+
+
+def _cash_register_context(current: date_cls) -> dict:
+    """Computes one month's Cash Register — a day-by-day petty-cash
+    ledger (Cash In/Cash Out) with a running balance per row. A month's
+    opening balance is just the signed total of every entry dated before
+    that month started, so the register carries over month to month with
+    nothing stored beyond the entries themselves — see
+    CashRegisterEntry's own docstring for why. Shared by
+    cash_register_view and cash_register_download_view so the download
+    can never drift from what the page shows."""
+    year, month = current.year, current.month
+    prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
+    next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_start = current.replace(day=1)
+    _, days_in_month = py_calendar.monthrange(year, month)
+    month_end = current.replace(day=days_in_month)
+
+    opening_balance = sum(
+        (_cash_register_signed(e) for e in CashRegisterEntry.objects.filter(date__lt=month_start)),
+        Decimal(0),
+    )
+
+    running = opening_balance
+    total_in = Decimal(0)
+    total_out = Decimal(0)
+    rows = []
+    for entry in CashRegisterEntry.objects.filter(date__gte=month_start, date__lte=month_end):
+        running += _cash_register_signed(entry)
+        if entry.entry_type == CashRegisterEntry.TYPE_IN:
+            total_in += entry.amount
+        else:
+            total_out += entry.amount
+        rows.append({"entry": entry, "balance": running})
+
+    return {
+        "current": current,
+        "year": year,
+        "month": month,
+        "month_name": py_calendar.month_name[month],
+        "prev_date": prev_date.isoformat(),
+        "next_date": next_date.isoformat(),
+        "rows": rows,
+        "opening_balance": opening_balance,
+        "closing_balance": running,
+        "total_in": total_in,
+        "total_out": total_out,
+    }
+
+
+@login_required
+def cash_register_view(request):
+    """Petty cash register — a day-by-day ledger of Cash In (e.g. money
+    withdrawn from the bank into the office cash box) and Cash Out
+    (an expense/payment made from it), with a running balance that
+    carries over month to month (see _cash_register_context). Kept as
+    its own page next to the simpler, undated Cash Withdrawal log under
+    the same "Cash" nav menu — the two serve different habits, not one
+    replacing the other."""
+    date_param = request.GET.get("date") or request.POST.get("date")
+    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+
+    if request.method == "POST":
+        action = request.POST.get("action", "add")
+        if action == "delete":
+            CashRegisterEntry.objects.filter(id=request.POST.get("entry_id")).delete()
+            messages.success(request, "Entry deleted.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+
+        entry_type = request.POST.get("entry_type", "")
+        purpose = request.POST.get("purpose", "").strip()
+        amount_raw = request.POST.get("amount", "").strip()
+        description = request.POST.get("description", "").strip()
+        date_raw = request.POST.get("entry_date", "").strip()
+
+        if entry_type not in (CashRegisterEntry.TYPE_IN, CashRegisterEntry.TYPE_OUT):
+            _error(request, "Select Cash In or Cash Out.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+        if not purpose:
+            _error(request, "Purpose is required.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+        try:
+            amount = Decimal(amount_raw)
+        except InvalidOperation:
+            _error(request, "Enter a valid amount.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+        try:
+            entry_date = date_cls.fromisoformat(date_raw) if date_raw else date_cls.today()
+        except ValueError:
+            _error(request, "Enter a valid date.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+
+        if action == "edit":
+            entry = CashRegisterEntry.objects.filter(id=request.POST.get("entry_id")).first()
+            if not entry:
+                _error(request, "Entry not found — it may have already been deleted.")
+                return redirect(f"{request.path}?date={current.isoformat()}")
+            entry.date = entry_date
+            entry.entry_type = entry_type
+            entry.purpose = purpose
+            entry.description = description
+            entry.amount = amount
+            entry.save()
+            messages.success(request, "Cash register entry updated.")
+            logger.info(
+                "Cash register entry updated: id=%s %s %s %s %s by user=%s",
+                entry.id, entry_date, entry_type, purpose, amount, request.user,
+            )
+        else:
+            CashRegisterEntry.objects.create(
+                date=entry_date, entry_type=entry_type, purpose=purpose, amount=amount, description=description,
+            )
+            messages.success(request, "Cash register entry recorded.")
+            logger.info(
+                "Cash register entry recorded: %s %s %s %s by user=%s",
+                entry_date, entry_type, purpose, amount, request.user,
+            )
+        # Land on whichever month the entry actually belongs to, not
+        # necessarily the month that was being viewed (a backdated/
+        # postdated entry, or one edited into a different month, lands
+        # elsewhere on purpose).
+        return redirect(f"{request.path}?date={entry_date.replace(day=1).isoformat()}")
+
+    context = _cash_register_context(current)
+    return render(request, "attendance/cash_register.html", context)
+
+
+@login_required
+def cash_register_download_view(request):
+    """Downloads one month's Cash Register as a single-sheet .xlsx —
+    Date/Type/Purpose/Description/Cash In/Cash Out/Balance, with the
+    month's opening and closing balance rows — via the same
+    _cash_register_context used by the page."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    current = _parse_month_date(request.GET.get("date"), date_cls.today().replace(day=1))
+    context = _cash_register_context(current)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Cash Register"
+
+    month_label = f"{context['month_name']} {context['year']}"
+    ws.append([f"Cash Register — {month_label}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+    headers = ["Date", "Type", "Purpose", "Description", "Cash In", "Cash Out", "Balance"]
+    ws.append(headers)
+    header_row_num = ws.max_row
+    header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+    for cell in ws[header_row_num]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    ws.append(["", "", "Opening Balance", "", "", "", float(context["opening_balance"])])
+    for cell in ws[ws.max_row]:
+        cell.font = Font(italic=True)
+
+    for row in context["rows"]:
+        entry = row["entry"]
+        is_in = entry.entry_type == CashRegisterEntry.TYPE_IN
+        ws.append([
+            entry.date.strftime("%Y-%m-%d"), entry.get_entry_type_display(), entry.purpose, entry.description,
+            float(entry.amount) if is_in else None,
+            float(entry.amount) if not is_in else None,
+            float(row["balance"]),
+        ])
+
+    ws.append([
+        "", "", "Closing Balance", "",
+        float(context["total_in"]), float(context["total_out"]), float(context["closing_balance"]),
+    ])
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="FFF9B0", end_color="FFF9B0", fill_type="solid")
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+
+    widths = [12, 10, 22, 30, 12, 12, 14]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"cash-register-{context['year']}-{context['month']:02d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+def _leave_ledger_context(current: date_cls) -> dict:
+    """Computes one month's EL/Comp-Off ledger — one row per active Staff
+    employee (see LeaveLedgerEntry for the accrual rules). If HR has
+    already posted this month for an employee, their saved figures are
+    shown as-is; otherwise this computes a live preview of what posting
+    would produce, so the page always shows real numbers whether or not
+    the month has been closed yet. Shared by leave_ledger_view's GET and
+    its "Post this month" bulk action, so the preview and what actually
+    gets saved can never disagree."""
+    year, month = current.year, current.month
+    prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
+    next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_start = current.replace(day=1)
+    _, days_in_month = py_calendar.monthrange(year, month)
+    month_end = current.replace(day=days_in_month)
+
+    staff = list(
+        Employee.objects.filter(subcategory__iexact="Staff")
+        .active_during(month_start, month_end).order_by("name")
+    )
+
+    # Most recent LeaveLedgerEntry strictly before this month, per
+    # employee — ascending order plus a plain dict overwrite means the
+    # last one written per employee is the latest one before (year,
+    # month), without a separate "max" query per employee.
+    prior_by_emp = {}
+    for entry in (
+        LeaveLedgerEntry.objects.filter(Q(year__lt=year) | Q(year=year, month__lt=month))
+        .order_by("year", "month")
+    ):
+        prior_by_emp[entry.employee_id] = entry
+
+    this_month_by_emp = {e.employee_id: e for e in LeaveLedgerEntry.objects.filter(year=year, month=month)}
+
+    # Spent EL — an actual day taken off — is just an AttendanceRecord
+    # marked status="EL" (see AttendanceRecord.STATUS_CHOICES), same as
+    # any other leave type; counted straight from the DB rather than the
+    # pandas pipeline since it doesn't depend on SpecialDay/OT at all.
+    el_taken_map: dict = {}
+    el_taken_dates_map: dict = {}
+    for r in (
+        AttendanceRecord.objects.filter(date__year=year, date__month=month, status="EL")
+        .order_by("date").values("employee_id", "date")
+    ):
+        el_taken_map[r["employee_id"]] = el_taken_map.get(r["employee_id"], 0) + 1
+        el_taken_dates_map.setdefault(r["employee_id"], []).append(r["date"])
+
+    full_ot_map: dict = {}
+    comp_off_map: dict = {}
+    daily_all = _load_daily_data()
+    if not daily_all.empty:
+        daily = daily_all[(daily_all["date"].dt.year == year) & (daily_all["date"].dt.month == month)]
+        if not daily.empty and "subcategory" in daily.columns:
+            special_days = {sd.date: sd.day_type for sd in SpecialDay.objects.all()}
+            daily = metrics.apply_special_days(daily, special_days)
+            staff_daily = daily[daily["subcategory"] == "Staff"]
+            if not staff_daily.empty:
+                # el_day_credit (1.0 full day / 0.5 half day, by hours
+                # worked) comes from overtime_view — the same computation
+                # the OT page's EL Days column uses (see
+                # _apply_staff_ot_display) — rather than a plain count of
+                # special_worked days, so the two pages can never disagree
+                # about how many EL days a given month's holidays earned.
+                shift_ot_table = metrics.overtime_view(daily)
+                if not shift_ot_table.empty:
+                    staff_codes = set(staff_daily["emp_code"])
+                    full_ot_rows = shift_ot_table[
+                        shift_ot_table["emp_code"].isin(staff_codes) & (shift_ot_table["full_day_ot"] == 1)
+                    ]
+                    full_ot_map = full_ot_rows.groupby("emp_code")["el_day_credit"].sum().to_dict()
+                excess = (staff_daily["work_hours"] - float(LeaveLedgerEntry.COMP_OFF_HOUR_THRESHOLD)).clip(lower=0)
+                comp_off_map = staff_daily.assign(_excess=excess).groupby("emp_code")["_excess"].sum().to_dict()
+
+    rows = []
+    for emp in staff:
+        posted = this_month_by_emp.get(emp.id)
+        prior = prior_by_emp.get(emp.id)
+        prior_el = prior.el_balance_after if prior else Decimal(0)
+        prior_comp_off = prior.comp_off_balance_after if prior else Decimal(0)
+
+        # Always derived live from AttendanceRecord, even for an
+        # already-posted month — el_taken itself is frozen in the ledger
+        # row like everything else, but the specific dates are just a
+        # display aid, and showing a mismatch (if attendance was edited
+        # after posting) is more useful than hiding it.
+        el_taken_dates = el_taken_dates_map.get(emp.id, [])
+
+        if posted:
+            rows.append({
+                "employee": emp, "posted": True, "entry_id": posted.id,
+                "prior_el_balance": prior_el, "prior_comp_off_balance": prior_comp_off,
+                "full_ot_days": posted.full_ot_days,
+                "el_credited": posted.el_credited, "el_encashed": posted.el_encashed,
+                "el_taken": posted.el_taken,
+                "el_taken_dates": el_taken_dates,
+                "el_balance_after": posted.el_balance_after,
+                "comp_off_hours_earned": posted.comp_off_hours_earned,
+                "comp_off_balance_after": posted.comp_off_balance_after,
+                "is_manual": posted.is_manual,
+                "notes": posted.notes,
+            })
+            continue
+
+        full_ot_days = Decimal(str(round(float(full_ot_map.get(emp.code, 0)), 2)))
+        comp_off_hours_earned = Decimal(str(round(float(comp_off_map.get(emp.code, 0)), 2)))
+        el_taken = Decimal(el_taken_map.get(emp.id, 0))
+
+        room = LeaveLedgerEntry.EL_CAP - prior_el
+        if room < 0:
+            room = Decimal(0)
+        el_credited = min(full_ot_days, room)
+        el_encashed = full_ot_days - el_credited
+
+        rows.append({
+            "employee": emp, "posted": False, "entry_id": None,
+            "prior_el_balance": prior_el, "prior_comp_off_balance": prior_comp_off,
+            "full_ot_days": full_ot_days,
+            "el_credited": el_credited, "el_encashed": el_encashed,
+            "el_taken": el_taken,
+            "el_taken_dates": el_taken_dates,
+            "el_balance_after": prior_el + el_credited - el_taken,
+            "comp_off_hours_earned": comp_off_hours_earned,
+            "comp_off_balance_after": prior_comp_off + comp_off_hours_earned,
+            "is_manual": False,
+            "notes": "",
+        })
+
+    return {
+        "current": current,
+        "year": year,
+        "month": month,
+        "month_name": py_calendar.month_name[month],
+        "prev_date": prev_date.isoformat(),
+        "next_date": next_date.isoformat(),
+        "rows": rows,
+        "el_cap": LeaveLedgerEntry.EL_CAP,
+        "comp_off_threshold": LeaveLedgerEntry.COMP_OFF_HOUR_THRESHOLD,
+    }
+
+
+@login_required
+def leave_ledger_view(request):
+    """EL (Earned Leave) / Comp-Off page for Staff — see
+    _leave_ledger_context for the accrual computation and
+    LeaveLedgerEntry for the rules. "Post this month" (bulk, for every
+    Staff employee at once) saves the current preview as that month's
+    permanent figures; re-posting recomputes and overwrites only that
+    month's row, so if attendance for an already-posted month changes
+    later, re-post it — and any later month already posted will need
+    re-posting too, in order, since each month's balance carries from
+    the one before it. "Edit" on one employee's row instead sets that
+    month's balances by hand (is_manual=True) — the way to seed a
+    starting EL/Comp-Off balance from before this ledger existed, or to
+    hand-correct a mistake."""
+    date_param = request.GET.get("date") or request.POST.get("date")
+    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    year, month = current.year, current.month
+
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+
+        if action == "delete":
+            LeaveLedgerEntry.objects.filter(id=request.POST.get("entry_id")).delete()
+            messages.success(request, "Entry removed — this month will show a fresh preview again.")
+            return redirect(f"{request.path}?date={current.isoformat()}")
+
+        if action == "edit":
+            emp = Employee.objects.filter(id=request.POST.get("employee_id")).first()
+            if not emp:
+                _error(request, "Employee not found.")
+                return redirect(f"{request.path}?date={current.isoformat()}")
+            try:
+                el_balance_after = Decimal(request.POST.get("el_balance_after", "").strip())
+                comp_off_balance_after = Decimal(request.POST.get("comp_off_balance_after", "").strip())
+            except InvalidOperation:
+                _error(request, "Enter valid numbers for the EL and Comp-Off balances.")
+                return redirect(f"{request.path}?date={current.isoformat()}")
+            notes = request.POST.get("notes", "").strip()
+
+            LeaveLedgerEntry.objects.update_or_create(
+                employee=emp, year=year, month=month,
+                defaults={
+                    "full_ot_days": 0, "el_credited": 0, "el_encashed": 0, "el_taken": 0,
+                    "el_balance_after": el_balance_after,
+                    "comp_off_hours_earned": 0, "comp_off_balance_after": comp_off_balance_after,
+                    "is_manual": True, "notes": notes,
+                },
+            )
+            messages.success(request, f"Manually set {emp.name}'s balances for {py_calendar.month_name[month]} {year}.")
+            logger.info(
+                "Leave ledger manual entry: emp=%s %s-%s EL=%s CompOff=%sh by user=%s",
+                emp.code, year, month, el_balance_after, comp_off_balance_after, request.user,
+            )
+            return redirect(f"{request.path}?date={current.isoformat()}")
+
+        if action == "post":
+            context = _leave_ledger_context(current)
+            posted = 0
+            for row in context["rows"]:
+                if row["posted"]:
+                    continue
+                LeaveLedgerEntry.objects.update_or_create(
+                    employee=row["employee"], year=year, month=month,
+                    defaults={
+                        "full_ot_days": row["full_ot_days"],
+                        "el_credited": row["el_credited"],
+                        "el_encashed": row["el_encashed"],
+                        "el_taken": row["el_taken"],
+                        "el_balance_after": row["el_balance_after"],
+                        "comp_off_hours_earned": row["comp_off_hours_earned"],
+                        "comp_off_balance_after": row["comp_off_balance_after"],
+                        "is_manual": False,
+                    },
+                )
+                posted += 1
+            messages.success(
+                request,
+                f"Posted EL/Comp-Off for {posted} Staff employee(s) for {py_calendar.month_name[month]} {year}."
+                if posted else "Nothing to post — every Staff employee already has this month posted.",
+            )
+            logger.info(
+                "Leave ledger posted: %s-%s count=%s by user=%s", year, month, posted, request.user,
+            )
+            return redirect(f"{request.path}?date={current.isoformat()}")
+
+        _error(request, "Unknown action.")
+        return redirect(f"{request.path}?date={current.isoformat()}")
+
+    context = _leave_ledger_context(current)
+    return render(request, "attendance/leave_ledger.html", context)
+
+
 def _ot_details_context(date_param: str | None) -> dict:
     """Computes everything the OT page (page and downloads) needs for one
     month — the shift-based OT numbers (see overtime_view) as a Monthly
@@ -1868,18 +2421,32 @@ def _ot_details_context(date_param: str | None) -> dict:
     emp_rate_map = dict(Employee.objects.values_list("code", "ot_rate_per_hour"))
     grid = _build_month_grid(daily, special_days, emp_rate_map, ot_tooltip=True)
     shift_ot_table = grid["shift_ot_table"]
+    # Applied to grid["table_rows"] itself (before the deepcopy below) so
+    # both tabs show it — a worked Holiday/Paid Holiday/Comp Off should
+    # read as "+EL" wherever a Staff employee's month is shown, not just
+    # on the editable OT View tab.
+    _apply_staff_ot_display(grid["table_rows"], shift_ot_table)
     # Snapshot the full, unrestricted grid for the editable OT View tab
     # before _restrict_to_ot_cells (below) mutates grid["table_rows"] in
     # place for the read-only Full Monthly View tab — same dicts, so
     # without this copy the editable tab would end up with cells blanked
     # out too.
     editable_table_rows = copy.deepcopy(grid["table_rows"])
-    dept_ot_summary = metrics.department_ot_summary(shift_ot_table)
+    # Same Staff Full-OT-day-converts-to-EL exclusion as _build_month_grid
+    # (see _ot_payable_table) — applied here too so the Monthly Summary
+    # and department breakdown never show a bigger OT total for Staff
+    # than what the OT View/Full Monthly View grids above already do.
+    staff_codes = (
+        set(daily.loc[daily["subcategory"] == "Staff", "emp_code"])
+        if "subcategory" in daily.columns else set()
+    )
+    ot_payable_table = _ot_payable_table(shift_ot_table, staff_codes)
+    dept_ot_summary = metrics.department_ot_summary(ot_payable_table)
     is_locked_ot = MonthLock.objects.filter(year=year, month=month, view=MonthLock.VIEW_OT).exists()
 
     summary_rows = []
-    if not shift_ot_table.empty:
-        ot_rows = shift_ot_table[shift_ot_table["total_ot_hours"] > 0]
+    if not ot_payable_table.empty:
+        ot_rows = ot_payable_table[ot_payable_table["total_ot_hours"] > 0]
         totals = (
             ot_rows.groupby(["department", "emp_code", "emp_name"])["total_ot_hours"]
             .sum().reset_index()
@@ -1915,6 +2482,7 @@ def _ot_details_context(date_param: str | None) -> dict:
 
     summary_total_hours = round(sum(r["ot_hours"] for r in summary_rows if not r["is_dept"]), 2)
     summary_total_amount = round(sum(r["ot_amount"] for r in summary_rows if not r["is_dept"]), 2)
+    summary_total_el_days = sum(grid["emp_el_days"].values())
 
     top3_codes = {r["emp_code"] for r in summary_rows if not r["is_dept"] and r.get("is_top3")}
     table_rows = _restrict_to_ot_cells(_ot_only_rows(grid["table_rows"]))
@@ -1930,13 +2498,14 @@ def _ot_details_context(date_param: str | None) -> dict:
         "summary_rows": summary_rows,
         "summary_total_hours": summary_total_hours,
         "summary_total_amount": summary_total_amount,
+        "summary_total_el_days": summary_total_el_days,
         "day_headers": grid["day_headers"],
         "table_rows": table_rows,
         # Not grid["total_cols"] — that's sized for dashboard.html's grid,
         # which renders 5 extra summary_cols (Work Days/Comp Off/etc.)
-        # this report's grid never shows (label + day columns + 3 OT
-        # columns only).
-        "total_cols": 1 + len(grid["day_headers"]) + 3,
+        # this report's grid never shows (label + day columns + Total
+        # OT/EL Days/OT Rate/OT Amount only).
+        "total_cols": 1 + len(grid["day_headers"]) + 4,
         "heat_colors": metrics.HEAT_COLORS,
         # For the editable OT View tab (moved here from the Attendance
         # dashboard) — the full roster (not just employees with OT this
@@ -1945,6 +2514,7 @@ def _ot_details_context(date_param: str | None) -> dict:
         "dept_ot_summary": dept_ot_summary,
         "is_locked_ot": is_locked_ot,
         "day_types": SpecialDay.TYPE_CHOICES,
+        "status_choices": AttendanceRecord.STATUS_CHOICES,
     }
 
 

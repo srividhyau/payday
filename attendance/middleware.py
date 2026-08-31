@@ -16,6 +16,7 @@ SALARY_VIEWER_GROUP = "Salary Viewer"
 _ALLOWED_GET_URL_NAMES = {
     "salary", "salary_download", "salary_bank_download",
     "cash_withdrawal", "cash_withdrawal_download",
+    "cash_register", "cash_register_download",
     "login", "logout",
 }
 # Of those, the ones this role may also POST to — none of the payroll

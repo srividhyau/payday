@@ -30,4 +30,7 @@ urlpatterns = [
     path("salary/download/bank/", views.salary_bank_download_view, name="salary_bank_download"),
     path("cash-withdrawal/", views.cash_withdrawal_view, name="cash_withdrawal"),
     path("cash-withdrawal/download/", views.cash_withdrawal_download_view, name="cash_withdrawal_download"),
+    path("cash-register/", views.cash_register_view, name="cash_register"),
+    path("cash-register/download/", views.cash_register_download_view, name="cash_register_download"),
+    path("leave-ledger/", views.leave_ledger_view, name="leave_ledger"),
 ]

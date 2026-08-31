@@ -622,6 +622,11 @@ OT_SHIFT_CODES = _IN_OT_SHIFTS | _OUT_OT_SHIFTS
 _OT_NINE_AM = datetime.time(9, 0, 0)
 _OT_FIVE_THIRTY_PM = datetime.time(17, 30, 0)
 _OT_SIX_AM = datetime.time(6, 0, 0)
+# A Full-OT day (a worked Holiday/Paid Holiday/Comp Off) worked for more
+# than this many hours credits a full EL day; 6 hours or less credits
+# half a day instead (see overtime_view's "el_day_credit" column) — its
+# own threshold, distinct from LeaveLedgerEntry.COMP_OFF_HOUR_THRESHOLD.
+_EL_FULL_DAY_HOURS = 6
 
 
 def _parse_time_str(value) -> datetime.time | None:
@@ -707,19 +712,46 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
       (handling the overnight case where "Out" is a time after midnight).
     - "Full-OT" instead counts the entire day's worked hours as OT.
 
-    HOUSE KEEPING is the one exception to all of the above: that
-    department doesn't run a fixed shift schedule, so it's never judged
-    by clock-in/out time of day (or by whether a shift code was even
-    set) — any day worked over 8.5h simply credits (work_hours - 8.5) as
-    OT, full stop. A Full-OT day (a holiday worked) still credits the
-    entire span instead, same as every other department.
+    HOUSE KEEPING is the one exception to the shift-code requirement:
+    that department doesn't run a fixed shift schedule, so it's never
+    judged by clock-in/out time of day (or by whether a shift code was
+    even set) — any day worked over 8.5h simply credits
+    (work_hours - 8.5) as OT, full stop. A Full-OT day (a holiday worked)
+    still credits the entire span instead, same as every other
+    department.
+
+    Staff subcategory employees are the other exception: rather than
+    requiring a shift code to be set per day (edit_record_view still
+    won't let one be set on their AttendanceRecord — this only affects
+    the OT calculation itself), every Staff day is treated as if it were
+    "ME-OT" — both the before-9AM and after-5:30PM credit sides apply
+    automatically, on GS days too — EXCEPT a day flagged special_worked
+    (they actually worked a declared Holiday/Paid Holiday/Comp Off, see
+    apply_special_days), which instead gets "Full-OT" treatment: the
+    entire day's hours count as OT, not just the two slivers outside
+    9AM-5:30PM. That distinction matters beyond just the bigger number —
+    a Full-OT day is also what LeaveLedgerEntry credits toward a Staff
+    employee's EL balance (see its own docstring), so an ordinary heavy
+    day (early in, late out) stays ME-OT and funds OT pay only, while an
+    actual holiday worked funds both OT pay and EL. This is a deliberate
+    simplification (no per-day OT authorization step for Staff, unlike
+    every other subcategory) rather than a reflection of anything in
+    their actual shift column, which stays whatever it already was
+    (typically "GS"). The "effective_shift" output column carries this
+    stand-in value (as opposed to "shift", which always shows the real
+    punched-in shift code) so callers can render/color a Staff day the
+    same way any other employee's real M-OT/E-OT/ME-OT/Full-OT day is.
+
+    A Full-OT day also gets an "el_day_credit" value — 1.0 if that day's
+    work_hours exceeds _EL_FULL_DAY_HOURS (6h), otherwise 0.5 for 6h or
+    less worked. 0.0 on every non-Full-OT day. This is what LeaveLedgerEntry
+    actually credits per day (not a flat 1 per Full-OT day) — computed
+    here, once, so the OT page and the EL ledger can never disagree about
+    how many EL days a given Full-OT day is worth.
 
     Both sides round to the nearest 15 minutes and require at least 20
     minutes to count at all. Only rows already marked Present are
-    considered, matching the source query's own pre-filter. Not
-    applicable to Staff subcategory employees — they're excluded
-    entirely (they get the separate, day-count-based "Time Off" figure
-    on the dashboard instead, see month_attendance_view).
+    considered, matching the source query's own pre-filter.
 
     Returns a flat DataFrame (one row per employee/date with real OT),
     sorted by date then department then employee — empty if nothing
@@ -727,16 +759,11 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     """
     columns = [
         "date", "emp_code", "emp_name", "department", "designation", "shift",
-        "time_in", "time_out", "work_hours", "in_ot_hours", "out_ot_hours",
-        "total_ot_hours", "full_day_ot",
+        "effective_shift", "time_in", "time_out", "work_hours", "in_ot_hours",
+        "out_ot_hours", "total_ot_hours", "full_day_ot", "el_day_credit",
     ]
     if daily.empty:
         return pd.DataFrame(columns=columns)
-
-    if "subcategory" in daily.columns:
-        daily = daily[daily["subcategory"] != "Staff"]
-        if daily.empty:
-            return pd.DataFrame(columns=columns)
 
     # status == Present, OR special_worked (apply_special_days overwrites
     # status to H/PH/CO for every employee on a special calendar day, even
@@ -749,13 +776,31 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     else:
         present_mask = daily["status"] == STATUS_PRESENT
     present = daily[present_mask].copy()
-    # HOUSE KEEPING is judged purely on hours worked (see docstring), so
-    # it's never excluded here just for sitting on the ordinary "GS"
-    # shift the way every other department is.
+    is_staff = (
+        present["subcategory"] == "Staff" if "subcategory" in present.columns
+        else pd.Series(False, index=present.index)
+    )
+    # HOUSE KEEPING is judged purely on hours worked (see docstring), and
+    # Staff are always treated as "ME-OT" (see docstring) — neither is
+    # ever excluded here just for sitting on the ordinary "GS" shift the
+    # way every other department/subcategory is.
     is_house_keeping = present["department"] == "HOUSE KEEPING"
-    present = present[(present["shift"] != "GS") | is_house_keeping]
+    present = present[(present["shift"] != "GS") | is_house_keeping | is_staff]
     if present.empty:
         return pd.DataFrame(columns=columns)
+
+    # Staff's real shift column (typically "GS") is left untouched in the
+    # output — this is purely an internal stand-in so the same shift-code
+    # branching below treats every Staff day as "ME-OT", or "Full-OT" on
+    # a day they worked a declared Holiday/Paid Holiday/Comp Off (see
+    # docstring), without special-casing every function.
+    is_staff = (
+        present["subcategory"] == "Staff" if "subcategory" in present.columns
+        else pd.Series(False, index=present.index)
+    )
+    present["_effective_shift"] = present["shift"].mask(is_staff, "ME-OT")
+    if "special_worked" in present.columns:
+        present.loc[is_staff & present["special_worked"], "_effective_shift"] = "Full-OT"
 
     def work_hours_span(row) -> float:
         t_in, t_out = _parse_time_str(row["time_in"]), _parse_time_str(row["time_out"])
@@ -771,12 +816,12 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
         # skip the floor (a holiday worked for e.g. 3.5h should credit
         # 3.5h OT, not 0). HOUSE KEEPING skips it too since its OT is
         # computed straight off this same span (see total_ot_hours below).
-        if row["shift"] == "Full-OT" or row["department"] == "HOUSE KEEPING":
+        if row["_effective_shift"] == "Full-OT" or row["department"] == "HOUSE KEEPING":
             return hours
         return hours if hours >= 4 else 0.0
 
     def in_ot_hours(row) -> float:
-        if row["shift"] not in _IN_OT_SHIFTS:
+        if row["_effective_shift"] not in _IN_OT_SHIFTS:
             return 0.0
         t_in = _parse_time_str(row["time_in"])
         if t_in is None:
@@ -785,7 +830,7 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
         return _round_to_quarter_hour(minutes) if minutes > 0 else 0.0
 
     def out_ot_hours(row) -> float:
-        if row["shift"] not in _OUT_OT_SHIFTS:
+        if row["_effective_shift"] not in _OUT_OT_SHIFTS:
             return 0.0
         t_out = _parse_time_str(row["time_out"])
         if t_out is None:
@@ -803,14 +848,19 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     present["out_ot_hours"] = present.apply(out_ot_hours, axis=1)
 
     def total_ot(row) -> float:
-        if row["shift"] == "Full-OT":
+        if row["_effective_shift"] == "Full-OT":
             return row["work_hours"]
         if row["department"] == "HOUSE KEEPING":
             return round(max(row["work_hours"] - 8.5, 0.0), 2)
         return row["in_ot_hours"] + row["out_ot_hours"]
 
     present["total_ot_hours"] = present.apply(total_ot, axis=1)
-    present["full_day_ot"] = (present["shift"] == "Full-OT").astype(int)
+    present["full_day_ot"] = (present["_effective_shift"] == "Full-OT").astype(int)
+    present["effective_shift"] = present["_effective_shift"]
+    full_ot_mask = present["_effective_shift"] == "Full-OT"
+    present["el_day_credit"] = 0.0
+    present.loc[full_ot_mask & (present["work_hours"] > _EL_FULL_DAY_HOURS), "el_day_credit"] = 1.0
+    present.loc[full_ot_mask & (present["work_hours"] <= _EL_FULL_DAY_HOURS), "el_day_credit"] = 0.5
 
     present = present.sort_values(["date", "department", "emp_code"]).reset_index(drop=True)
     return present[columns]

@@ -154,13 +154,30 @@
             Payday
         </a>
         <span class="nav-spacer"></span>
-        <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
-        <a href="{% url 'upload' %}">Upload</a>
-        <a href="{% url 'dashboard' %}">Device Records</a>
-        <a href="{% url 'calendar' %}">Holiday Calendar</a>
+        <details class="nav-dropdown">
+            <summary>Attendance</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
+                <a href="{% url 'dashboard' %}">Device Records</a>
+                <a href="{% url 'upload' %}">Upload</a>
+                <a href="{% url 'calendar' %}">Holiday Calendar</a>
+            </div>
+        </details>
         <a href="{% url 'salary' %}">Salary</a>
-        <a href="{% url 'cash_withdrawal' %}">Cash Withdrawal</a>
-        <a href="{% url 'ot_details' %}">OT</a>
+        <details class="nav-dropdown">
+            <summary>Cash</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'cash_withdrawal' %}">Cash Withdrawal</a>
+                <a href="{% url 'cash_register' %}">Cash Register</a>
+            </div>
+        </details>
+        <details class="nav-dropdown">
+            <summary>OT</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'ot_details' %}">OT Details</a>
+                <a href="{% url 'leave_ledger' %}">EL &amp; Comp-Off</a>
+            </div>
+        </details>
         <form method="post" action="{% url 'logout' %}" style="display:inline;">
             {% csrf_token %}
             <button type="submit">Logout ({{ user.username }})</button>

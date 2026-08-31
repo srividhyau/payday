@@ -3,8 +3,8 @@ from datetime import date
 from django.contrib import admin
 
 from .models import (
-    AttendanceRecord, CashWithdrawal, Department, Employee, EmploymentPeriod, MonthLock, SalaryAdjustment,
-    SpecialDay, UploadBatch,
+    AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, Employee, EmploymentPeriod, LeaveLedgerEntry,
+    MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
 )
 
 
@@ -90,3 +90,21 @@ class CashWithdrawalAdmin(admin.ModelAdmin):
     list_display = ("year", "month", "purpose", "amount", "description")
     list_filter = ("year", "month", "purpose")
     search_fields = ("purpose", "description")
+
+
+@admin.register(CashRegisterEntry)
+class CashRegisterEntryAdmin(admin.ModelAdmin):
+    list_display = ("date", "entry_type", "purpose", "amount", "description")
+    list_filter = ("entry_type",)
+    search_fields = ("purpose", "description")
+    date_hierarchy = "date"
+
+
+@admin.register(LeaveLedgerEntry)
+class LeaveLedgerEntryAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee", "year", "month", "full_ot_days", "el_credited", "el_encashed", "el_taken", "el_balance_after",
+        "comp_off_hours_earned", "comp_off_balance_after", "is_manual",
+    )
+    list_filter = ("year", "month", "is_manual", "employee__department")
+    search_fields = ("employee__code", "employee__name")
