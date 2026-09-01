@@ -178,6 +178,21 @@
         .tab-picker-menu .picker-actions button { flex: 1; margin-top: 0; }
         .tab-picker-menu .picker-actions button.unlock { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
         .tab-picker-menu .picker-actions button.unlock:hover { background: var(--surface); }
+        /* Email's picker doubles as a compose box — wider than the plain
+           checkbox pickers, with its Subject/Message fields stacked
+           (label above input) instead of the checkbox row's side-by-side
+           layout. */
+        .tab-picker-menu.email-picker-menu { min-width: 280px; }
+        .tab-picker-menu .email-field {
+            flex-direction: column; align-items: stretch; gap: 0.25rem;
+            font-size: 0.8rem; color: var(--text-muted); font-weight: 600;
+        }
+        .tab-picker-menu .email-field input[type="text"],
+        .tab-picker-menu .email-field textarea {
+            width: 100%; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px;
+            font-size: 0.85rem; box-sizing: border-box; font-family: inherit; color: var(--text); font-weight: 400; resize: vertical;
+        }
+        .tab-picker-menu hr.picker-sep { border: none; border-top: 1px solid var(--border); margin: 0.2rem 0; width: 100%; }
 
         .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem; }
         table.simple { border-collapse: collapse; width: 100%; }
@@ -412,6 +427,24 @@
                         <label><input type="checkbox" class="telegram-tab" value="operators" data-label="Operators" checked> Operators</label>
                         <button type="button" id="sendSalaryTelegramBtn">Send</button>
                         <span id="sendSalaryTelegramStatus" class="report-status"></span>
+                    </div>
+                </details>
+                <details class="tab-picker">
+                    <summary class="icon-btn" data-tooltip="Email screenshot report" aria-label="Email screenshot report">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+                    </summary>
+                    <div class="tab-picker-menu email-picker-menu">
+                        <div class="picker-header">Email Report<button type="button" class="picker-close">&times;</button></div>
+                        <label><input type="checkbox" class="email-tab" value="company" data-label="Company Workers" checked> Company Workers</label>
+                        <label><input type="checkbox" class="email-tab" value="helpers" data-label="Helpers" checked> Helpers</label>
+                        <label><input type="checkbox" class="email-tab" value="staff" data-label="Staff" checked> Staff</label>
+                        <label><input type="checkbox" class="email-tab" value="contractors" data-label="Contractors" checked> Contractors</label>
+                        <label><input type="checkbox" class="email-tab" value="operators" data-label="Operators" checked> Operators</label>
+                        <hr class="picker-sep">
+                        <label class="email-field">Subject<input type="text" id="emailSalarySubject" value="Salary — {{ month_name|escapejs }} {{ year|escapejs }}"></label>
+                        <label class="email-field">Message<textarea id="emailSalaryBody" rows="3" placeholder="Optional message"></textarea></label>
+                        <button type="button" id="sendSalaryEmailBtn">Send Email</button>
+                        <span id="sendSalaryEmailStatus" class="report-status"></span>
                     </div>
                 </details>
                 <details class="tab-picker">
@@ -934,6 +967,95 @@
                     if (skipped) summary += ', ' + skipped + ' empty (skipped)';
                     statusEl.textContent = summary;
                     statusEl.className = 'report-status ' + (failed.length ? 'error' : 'success');
+                });
+            });
+        })();
+
+        // Email report — captures each checked tab exactly like Send to
+        // Telegram above (same html2canvas call), but instead of firing
+        // one photo message per tab, collects every screenshot into one
+        // FormData and posts them all as attachments on a single
+        // outgoing email (see send_email_report_view) — the compose box
+        // lets the sender edit the subject/message before it goes out.
+        (function () {
+            var btn = document.getElementById('sendSalaryEmailBtn');
+            if (!btn) return;
+            var statusEl = document.getElementById('sendSalaryEmailStatus');
+
+            function getCookie(name) {
+                var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return match ? match.pop() : '';
+            }
+
+            function captureTab(panel, filename) {
+                var panelEl = document.querySelector('.tab-panel[data-panel="' + panel + '"]');
+                var table = panelEl ? panelEl.querySelector('table.simple') : null;
+                if (!panelEl || !table) return Promise.resolve(null);
+                var wasHidden = panelEl.style.display === 'none';
+                if (wasHidden) panelEl.style.display = '';
+                return html2canvas(table, { backgroundColor: '#ffffff', scale: 1.5 })
+                    .then(function (canvas) {
+                        if (wasHidden) panelEl.style.display = 'none';
+                        return new Promise(function (resolve) {
+                            canvas.toBlob(function (blob) {
+                                resolve(blob ? { blob: blob, filename: filename } : null);
+                            }, 'image/png');
+                        });
+                    })
+                    .catch(function () {
+                        if (wasHidden) panelEl.style.display = 'none';
+                        return null;
+                    });
+            }
+
+            btn.addEventListener('click', function () {
+                var tabs = Array.prototype.slice.call(document.querySelectorAll('.email-tab:checked'))
+                    .map(function (cb) { return { panel: cb.value, label: cb.dataset.label }; });
+                if (!tabs.length) {
+                    statusEl.textContent = 'Select at least one tab first.';
+                    statusEl.className = 'report-status error';
+                    return;
+                }
+                btn.disabled = true;
+                statusEl.className = 'report-status';
+                statusEl.textContent = 'Capturing…';
+
+                var captures = [];
+                tabs.reduce(function (chain, tab) {
+                    return chain.then(function () {
+                        statusEl.textContent = 'Capturing ' + tab.label + '…';
+                        return captureTab(tab.panel, 'salary-' + tab.panel + '.png').then(function (result) {
+                            if (result) captures.push(result);
+                        });
+                    });
+                }, Promise.resolve()).then(function () {
+                    if (!captures.length) {
+                        btn.disabled = false;
+                        statusEl.textContent = 'No data to attach.';
+                        statusEl.className = 'report-status error';
+                        return;
+                    }
+                    statusEl.textContent = 'Sending…';
+                    var formData = new FormData();
+                    formData.append('subject', document.getElementById('emailSalarySubject').value);
+                    formData.append('body', document.getElementById('emailSalaryBody').value);
+                    captures.forEach(function (c) { formData.append('images', c.blob, c.filename); });
+                    fetch('{% url "send_email_report" %}', {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                        body: formData,
+                    })
+                        .then(function (r) { return r.json(); })
+                        .then(function (result) {
+                            btn.disabled = false;
+                            statusEl.textContent = result.ok ? 'Email sent.' : (result.error || 'Failed to send.');
+                            statusEl.className = 'report-status ' + (result.ok ? 'success' : 'error');
+                        })
+                        .catch(function () {
+                            btn.disabled = false;
+                            statusEl.textContent = 'Failed to reach the server.';
+                            statusEl.className = 'report-status error';
+                        });
                 });
             });
         })();

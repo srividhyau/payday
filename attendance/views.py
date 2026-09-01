@@ -14,6 +14,7 @@ import pandas as pd
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.mail import EmailMessage
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -1178,6 +1179,61 @@ def send_telegram_report_view(request):
         return JsonResponse({"ok": False, "error": "Unexpected server error."}, status=500)
     if not ok:
         return JsonResponse({"ok": False, "error": error or "Telegram send failed."}, status=502)
+    return JsonResponse({"ok": True})
+
+
+def _send_email_report(subject: str, body: str, attachments: list[tuple[str, bytes]]) -> tuple[bool, str]:
+    """Sends one email via the SMTP settings in config/settings.py, with
+    every (filename, png_bytes) pair in attachments attached to the same
+    message — the "Email" report button's server-side half. Unlike
+    Telegram's one-photo-per-tab approach (_telegram_send_photo), every
+    selected tab's screenshot rides along as an attachment on a single
+    message, since the sender is meant to write one covering note in
+    the compose box rather than getting several separate emails.
+    Recipients are a fixed list (settings.EMAIL_RECIPIENTS) rather than
+    typed per-send — there's no per-employee routing need here, just a
+    small fixed distribution list HR maintains directly in settings."""
+    if not settings.EMAIL_HOST or not settings.EMAIL_HOST_USER:
+        return False, "Email isn't configured (missing SMTP host/user in .env)."
+    if not settings.EMAIL_RECIPIENTS:
+        return False, "No recipients configured (see settings.EMAIL_RECIPIENTS)."
+    try:
+        message = EmailMessage(
+            subject=subject, body=body,
+            from_email=settings.DEFAULT_FROM_EMAIL, to=settings.EMAIL_RECIPIENTS,
+        )
+        for filename, content in attachments:
+            message.attach(filename, content, "image/png")
+        message.send(fail_silently=False)
+        logger.info("Email report sent: %r to %s (%d attachment(s)).", subject, settings.EMAIL_RECIPIENTS, len(attachments))
+        return True, ""
+    except Exception as exc:
+        logger.warning("Email report send failed: %s", exc)
+        return False, str(exc)
+
+
+@login_required
+def send_email_report_view(request):
+    """Receives one or more screenshots (captured client-side via
+    html2canvas, same as send_telegram_report_view) plus a subject/body
+    typed into the Email button's compose box, and emails them as one
+    message with every screenshot attached — see _send_email_report.
+    JSON in, JSON out, same reasoning as send_telegram_report_view."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required."}, status=405)
+    images = request.FILES.getlist("images")
+    if not images:
+        return JsonResponse({"ok": False, "error": "No attachments provided."}, status=400)
+    subject = request.POST.get("subject", "").strip() or "Payday Report"
+    body = request.POST.get("body", "")
+    attachments = [(image.name or f"report-{i}.png", image.read()) for i, image in enumerate(images)]
+    try:
+        ok, error = _send_email_report(subject, body, attachments)
+    except Exception:
+        logger.exception("send_email_report_view failed unexpectedly.")
+        return JsonResponse({"ok": False, "error": "Unexpected server error."}, status=500)
+    if not ok:
+        return JsonResponse({"ok": False, "error": error or "Email send failed."}, status=502)
     return JsonResponse({"ok": True})
 
 

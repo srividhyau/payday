@@ -20,6 +20,7 @@ urlpatterns = [
     path("bulk-set-shift/", views.bulk_set_shift_view, name="bulk_set_shift"),
     path("toggle-month-lock/", views.toggle_month_lock_view, name="toggle_month_lock"),
     path("mark-attendance/send-telegram-report/", views.send_telegram_report_view, name="send_telegram_report"),
+    path("send-email-report/", views.send_email_report_view, name="send_email_report"),
     path(
         "mark-attendance/send-day-report/", views.send_day_attendance_report_view,
         name="send_day_attendance_report",
