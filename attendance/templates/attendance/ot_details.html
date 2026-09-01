@@ -99,6 +99,10 @@
         .page-header-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
         h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 700px; }
+        .caption.unconfirmed-banner {
+            background: #FFF3E0; color: #8a5a00; border: 1px solid #FFE0B2; border-radius: 8px;
+            padding: 0.6rem 0.9rem; max-width: none;
+        }
 
         .card {
             background: var(--surface);
@@ -194,7 +198,12 @@
            View tab, permanently on instead of toggled — see
            attendance/views.py _build_month_grid) --- */
         .grid-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; }
-        table.month { border-collapse: collapse; table-layout: fixed; font-size: 0.8rem; }
+        /* separate + zero spacing, not collapse — Safari (and older
+           WebKit generally) doesn't reliably keep position: sticky
+           header/label cells fixed on a border-collapsed table; this
+           renders visually near-identical (adjoining 1px borders)
+           while actually freezing correctly. */
+        table.month { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 0.8rem; }
         table.month th, table.month td { border: 1px solid #666; padding: 0.3rem 0.35rem; text-align: center; white-space: nowrap; }
         table.month col.label-col { width: 100px; }
         table.month col.day-col { width: 34px; }
@@ -229,6 +238,15 @@
             padding: 0.35rem 0.7rem; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             z-index: 10; pointer-events: none;
         }
+        /* .grid-scroll's overflow-x: auto forces its overflow-y to an
+           effective "auto" too (a standard CSS quirk — the two axes
+           can't independently be visible/auto), which clips a tooltip
+           popping upward off the top of the scroll container — so for
+           the first few rows, where there's no room above to pop into,
+           flip it to open downward instead. */
+        table.month tbody tr:nth-child(-n+3) td[data-tooltip]:hover::after {
+            bottom: auto; top: 100%; margin-bottom: 0; margin-top: 6px;
+        }
 
         table.month td.special-H { background: #D6D6D6; }
         table.month td.special-PH { background: #4FB3A9; }
@@ -247,10 +265,18 @@
 
         table.month td.summary-highlight { background: #FFF9B0; }
         table.month tr.dept td.summary-highlight { background: #FCE4D6; }
-        /* Total OT gets its own light grey (not the yellow used by OT
-           Rate/hr and OT Amount) — matching the download's grid sheet. */
-        table.month td.ot-total-highlight { background: #F2F2F2; }
+        table.month td.ot-total-highlight { background: #FFF9B0; }
         table.month tr.dept td.ot-total-highlight { background: #FCE4D6; }
+        /* Paid OT Hours / EL Days / OT Amount — a slightly different,
+           deeper yellow than the standard summary-highlight (#FFF9B0),
+           so these three "final figures" stand out from Permission
+           Hrs/OT Rate next to them. Two-class selectors so this wins
+           over the plainer .summary-highlight/.ot-total-highlight
+           background regardless of declaration order. */
+        table.month th.ot-highlight-col,
+        table.month td.summary-highlight.ot-highlight-col,
+        table.month td.ot-total-highlight.ot-highlight-col { background: #FFE082; }
+        table.month tr.dept td.summary-highlight.ot-highlight-col { background: #F7C873; }
         /* Top 3 OT earners per department (row.is_top3, set in
            _ot_details_context) — same light blue + bold as the Monthly
            Summary tab and the download's two sheets. Day cells keep their
@@ -299,6 +325,16 @@
            the tie (same specificity, both !important) on a Full-OT day,
            which always carries both classes. */
         table.month td.editable-cell.el-credit-cell { background: #00E5FF !important; color: var(--navy) !important; font-weight: 700; }
+        /* Short day (worked under the usual 8.5h full day, see
+           metrics.is_short_hours) — text color only, no background of
+           its own, same convention as the Dashboard's own .short-hours
+           (which uses orange instead — this page pairs it with the
+           "-"/"+" sign convention below, so red reads as the "minus"
+           side of that pair). Only ever applied to a cell with no
+           shift_flag — a day already showing "+<OT hours>" (see the JS
+           swap below) takes priority instead of double-flagging the
+           same cell both ways. */
+        table.month td.editable-cell.short-hours { color: #C62828 !important; font-weight: 700; }
         table.month td.gs-suggest-M-OT::before,
         table.month td.gs-suggest-E-OT::before,
         table.month td.gs-suggest-ME-OT::before,
@@ -411,7 +447,7 @@
                 </div>
                 <div class="kpi">
                     <div class="label">Total OT Hours</div>
-                    <div class="value">{{ summary_total_hours }}</div>
+                    <div class="value">{{ summary_total_hours_label }}</div>
                 </div>
                 <div class="kpi">
                     <div class="label">Total OT Amount</div>
@@ -487,15 +523,19 @@
                                     <col class="summary-col ot-total-col">
                                     <col class="summary-col ot-total-col">
                                     <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col">
                                 </colgroup>
                                 <thead>
                                     <tr>
                                         <th class="label"></th>
                                         {% for d in day_headers %}<th class="editable-header {% if d.special %}special-{{ d.special }}{% endif %}" data-date="{{ d.date_iso }}" data-day-type="{{ d.special }}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
-                                        <th class="ot-total-col">Total OT</th>
-                                        <th class="ot-total-col">EL Days</th>
+                                        <th class="ot-total-col">OT Hours</th>
+                                        <th class="ot-total-col">Permission Hrs</th>
+                                        <th class="ot-total-col ot-highlight-col">Paid OT Hours</th>
                                         <th class="ot-total-col">OT Rate/hr</th>
-                                        <th class="ot-total-col">OT Amount</th>
+                                        <th class="ot-total-col ot-highlight-col">OT Amount</th>
+                                        <th class="ot-total-col ot-highlight-col">EL Days</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -506,12 +546,14 @@
                                         {% else %}
                                             <td class="label" title="{{ row.label }}">{{ row.label }}</td>
                                         {% for cell in row.day_cells %}
-                                            <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% else %}{{ cell.value }}{% endif %}</td>
+                                            <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short and not cell.shift_flag %} short-hours{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% elif cell.is_short and not cell.shift_flag %}-{{ cell.short_hours_label }}{% else %}{{ cell.value }}{% endif %}</td>
                                         {% endfor %}
-                                            <td class="ot-total-highlight ot-total-col">{{ row.total_ot }}</td>
-                                            <td class="summary-highlight ot-total-col">{{ row.el_days|floatformat:"-1" }}</td>
+                                            <td class="ot-total-highlight ot-total-col">{{ row.total_ot_label }}</td>
+                                            <td class="summary-highlight ot-total-col">{{ row.permission_hours }}</td>
+                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.paid_ot_hours }}</td>
                                             <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
-                                            <td class="summary-highlight ot-total-col">{{ row.total_ot_amount }}</td>
+                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.total_ot_amount }}</td>
+                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.el_days|floatformat:"-1" }}</td>
                                         {% endif %}
                                     </tr>
                                     {% endfor %}
@@ -519,10 +561,12 @@
                                 <tfoot>
                                     <tr>
                                         <td class="label" colspan="{{ day_headers|length|add:1 }}">Total</td>
-                                        <td class="ot-total-col">{{ summary_total_hours }}</td>
-                                        <td class="ot-total-col">{{ summary_total_el_days|floatformat:"-1" }}</td>
+                                        <td class="ot-total-col">{{ summary_total_hours_label }}</td>
+                                        <td class="ot-total-col">{{ summary_total_permission_hours }}</td>
+                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_paid_ot_hours }}</td>
                                         <td class="ot-total-col"></td>
-                                        <td class="ot-total-col">{{ summary_total_amount }}</td>
+                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_amount }}</td>
+                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_el_days|floatformat:"-1" }}</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -533,6 +577,12 @@
                     </div>
 
                     <div class="tab-panel" data-panel="summary" style="display:none;">
+                        {% if unconfirmed_special_worked %}
+                        <p class="caption unconfirmed-banner">
+                            ⚠ {{ unconfirmed_special_worked|length }} worked-holiday/paid-holiday day(s) still need a shift code confirmed on the OT View tab before they count toward OT — not included in the totals below:
+                            {% for item in unconfirmed_special_worked %}{{ item.label }} ({{ item.date_label }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                        </p>
+                        {% endif %}
                         {% if summary_rows %}
                         <div class="table-wrap">
                             <table class="simple">
@@ -552,7 +602,7 @@
                                     <tr class="dept-row">
                                         <td colspan="6">
                                             {{ row.department }} <span class="dept-headcount">({{ row.headcount }})</span>
-                                            — {{ row.ot_hours }} hrs, ₹{{ row.ot_amount }}
+                                            — {{ row.ot_hours_label }}, ₹{{ row.ot_amount }}
                                         </td>
                                     </tr>
                                     {% else %}
@@ -560,7 +610,7 @@
                                         <td>{{ row.emp_code }}</td>
                                         <td>{{ row.emp_name }}</td>
                                         <td>{{ row.department }}</td>
-                                        <td class="num">{{ row.ot_hours }}</td>
+                                        <td class="num">{{ row.ot_hours_label }}</td>
                                         <td class="num">{{ row.ot_rate }}</td>
                                         <td class="num">{{ row.ot_amount }}</td>
                                     </tr>
@@ -570,7 +620,7 @@
                                 <tfoot>
                                     <tr>
                                         <td colspan="3">Total</td>
-                                        <td class="num">{{ summary_total_hours }}</td>
+                                        <td class="num">{{ summary_total_hours_label }}</td>
                                         <td></td>
                                         <td class="num">{{ summary_total_amount }}</td>
                                     </tr>
@@ -604,15 +654,19 @@
                                     <col class="summary-col ot-total-col">
                                     <col class="summary-col ot-total-col">
                                     <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col">
                                 </colgroup>
                                 <thead>
                                     <tr>
                                         <th class="label"></th>
                                         {% for d in day_headers %}<th class="{% if d.special %}special-{{ d.special }}{% endif %}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
-                                        <th class="ot-total-col">Total OT</th>
-                                        <th class="ot-total-col">EL Days</th>
+                                        <th class="ot-total-col">OT Hours</th>
+                                        <th class="ot-total-col">Permission Hrs</th>
+                                        <th class="ot-total-col ot-highlight-col">Paid OT Hours</th>
                                         <th class="ot-total-col">OT Rate/hr</th>
-                                        <th class="ot-total-col">OT Amount</th>
+                                        <th class="ot-total-col ot-highlight-col">OT Amount</th>
+                                        <th class="ot-total-col ot-highlight-col">EL Days</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -623,12 +677,14 @@
                                         {% else %}
                                             <td class="label" title="{{ row.label }}">{{ row.label }}</td>
                                         {% for cell in row.day_cells %}
-                                            <td class="editable-cell {% if cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% else %}{{ cell.value }}{% endif %}</td>
+                                            <td class="editable-cell {% if cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short and not cell.shift_flag %} short-hours{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% elif cell.is_short and not cell.shift_flag %}-{{ cell.short_hours_label }}{% else %}{{ cell.value }}{% endif %}</td>
                                         {% endfor %}
-                                            <td class="ot-total-highlight ot-total-col">{{ row.total_ot }}</td>
-                                            <td class="summary-highlight ot-total-col">{{ row.el_days|floatformat:"-1" }}</td>
+                                            <td class="ot-total-highlight ot-total-col">{{ row.total_ot_label }}</td>
+                                            <td class="summary-highlight ot-total-col">{{ row.permission_hours }}</td>
+                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.paid_ot_hours }}</td>
                                             <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
-                                            <td class="summary-highlight ot-total-col">{{ row.total_ot_amount }}</td>
+                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.total_ot_amount }}</td>
+                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.el_days|floatformat:"-1" }}</td>
                                         {% endif %}
                                     </tr>
                                     {% endfor %}
@@ -636,10 +692,12 @@
                                 <tfoot>
                                     <tr>
                                         <td class="label" colspan="{{ day_headers|length|add:1 }}">Total</td>
-                                        <td class="ot-total-col">{{ summary_total_hours }}</td>
-                                        <td class="ot-total-col">{{ summary_total_el_days|floatformat:"-1" }}</td>
+                                        <td class="ot-total-col">{{ summary_total_hours_label }}</td>
+                                        <td class="ot-total-col">{{ summary_total_permission_hours }}</td>
+                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_paid_ot_hours }}</td>
                                         <td class="ot-total-col"></td>
-                                        <td class="ot-total-col">{{ summary_total_amount }}</td>
+                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_amount }}</td>
+                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_el_days|floatformat:"-1" }}</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -691,7 +749,7 @@
                                     <label for="editShift-fullot">Full-OT</label>
                                 </div>
                             </div>
-                            <p class="edit-staff-note" id="editStaffNote" style="display:none;">Shift isn't editable for Staff — they're excluded from shift-based OT (see Time Off instead).</p>
+                            <p class="edit-staff-note" id="editStaffNote" style="display:none;">Shift isn't editable for Staff — they're excluded from shift-based OT (see EL instead).</p>
                             <div class="edit-actions">
                                 <button type="button" id="editCancel">Cancel</button>
                                 <button type="submit">Save</button>
@@ -791,7 +849,7 @@
                 return toHHMM(cell.dataset.in) + '\n' + toHHMM(cell.dataset.out);
             }
             document.querySelectorAll('table.month td.editable-cell[class*="shift-flag-"]:not(.el-credit-cell)').forEach(function (cell) {
-                cell.textContent = cell.dataset.shiftOt || '';
+                cell.textContent = cell.dataset.shiftOt ? '+' + cell.dataset.shiftOt : '';
             });
             document.querySelectorAll('table.month td.editable-cell.gs-show-time:not([class*="shift-flag-"])').forEach(function (cell) {
                 cell.textContent = formatInOut(cell);
@@ -879,10 +937,27 @@
                     // (recompute_from_punch only ever produces P/HD/A) —
                     // otherwise leave it on "Auto" so editing just the
                     // punch times keeps recomputing status as it always
-                    // has, instead of accidentally freezing it.
+                    // has, instead of accidentally freezing it. H/PH/CO
+                    // are the exception: on a day the company-wide
+                    // calendar already marks that way (special-H/PH/CO —
+                    // see apply_special_days), that's just the calendar
+                    // overlay showing through the cell, not something
+                    // actually stored on this record — pre-selecting it
+                    // and saving unchanged (e.g. just fixing the shift
+                    // code to confirm OT) would freeze the overlay into
+                    // the real status, silently turning a real "Present"
+                    // day into a literal "Holiday" one and breaking
+                    // anything that reads status directly without the
+                    // overlay (e.g. Mark Attendance's own month grid).
+                    // Leaving it on Auto there instead lets the real
+                    // P/HD/A status come back from the punch times, same
+                    // as any other edit.
                     var forcedStatuses = ['PH', 'CO', 'PL', 'WO', 'H', 'EL', 'PM'];
                     var currentStatus = cell.dataset.status || '';
-                    document.getElementById('editStatus').value = forcedStatuses.indexOf(currentStatus) !== -1 ? currentStatus : '';
+                    var isCalendarSpecial = ['H', 'PH', 'CO'].indexOf(currentStatus) !== -1
+                        && cell.classList.contains('special-' + currentStatus);
+                    document.getElementById('editStatus').value =
+                        (forcedStatuses.indexOf(currentStatus) !== -1 && !isCalendarSpecial) ? currentStatus : '';
                     var isStaff = cell.dataset.staff === '1';
                     var shiftValue = cell.dataset.shift || '';
                     document.querySelectorAll('#editShiftGroup input[type=radio]').forEach(function (r) {

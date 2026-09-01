@@ -145,7 +145,7 @@
         table.cal th { background: #fafbfc; color: var(--text-muted); padding: 0.5rem; text-align: center; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
         table.cal td { height: 80px; }
         table.cal td.out-of-month { background: #f7f7f7; }
-        table.cal .day-number { font-size: 0.8rem; padding: 0.3rem 0.4rem; color: #333; }
+        table.cal .day-number { font-size: 0.8rem; padding: 0.3rem 0.4rem 0; color: #333; }
         table.cal td.out-of-month .day-number { color: #bbb; }
         table.cal .is-today .day-number { font-weight: 700; color: var(--navy); text-decoration: underline; }
 
@@ -154,15 +154,26 @@
         table.cal td.type-PH { background: #4FB3A9; }
         table.cal td.type-CO { background: #F5A85C; }
 
-        .day-cell-form { display: flex; flex-direction: column; height: 100%; }
+        /* One flex column holding the day number and both forms, so
+           they stack cleanly instead of the day-type form claiming the
+           whole cell height and the early-closure form having nowhere
+           to go but overlap it. */
+        .day-cell-inner { display: flex; flex-direction: column; height: 100%; gap: 0.2rem; padding-bottom: 0.3rem; }
+        .day-cell-form, .early-closure-form { margin: 0 0.3rem; flex-shrink: 0; }
         .day-cell-form select {
-            margin: 0 0.3rem 0.3rem;
+            width: 100%;
             font-size: 0.75rem;
             border: 1px solid #999;
             border-radius: 3px;
             background: #fff;
             padding: 0.15rem;
+            box-sizing: border-box;
         }
+        .early-closure-form input {
+            width: 100%; font-size: 0.68rem; border: 1px solid #999; border-radius: 3px;
+            background: #fff; padding: 0.15rem; box-sizing: border-box;
+        }
+        table.cal td.has-early-closure { box-shadow: inset 0 0 0 2px #1565C0; }
 
         .table-wrap.simple-wrap { max-width: 420px; }
         table.simple { border-collapse: collapse; width: 100%; }
@@ -176,11 +187,6 @@
     {% include "attendance/_topbar.html" with current="calendar" %}
     <div class="page">
         <h1>Holiday Calendar</h1>
-        <p class="caption">
-            Set company-wide Holidays, Paid Holidays, and Comp Off days here — they apply to every
-            employee automatically on the dashboard. A Paid Holiday only overrides someone's status if
-            they didn't actually work that day; if they came in anyway, their hours count as OT instead.
-        </p>
 
         <div class="card">
             <div class="legend">
@@ -188,6 +194,7 @@
                 <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
                 <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
                 <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;box-shadow:inset 0 0 0 2px #1565C0;"></span>Early closure</span>
             </div>
 
             <div class="month-nav">
@@ -207,20 +214,32 @@
                         {% for week in weeks %}
                         <tr>
                             {% for day in week %}
-                            <td class="{% if not day.in_month %}out-of-month{% endif %} {% if day.day_type %}type-{{ day.day_type }}{% endif %} {% if day.is_today %}is-today{% endif %}">
-                                <form method="post" class="day-cell-form">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="date" value="{{ day.date|date:'Y-m-d' }}">
-                                    <input type="hidden" name="year" value="{{ year }}">
-                                    <input type="hidden" name="month" value="{{ month }}">
+                            <td class="{% if not day.in_month %}out-of-month{% endif %} {% if day.day_type %}type-{{ day.day_type }}{% endif %} {% if day.is_today %}is-today{% endif %} {% if day.early_closure_time %}has-early-closure{% endif %}">
+                                <div class="day-cell-inner">
                                     <div class="day-number">{{ day.date.day }}</div>
-                                    <select name="day_type" onchange="this.form.submit()">
-                                        <option value=""{% if not day.day_type %} selected{% endif %}>—</option>
-                                        {% for code, label in day_types %}
-                                        <option value="{{ code }}"{% if day.day_type == code %} selected{% endif %}>{{ label }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </form>
+                                    <form method="post" class="day-cell-form">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="date" value="{{ day.date|date:'Y-m-d' }}">
+                                        <input type="hidden" name="year" value="{{ year }}">
+                                        <input type="hidden" name="month" value="{{ month }}">
+                                        <select name="day_type" onchange="this.form.submit()">
+                                            <option value=""{% if not day.day_type %} selected{% endif %}>—</option>
+                                            {% for code, label in day_types %}
+                                            <option value="{{ code }}"{% if day.day_type == code %} selected{% endif %}>{{ label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                    <form method="post" class="early-closure-form" title="Early closure — what time the company closes (blank to clear)">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="early_closure">
+                                        <input type="hidden" name="date" value="{{ day.date|date:'Y-m-d' }}">
+                                        <input type="hidden" name="year" value="{{ year }}">
+                                        <input type="hidden" name="month" value="{{ month }}">
+                                        <input type="time" name="closing_time"
+                                            value="{{ day.early_closure_time|time:'H:i'|default_if_none:'' }}"
+                                            onchange="this.form.submit()">
+                                    </form>
+                                </div>
                             </td>
                             {% endfor %}
                         </tr>
@@ -244,5 +263,25 @@
             </div>
         </div>
     </div>
+    <script>
+        // Editing a day cell (type select or early-closure time) is a
+        // plain POST + redirect back to this same month, which reloads
+        // the whole page and would otherwise jump back to the top —
+        // save the scroll position right before submitting and restore
+        // it once the reloaded page lands, so the cell you just edited
+        // stays in view instead of the page jumping away from it.
+        (function () {
+            var saved = sessionStorage.getItem('calendarScrollY');
+            if (saved !== null) {
+                window.scrollTo(0, parseInt(saved, 10));
+                sessionStorage.removeItem('calendarScrollY');
+            }
+            document.querySelectorAll('.day-cell-form, .early-closure-form').forEach(function (form) {
+                form.addEventListener('submit', function () {
+                    sessionStorage.setItem('calendarScrollY', String(window.scrollY));
+                });
+            });
+        })();
+    </script>
 </body>
 </html>

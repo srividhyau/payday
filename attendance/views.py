@@ -19,14 +19,15 @@ from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.dateparse import parse_time
 
 from src import metrics, payroll
 
 from .forms import UploadForm
 from .importer import import_file
 from .models import (
-    AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, Employee, EmploymentPeriod, LeaveLedgerEntry,
-    MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
+    AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmploymentPeriod,
+    LeaveLedgerEntry, MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,49 @@ def upload_view(request):
     return render(request, "attendance/upload.html", {"form": form, "batches": recent_batches})
 
 
+def _special_days_and_downgrades() -> tuple[dict, dict, dict]:
+    """(special_days, downgraded, skip) for metrics.apply_special_days —
+    one query for every SpecialDay plus its downgraded_employees, shared
+    by every caller (Dashboard, OT Details, Leave Ledger) so they can't
+    drift on which employees a given holiday's downgrade to plain
+    Holiday applies to.
+
+    skip additionally excludes every Contractor-department employee
+    entirely from Paid Holiday dates — a blanket policy (contractors
+    aren't entitled to paid holidays at all), so their day computes
+    completely normally there instead of getting any Holiday/Paid
+    Holiday treatment, same as an ordinary working day."""
+    special_days: dict = {}
+    downgraded: dict = {}
+    for sd in SpecialDay.objects.prefetch_related("downgraded_employees"):
+        special_days[sd.date] = sd.day_type
+        codes = {emp.code for emp in sd.downgraded_employees.all()}
+        if codes:
+            downgraded[sd.date] = codes
+
+    contractor_codes = set(
+        Employee.objects.filter(department__name__iexact="Contractor").values_list("code", flat=True)
+    )
+    skip: dict = {}
+    if contractor_codes:
+        for d, day_type in special_days.items():
+            if day_type == SpecialDay.PAID_HOLIDAY:
+                skip[d] = contractor_codes
+
+    return special_days, downgraded, skip
+
+
+def _early_closure_hours() -> dict:
+    """date -> expected full-day hours (from EarlyClosureDay), for
+    metrics.is_short_hours/permission_hours_by_employee/
+    month_attendance_view — a date with no entry here keeps their
+    default 8.5h."""
+    return {
+        ec.date: float(ec.full_day_hours)
+        for ec in EarlyClosureDay.objects.all()
+    }
+
+
 def _load_daily_data() -> pd.DataFrame:
     """Loads all attendance records into a DataFrame shaped for src/metrics.py.
 
@@ -114,7 +158,7 @@ def _load_daily_data() -> pd.DataFrame:
     rows = AttendanceRecord.objects.select_related("employee", "employee__department").values(
         "employee__code", "employee__name", "employee__department__name", "employee__designation",
         "employee__category", "employee__subcategory", "employee__company",
-        "date", "shift", "time_in", "time_out", "work_hours", "ot_hours", "status",
+        "date", "shift", "time_in", "time_out", "work_hours", "ot_hours", "status", "manually_edited",
     )
     df = pd.DataFrame.from_records(rows)
     if df.empty:
@@ -211,14 +255,22 @@ def _apply_staff_ot_display(table_rows: list, shift_ot_table: pd.DataFrame) -> N
             cell["el_day_credit"] = el_day_credit_map.get(key, 0.0)
 
 
-def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dict, ot_tooltip: bool = False) -> dict:
+def _build_month_grid(
+    daily: pd.DataFrame, special_days: dict, emp_rate_map: dict, ot_tooltip: bool = False,
+    full_day_map: dict | None = None,
+) -> dict:
     """Builds the day x employee grid (day_headers + table_rows, matching
     the Month_Attendance pivot layout) shared by the dashboard's Month
     Attendance grid and the OT page's tabs. Also returns a few
     intermediate values (working_days, issues, emp_ot_totals,
     emp_el_days) that callers still need for their own KPI/department
-    cards, so they don't have to recompute them."""
-    working_days = metrics.infer_working_days(daily)
+    cards, so they don't have to recompute them.
+
+    full_day_map (date -> hours, from EarlyClosureDay — see
+    _early_closure_hours) lowers the expected full day below the
+    standard 8.5h for Short Days/Permission Hours on specific dates."""
+    full_day_map = full_day_map or {}
+    working_days = metrics.infer_working_days(daily, special_days)
 
     # Shift-based OT (M-OT/E-OT/ME-OT/Full-OT), same calculation as the OT
     # Details report — drives every OT figure here except the day-cell's
@@ -245,6 +297,7 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
         ot_payable_table[ot_payable_table["is_el_day"]].groupby("emp_code")["el_day_credit"].sum().to_dict()
         if not ot_payable_table.empty else {}
     )
+    emp_permission_hours = metrics.permission_hours_by_employee(daily, full_day_map)
 
     first_date = pd.Timestamp(daily["date"].iloc[0])
     _, days_in_month = py_calendar.monthrange(first_date.year, first_date.month)
@@ -252,7 +305,7 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
         pd.Timestamp(year=first_date.year, month=first_date.month, day=d)
         for d in range(1, days_in_month + 1)
     ]
-    month_view, day_labels = metrics.month_attendance_view(daily, working_days, dates=dates)
+    month_view, day_labels = metrics.month_attendance_view(daily, working_days, dates=dates, full_day_map=full_day_map)
     time_labels = metrics.punch_time_labels(
         daily, shift_ot_map, ot_rate_map=emp_rate_map if ot_tooltip else None
     )
@@ -268,6 +321,9 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
     special_worked_map = {
         (r.emp_code, r.date): r.special_worked for r in daily.itertuples(index=False)
     }
+    manually_edited_map = {
+        (r.emp_code, r.date): r.manually_edited for r in daily.itertuples(index=False)
+    }
     dept_map = {
         (r.emp_code, r.date): r.department for r in daily.itertuples(index=False)
     }
@@ -281,7 +337,14 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
         }
         for d, date in zip(day_labels, dates)
     ]
-    summary_cols = ["Work Days", "Comp Off", "Time Off", "Paid Holiday", "Personal Leave"]
+    # Must exactly match metrics.month_attendance_view's own summary_cols
+    # (in the same order) — month_view's columns come straight from that
+    # function, and table_row construction below does row[c] for c in
+    # summary_cols, so a mismatch here would KeyError.
+    summary_cols = [
+        "Work Days", "Comp Off", "EL", "Paid Holiday", "Personal Leave",
+        "Missing Punch", "Short Days", "Permission Hours",
+    ]
 
     table_rows = []
     for _, row in month_view.iterrows():
@@ -289,6 +352,7 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
         day_cells = []
         for d, date in zip(day_labels, dates):
             key = (row["Emp Code"], date)
+            day_full_hours = full_day_map.get(pd.Timestamp(date).date(), 8.5)
             emp_status = special_status_map.get(key)
             # Holiday/Paid Holiday/Comp Off cells always keep the special
             # background, whether or not the employee worked that day — an
@@ -315,6 +379,33 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
             day_cells.append({
                 "value": "" if pd.isna(row[d]) else f"{row[d]:.1f}",
                 "band": metrics.hours_heat_band(row[d]),
+                # A person corrected this cell by hand (edit_record_view
+                # or bulk_set_shift_view — see AttendanceRecord.
+                # manually_edited), as opposed to it just reflecting
+                # whatever the device export said — flagged on Device
+                # Records so HR can see at a glance which cells aren't
+                # raw device data anymore.
+                "manually_edited": not is_dept and bool(manually_edited_map.get(key, False)),
+                # Text-color-only flag (see dashboard.html's .short-hours
+                # rule) for a real day worked short of the usual 8.5h full
+                # day — not on a special-day cell, which already has its
+                # own dedicated color story (and is excluded from the
+                # Short Days summary count for the same reason).
+                "is_short": (
+                    not is_dept and not is_special_cell and metrics.is_short_hours(row[d], day_full_hours)
+                ),
+                # The shortfall itself (that date's expected full day
+                # minus actual hours — see day_full_hours/EarlyClosureDay
+                # above) — shown instead of the raw worked hours on the
+                # OT page's "-" short-day cells (see ot_details.html),
+                # same figure Permission Hours sums across the month.
+                # Rendered as a compact "Xh Ym"/"Ym" label, not decimal
+                # hours.
+                "short_hours_label": (
+                    metrics.format_hours_as_hm(day_full_hours - row[d])
+                    if not is_dept and not is_special_cell and metrics.is_short_hours(row[d], day_full_hours)
+                    else ""
+                ),
                 "title": "" if is_dept else time_labels.get(key, ""),
                 "issue": not is_dept and key in issues,
                 "special": emp_status if is_special_cell else "",
@@ -359,15 +450,31 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
         ot_rate = float(emp_rate_map.get(row["Emp Code"], 0)) if not is_dept else 0
         total_ot_amount = float(total_ot) * ot_rate if not is_dept else 0
         el_days = emp_el_days.get(row["Emp Code"], 0) if not is_dept else 0
+        permission_hours = emp_permission_hours.get(row["Emp Code"], 0) if not is_dept else 0
         table_rows.append({
             "label": row["Row Labels"],
             "is_dept": is_dept,
             "day_cells": day_cells,
             "summary_cells": summary_cells,
             "total_ot": "" if is_dept or not total_ot else round(float(total_ot), 2),
+            # Display-only "Xh Ym" label for the Total OT column (see
+            # format_hours_as_hm) — "total_ot" itself stays a plain
+            # decimal number, since _ot_only_rows/Excel export/etc. still
+            # need to do real arithmetic/truthiness checks on it.
+            "total_ot_label": "" if is_dept or not total_ot else metrics.format_hours_as_hm(total_ot),
             "ot_rate": "" if is_dept or not ot_rate else round(ot_rate, 2),
             "total_ot_amount": "" if is_dept or not total_ot_amount else round(total_ot_amount, 2),
             "el_days": "" if is_dept or not el_days else el_days,
+            "permission_hours": "" if is_dept else metrics.format_hours_as_hm(permission_hours),
+            # Total OT minus Permission Hours — the actual OT owed once
+            # that month's short-day shortfall is netted against it.
+            # Genuinely allowed to go negative (they owe more time than
+            # they earned in OT) rather than floored at 0, since that's
+            # real information HR needs to see, not an error state.
+            "paid_ot_hours": (
+                "" if is_dept
+                else metrics.format_hours_as_hm(float(total_ot) - float(permission_hours), allow_negative=True)
+            ),
         })
 
     return {
@@ -375,6 +482,7 @@ def _build_month_grid(daily: pd.DataFrame, special_days: dict, emp_rate_map: dic
         "shift_ot_table": shift_ot_table,
         "emp_ot_totals": emp_ot_totals,
         "emp_el_days": emp_el_days,
+        "emp_permission_hours": emp_permission_hours,
         "issues": issues,
         "day_labels": day_labels,
         "day_headers": day_headers,
@@ -388,11 +496,16 @@ def _ot_only_rows(table_rows: list) -> list:
     """Keeps only employee rows with actual OT and/or EL days that month
     (a Staff employee whose only qualifying day this month was a
     Full-OT/EL one has total_ot == 0 — see _ot_payable_table — so el_days
-    has to be checked too, or they'd vanish from this list entirely), and
-    drops any department header left with no employees under it
-    afterward — used by the OT Details report's Full Monthly View tab,
-    which should only ever list people who had OT or EL that month, not
-    the whole roster with everything but OT cells blanked out."""
+    has to be checked too, or they'd vanish from this list entirely), or
+    at least one unconfirmed worked-holiday day (see
+    _is_unconfirmed_special_worked — this one earns zero real OT/EL yet,
+    but still needs to survive to this list so that day stays visible on
+    the report instead of dropping the whole employee), and drops any
+    department header left with no employees under it afterward — used
+    by the OT Details report's Full Monthly View tab, which should only
+    ever list people who had OT, EL, or a still-unconfirmed worked
+    holiday that month, not the whole roster with everything but OT
+    cells blanked out."""
     filtered = []
     pending_dept = None
     pending_emps: list = []
@@ -407,10 +520,27 @@ def _ot_only_rows(table_rows: list) -> list:
             flush()
             pending_dept = row
             pending_emps = []
-        elif row.get("total_ot") or row.get("el_days"):
+        elif (
+            row.get("total_ot") or row.get("el_days")
+            or any(_is_unconfirmed_special_worked(c) for c in row["day_cells"])
+        ):
             pending_emps.append(row)
     flush()
     return filtered
+
+
+def _is_unconfirmed_special_worked(cell: dict) -> bool:
+    """True for a day someone actually worked through a company Holiday/
+    Paid Holiday/Comp Off (real punches present) but nobody has confirmed
+    a Full-OT shift code for yet, so it currently carries zero real OT
+    credit — see _restrict_to_ot_cells for why this one case is kept
+    visible there despite that, unlike an ordinary unconfirmed M-OT/
+    E-OT/ME-OT suggestion (a few minutes either side of normal hours,
+    low-stakes enough to stay hidden until confirmed). A whole
+    unconfirmed holiday worked is consequential — HR needs to be able to
+    spot it on the "official" Full Monthly View report, not just stumble
+    onto it in the editable OT View tab."""
+    return bool(cell["special"] and cell["time_in"] and cell["time_out"] and not cell["shift_ot_hours"])
 
 
 def _restrict_to_ot_cells(table_rows: list) -> list:
@@ -421,10 +551,14 @@ def _restrict_to_ot_cells(table_rows: list) -> list:
     had a shift code" suggestion nudge (which is a workflow aid for fixing
     data, not an OT amount — a suggested day with no shift code actually
     set carries zero real credit, same as an assigned shift that ended up
-    earning nothing, e.g. clocked out just before the 5:30pm OT cutoff).
-    cell["shift_ot_hours"] already holds that real per-day credit (from
-    shift_ot_map, sourced from overtime_view()), so it's the single source
-    of truth for whether a cell counts here.
+    earning nothing, e.g. clocked out just before the 5:30pm OT cutoff) —
+    except an unconfirmed worked-holiday day (see
+    _is_unconfirmed_special_worked), which stays visible (background,
+    suggested-shift marker, punch time) purely for visibility; it still
+    contributes nothing to any OT hours/amount total, since
+    cell["shift_ot_hours"] (this cell's real credit) is left untouched
+    either way. cell["shift_ot_hours"] is the single source of truth for
+    whether a cell counts as real OT here.
 
     Mutates and returns table_rows in place; the dashboard's own grid is
     unaffected since it builds its own separate copy per request."""
@@ -433,13 +567,17 @@ def _restrict_to_ot_cells(table_rows: list) -> list:
             continue
         for cell in row["day_cells"]:
             has_credit = bool(cell["shift_ot_hours"])
-            if not has_credit:
+            unconfirmed_special = _is_unconfirmed_special_worked(cell)
+            if not has_credit and not unconfirmed_special:
                 cell["value"] = ""
                 cell["shift_flag"] = ""
                 cell["gs_show_time"] = False
+                cell["suggested_shift"] = ""
+            elif unconfirmed_special:
+                cell["gs_show_time"] = True
             else:
                 cell["gs_show_time"] = not cell["shift_flag"]
-            cell["suggested_shift"] = ""
+                cell["suggested_shift"] = ""
     return table_rows
 
 
@@ -504,16 +642,16 @@ def dashboard_view(request):
     if daily.empty:
         return render(request, "attendance/dashboard.html", {"empty": True, **month_nav})
 
-    special_day_list = list(SpecialDay.objects.all())
-    special_days = {sd.date: sd.day_type for sd in special_day_list}
-    daily = metrics.apply_special_days(daily, special_days)
+    special_days, downgraded_special_days, skip_special_days = _special_days_and_downgrades()
+    daily = metrics.apply_special_days(daily, special_days, downgraded_special_days, skip_special_days)
 
     holidays = metrics.holiday_dates(daily)
     paid_holidays = metrics.paid_holiday_dates(daily)
     comp_offs = metrics.comp_off_dates(daily)
 
     emp_rate_map = dict(Employee.objects.values_list("code", "ot_rate_per_hour"))
-    grid = _build_month_grid(daily, special_days, emp_rate_map)
+    full_day_map = _early_closure_hours()
+    grid = _build_month_grid(daily, special_days, emp_rate_map, full_day_map=full_day_map)
     working_days = grid["working_days"]
     issues = grid["issues"]
 
@@ -558,10 +696,13 @@ def dashboard_view(request):
     return render(request, "attendance/dashboard.html", context)
 
 
-def _build_month_weeks(year, month, special_map, today):
+def _build_month_weeks(year, month, special_map, today, early_map: dict | None = None):
     """Monday-start week grid for one month, each day annotated with its
-    SpecialDay type (if any). Shared by calendar_view (editable) and
-    dashboard_view (read-only preview of the period being viewed)."""
+    SpecialDay type (if any) and EarlyClosureDay closing time (if any —
+    see early_map, date -> EarlyClosureDay). Shared by calendar_view
+    (editable) and dashboard_view (read-only preview of the period being
+    viewed)."""
+    early_map = early_map or {}
     cal = py_calendar.Calendar(firstweekday=0)
     month_weeks = cal.monthdatescalendar(year, month)
     return [
@@ -572,6 +713,7 @@ def _build_month_weeks(year, month, special_map, today):
                 "is_today": d == today,
                 "day_type": special_map[d].day_type if d in special_map else "",
                 "name": special_map[d].name if d in special_map else "",
+                "early_closure_time": early_map[d].closing_time if d in early_map else None,
             }
             for d in week
         ]
@@ -583,9 +725,33 @@ def _build_month_weeks(year, month, special_map, today):
 def calendar_view(request):
     """Company-wide Holiday / Paid Holiday / Comp Off calendar. Click a day
     to set/clear its type — each change is its own POST + redirect back to
-    the same month, so no JS beyond auto-submitting the select is needed."""
+    the same month, so no JS beyond auto-submitting the select is needed.
+    Each day also has an optional Early Closure time field (see
+    EarlyClosureDay) — a date the whole company closes earlier than
+    usual, lowering the expected full day (computed from the standard
+    9:00 AM start) for Short Days/Permission Hours company-wide on that
+    date instead of every early leaver getting flagged/docked for it."""
     if request.method == "POST":
+        action = request.POST.get("action", "")
         day_str = request.POST.get("date")
+
+        if action == "early_closure":
+            time_str = request.POST.get("closing_time", "").strip()
+            if day_str:
+                if time_str:
+                    closing_time = parse_time(time_str)
+                    if closing_time is None:
+                        _error(request, "Enter a valid closing time.")
+                        return redirect(
+                            f"{request.path}?year={request.POST.get('year')}&month={request.POST.get('month')}"
+                        )
+                    EarlyClosureDay.objects.update_or_create(date=day_str, defaults={"closing_time": closing_time})
+                else:
+                    EarlyClosureDay.objects.filter(date=day_str).delete()
+            return redirect(
+                f"{request.path}?year={request.POST.get('year')}&month={request.POST.get('month')}"
+            )
+
         day_type = request.POST.get("day_type", "")
         if day_str:
             if day_type in dict(SpecialDay.TYPE_CHOICES):
@@ -604,8 +770,9 @@ def calendar_view(request):
     month_weeks = cal.monthdatescalendar(year, month)
     visible_dates = [d for week in month_weeks for d in week]
     special_map = {sd.date: sd for sd in SpecialDay.objects.filter(date__in=visible_dates)}
+    early_map = {ec.date: ec for ec in EarlyClosureDay.objects.filter(date__in=visible_dates)}
 
-    weeks = _build_month_weeks(year, month, special_map, today)
+    weeks = _build_month_weeks(year, month, special_map, today, early_map)
 
     prev_month, prev_year = (12, year - 1) if month == 1 else (month - 1, year)
     next_month, next_year = (1, year + 1) if month == 12 else (month + 1, year)
@@ -678,7 +845,22 @@ def edit_record_view(request):
     # rather than an already-forced one — see the popup's own JS) keeps
     # today's behavior unchanged.
     record.status = status_override if status_override in dict(AttendanceRecord.STATUS_CHOICES) else computed_status
+    record.manually_edited = True
     record.save()
+    # On a date that's a company-wide Paid Holiday/Comp Off, apply_special_days
+    # (see src/metrics.py) unconditionally overwrites status to that day_type
+    # for everyone on every read — so picking "Holiday" here wouldn't actually
+    # stick on the next page load unless this employee is registered as
+    # downgraded for that date too. Picking anything else (including "Auto")
+    # un-registers them, so the calendar's real day_type resumes applying —
+    # this is the one place that toggle is meant to be flipped from (see
+    # SpecialDay.downgraded_employees).
+    special_day = SpecialDay.objects.filter(date=date_str).exclude(day_type=SpecialDay.HOLIDAY).first()
+    if special_day:
+        if record.status == SpecialDay.HOLIDAY:
+            special_day.downgraded_employees.add(record.employee)
+        else:
+            special_day.downgraded_employees.remove(record.employee)
     messages.success(request, f"Updated {emp_code} on {date_str}.")
     logger.info(
         "Record edited: emp=%s date=%s time_in=%s time_out=%s shift=%s status=%s by user=%s",
@@ -716,7 +898,7 @@ def bulk_set_shift_view(request):
     updated = (
         AttendanceRecord.objects.filter(date=date_str)
         .exclude(employee__subcategory="Staff")
-        .update(shift=shift)
+        .update(shift=shift, manually_edited=True)
     )
     if day_type in dict(SpecialDay.TYPE_CHOICES):
         SpecialDay.objects.update_or_create(date=date_str, defaults={"day_type": day_type})
@@ -2298,8 +2480,8 @@ def _leave_ledger_context(current: date_cls) -> dict:
     if not daily_all.empty:
         daily = daily_all[(daily_all["date"].dt.year == year) & (daily_all["date"].dt.month == month)]
         if not daily.empty and "subcategory" in daily.columns:
-            special_days = {sd.date: sd.day_type for sd in SpecialDay.objects.all()}
-            daily = metrics.apply_special_days(daily, special_days)
+            special_days, downgraded_special_days, skip_special_days = _special_days_and_downgrades()
+            daily = metrics.apply_special_days(daily, special_days, downgraded_special_days, skip_special_days)
             staff_daily = daily[daily["subcategory"] == "Staff"]
             if not staff_daily.empty:
                 # el_day_credit (1.0 full day / 0.5 half day, by hours
@@ -2515,10 +2697,11 @@ def _ot_details_context(date_param: str | None) -> dict:
     if daily.empty:
         return {"empty": True, "summary_rows": [], **month_nav}
 
-    special_days = {sd.date: sd.day_type for sd in SpecialDay.objects.all()}
-    daily = metrics.apply_special_days(daily, special_days)
+    special_days, downgraded_special_days, skip_special_days = _special_days_and_downgrades()
+    daily = metrics.apply_special_days(daily, special_days, downgraded_special_days, skip_special_days)
     emp_rate_map = dict(Employee.objects.values_list("code", "ot_rate_per_hour"))
-    grid = _build_month_grid(daily, special_days, emp_rate_map, ot_tooltip=True)
+    full_day_map = _early_closure_hours()
+    grid = _build_month_grid(daily, special_days, emp_rate_map, ot_tooltip=True, full_day_map=full_day_map)
     shift_ot_table = grid["shift_ot_table"]
     # Applied to grid["table_rows"] itself (before the deepcopy below) so
     # both tabs show it — a worked Holiday/Paid Holiday/Comp Off should
@@ -2560,6 +2743,10 @@ def _ot_details_context(date_param: str | None) -> dict:
                 "emp_name": r.emp_name,
                 "department": r.department,
                 "ot_hours": hours,
+                # Display-only "Xh Ym" label (see format_hours_as_hm) —
+                # "ot_hours" itself stays decimal since the Excel
+                # download writes it straight into a worksheet cell.
+                "ot_hours_label": metrics.format_hours_as_hm(hours),
                 "ot_rate": rate,
                 "ot_amount": round(hours * rate, 2),
             })
@@ -2575,13 +2762,38 @@ def _ot_details_context(date_param: str | None) -> dict:
                 "department": dept,
                 "headcount": len(emp_rows),
                 "ot_hours": dept_hours,
+                "ot_hours_label": metrics.format_hours_as_hm(dept_hours),
                 "ot_amount": dept_amount,
             })
             summary_rows.extend(emp_rows)
 
     summary_total_hours = round(sum(r["ot_hours"] for r in summary_rows if not r["is_dept"]), 2)
+    # Display-only "Xh Ym" label for the OT View/Full Monthly View tabs'
+    # own "Total OT" footer — summary_total_hours itself stays a plain
+    # decimal number since the Excel download writes it straight into a
+    # worksheet cell (see _ot_details_download_view).
+    summary_total_hours_label = metrics.format_hours_as_hm(summary_total_hours)
     summary_total_amount = round(sum(r["ot_amount"] for r in summary_rows if not r["is_dept"]), 2)
     summary_total_el_days = sum(grid["emp_el_days"].values())
+    summary_total_permission_hours = metrics.format_hours_as_hm(sum(grid["emp_permission_hours"].values()))
+    # Total OT minus Permission Hours, company-wide — same net figure
+    # each row's own "paid_ot_hours" shows, summed the same way (from
+    # grid["emp_ot_totals"]/emp_permission_hours) so the footer can never
+    # drift from what the rows above it add up to.
+    summary_total_paid_ot_hours = metrics.format_hours_as_hm(
+        sum(grid["emp_ot_totals"].values()) - sum(grid["emp_permission_hours"].values()), allow_negative=True
+    )
+
+    # Surfaced on the Monthly Summary tab as a callout — see
+    # _is_unconfirmed_special_worked. Computed from editable_table_rows
+    # (before _restrict_to_ot_cells mutates the original grid["table_rows"]
+    # it was deep-copied from), so this always reflects real punch data
+    # regardless of whether the cell ends up visible on Full Monthly View.
+    unconfirmed_special_worked = [
+        {"label": row["label"].strip(), "date_label": date_cls.fromisoformat(cell["date_iso"]).strftime("%d %b")}
+        for row in editable_table_rows if not row["is_dept"]
+        for cell in row["day_cells"] if _is_unconfirmed_special_worked(cell)
+    ]
 
     top3_codes = {r["emp_code"] for r in summary_rows if not r["is_dept"] and r.get("is_top3")}
     table_rows = _restrict_to_ot_cells(_ot_only_rows(grid["table_rows"]))
@@ -2596,15 +2808,20 @@ def _ot_details_context(date_param: str | None) -> dict:
         "empty": False,
         "summary_rows": summary_rows,
         "summary_total_hours": summary_total_hours,
+        "summary_total_hours_label": summary_total_hours_label,
         "summary_total_amount": summary_total_amount,
         "summary_total_el_days": summary_total_el_days,
+        "summary_total_permission_hours": summary_total_permission_hours,
+        "summary_total_paid_ot_hours": summary_total_paid_ot_hours,
+        "unconfirmed_special_worked": unconfirmed_special_worked,
         "day_headers": grid["day_headers"],
         "table_rows": table_rows,
         # Not grid["total_cols"] — that's sized for dashboard.html's grid,
-        # which renders 5 extra summary_cols (Work Days/Comp Off/etc.)
-        # this report's grid never shows (label + day columns + Total
-        # OT/EL Days/OT Rate/OT Amount only).
-        "total_cols": 1 + len(grid["day_headers"]) + 4,
+        # which renders its own (longer) summary_cols (Work Days/Comp
+        # Off/etc.) this report's grid never shows (label + day columns +
+        # Total OT/EL Days/Permission Hours/Paid OT Hours/OT Rate/OT
+        # Amount only).
+        "total_cols": 1 + len(grid["day_headers"]) + 6,
         "heat_colors": metrics.HEAT_COLORS,
         # For the editable OT View tab (moved here from the Attendance
         # dashboard) — the full roster (not just employees with OT this

@@ -62,20 +62,41 @@ def recompute_from_punch(time_in: str, time_out: str) -> tuple[float, str]:
     return hours, status
 
 
-def infer_working_days(daily: pd.DataFrame) -> int:
+def infer_working_days(daily: pd.DataFrame, special_days: dict | None = None) -> int:
     """Default working-day count: distinct dates present in the file that
     aren't a day off. A date counts as off if every employee is marked Week
-    Off that day (WO can legitimately vary per employee), or if *any*
-    employee is marked Holiday that day (H only ever comes from the
-    company-wide SpecialDay calendar — apply_special_days only sets it for
-    employees who didn't work, so one person working through a Holiday
-    shouldn't stop it counting as a day off for everyone else). Callers can
-    override this (the original sheet allowed manual entry, e.g. 26 or 27)."""
+    Off that day (WO can legitimately vary per employee), or if the
+    company calendar itself declares that date a Holiday (special_days,
+    date -> day_type, from SpecialDay — see apply_special_days).
+
+    Checking the calendar's own declared day_type here, rather than
+    scanning each employee's post-overlay status column for "any Holiday"
+    (the previous heuristic), matters since edit_record_view can now
+    downgrade one specific employee's Paid Holiday credit to plain
+    Holiday (see SpecialDay.downgraded_employees) — with the old
+    per-status heuristic, that one person's individually-revoked "H"
+    would satisfy "*any* employee is Holiday" and wrongly knock the whole
+    date out of working_days for every other employee too, corrupting
+    their Personal Leave figures as a side effect of someone else's
+    unrelated edit. Falls back to the old any-Holiday-status heuristic
+    when special_days isn't given, for callers with no calendar handy.
+
+    Callers can override this (the original sheet allowed manual entry,
+    e.g. 26 or 27)."""
     if daily.empty:
         return 0
-    off_per_date = daily.groupby("date")["status"].apply(
-        lambda s: (s == STATUS_WEEK_OFF).all() or (s == STATUS_HOLIDAY).any()
-    )
+    if special_days:
+        holiday_dates = {d for d, day_type in special_days.items() if day_type == STATUS_HOLIDAY}
+        off_per_date = daily.groupby("date")["status"].apply(
+            lambda s: (s == STATUS_WEEK_OFF).all()
+        )
+        off_per_date = off_per_date | pd.Series(
+            {d: pd.Timestamp(d).date() in holiday_dates for d in off_per_date.index}
+        )
+    else:
+        off_per_date = daily.groupby("date")["status"].apply(
+            lambda s: (s == STATUS_WEEK_OFF).all() or (s == STATUS_HOLIDAY).any()
+        )
     all_dates = daily["date"].nunique()
     off_dates = int(off_per_date.sum())
     working_days = all_dates - off_dates
@@ -332,23 +353,59 @@ def department_grouped_summary(emp_summary: pd.DataFrame) -> pd.DataFrame:
 
 
 def month_attendance_view(
-    daily: pd.DataFrame, working_days: int | None = None, dates: list | None = None
+    daily: pd.DataFrame, working_days: int | None = None, dates: list | None = None,
+    full_day_map: dict | None = None,
 ) -> tuple:
     """Single wide table matching the original Month_Attendance pivot sheet:
     a department label row (grouping only, no aggregated values) followed
     by its employees indented below, one column per day-of-month with the
     day's work hours, and summary columns on the right (Work Days = present
-    days, CompOff, Time Off, Paid Holiday, Personal Leave).
+    days, CompOff, EL, Paid Holiday, Personal Leave, Missing Punch, Short
+    Days, Permission Hours).
 
-    "Time Off" is credited per day using the same tiered thresholds as
+    "EL" (labeled that way rather than "Time Off" — same underlying
+    figure) is credited per day using the same tiered thresholds as
     Work Days (work_day_credit: <=3h -> 0, <=5.5h -> half day, >5.5h ->
     full day), applied to ot_hours instead of work_hours, then summed —
     and only for employees whose subcategory is "Staff" (everyone else
-    shows blank, this metric doesn't apply to them).
+    shows blank, this metric doesn't apply to them). Excludes
+    special_worked days (a worked Holiday/Paid Holiday/Comp Off folds
+    its whole span into ot_hours too — see apply_special_days — but
+    that's real work done, not time taken off) and missing-punch days,
+    same exclusions Work Days already applies via
+    _work_day_credit_series.
 
     "Personal Leave" = working_days - (Paid Holiday + Work Days + Comp
-    Off), same formula as employee_summary()'s absent_days. working_days
-    defaults to infer_working_days(daily) if not given explicitly.
+    Off + Missing Punch) — similar to employee_summary()'s absent_days,
+    but also excludes Missing Punch days (see below) so an incomplete
+    punch pair doesn't get double-counted as if it were Personal Leave
+    on top of its own column. working_days defaults to
+    infer_working_days(daily) if not given explicitly.
+
+    "Missing Punch" counts that employee's one-sided punch days that
+    month (see punch_issues) — a real in-punch with no out, or vice
+    versa — so the count of red "punch-issue" cells in that employee's
+    row is visible without having to switch to the Missed Punch view and
+    count them by eye.
+
+    "Short Days" counts days worked short of the usual 8.5h full day (see
+    is_short_hours — a real day worked, 5h-8.5h, with the 5h floor
+    separating it from a much-shorter "red" heat-map day) — for every
+    employee, not just Staff. Excludes special_worked days, same
+    reasoning as EL above.
+
+    "Permission Hours" sums the shortfall (that date's expected full day
+    minus actual worked hours) across those same Short Days — e.g. two
+    days worked 7h each against an 8.5h expectation is 2 Short Days and
+    3h Permission Hours (1.5h short each) — so a monthly Permission
+    allowance can be tracked in hours, not just a day count. Shown as a
+    compact "Xh Ym"/"Ym" label (see format_hours_as_hm) rather than
+    decimal hours.
+
+    full_day_map (date -> hours, from EarlyClosureDay) lowers the
+    expected full day below 8.5h for specific dates (e.g. a sanctioned
+    early closure) for both Short Days and Permission Hours — a date
+    with no entry keeps the standard 8.5h.
 
     Returns (table, day_columns) — day_columns lists which columns are the
     per-day hours, so callers can style/colour just those.
@@ -376,24 +433,76 @@ def month_attendance_view(
 
     def emp_counts(g: pd.DataFrame) -> dict:
         is_staff = "subcategory" in g.columns and (g["subcategory"] == "Staff").any()
-        time_off = round(float(g["ot_hours"].apply(work_day_credit).sum()), 1) if is_staff else ""
+        # Same one-sided-punch definition as punch_issues() (a real
+        # in-punch with no out, or vice versa) — computed once per
+        # employee here and reused below, instead of calling that
+        # function directly which would mean re-grouping the same rows a
+        # second time.
+        missing_punch_mask = g["time_in"].apply(_punch_missing) != g["time_out"].apply(_punch_missing)
+        missing_punch = int(missing_punch_mask.sum())
+        # A real day worked but short of that date's expected full day
+        # (see is_short_hours — 8.5h normally, less on an EarlyClosureDay)
+        # — excludes worked special days the same way Work Days/EL do,
+        # since a day someone worked only part of a Holiday/Paid Holiday/
+        # Comp Off through isn't "showed up short-handed", it's a partial
+        # holiday worked.
+        g_full_day = g["date"].dt.date.map(full_day_map or {}).astype(float).fillna(8.5)
+        short_mask = pd.Series(
+            [is_short_hours(h, fd) for h, fd in zip(g["work_hours"], g_full_day)], index=g.index,
+        )
+        if "special_worked" in g.columns:
+            short_mask = short_mask & ~g["special_worked"]
+        short_days = int(short_mask.sum())
+        # Total shortfall (that date's expected full day minus actual
+        # worked hours) across those same short days — the hours count
+        # towards, e.g., a monthly Permission allowance, rather than
+        # just how many days it happened on.
+        permission_hours = round(float((g_full_day - g["work_hours"]).where(short_mask, 0.0).sum()), 2)
+        if is_staff:
+            # A worked Holiday/Paid Holiday/Comp Off (special_worked)
+            # folds the whole day's hours into ot_hours (see
+            # apply_special_days) so it still shows as OT — but that
+            # means it's actual work done, not time taken off, and
+            # crediting it here would count a worked holiday as if the
+            # person had the day off. Excluded the same way
+            # _work_day_credit_series excludes it from Work Days, plus
+            # the same missing-punch exclusion for consistency.
+            time_off_credit = g["ot_hours"].apply(work_day_credit)
+            if "special_worked" in g.columns:
+                time_off_credit = time_off_credit.where(~g["special_worked"], 0.0)
+            time_off_credit = time_off_credit.where(~missing_punch_mask, 0.0)
+            time_off = round(float(time_off_credit.sum()), 1)
+        else:
+            time_off = ""
         work_days = round(float(_work_day_credit_series(g).sum()), 1)
         comp_off = int((g["status"] == STATUS_COMP_OFF).sum())
         paid_holiday = int((g["status"] == STATUS_PAID_HOLIDAY).sum())
-        personal_leave = max(round(working_days - (work_days + paid_holiday + comp_off), 1), 0)
+        # Personal Leave is everything working_days doesn't otherwise
+        # account for — subtracting missing_punch here too keeps those
+        # days from being double-counted as Personal Leave on top of
+        # their own dedicated column (a broken punch pair isn't evidence
+        # someone took leave, just that their attendance data is
+        # incomplete for that day).
+        personal_leave = max(round(working_days - (work_days + paid_holiday + comp_off + missing_punch), 1), 0)
         return {
             "Work Days": work_days,
             "Comp Off": comp_off or "",
-            "Time Off": time_off,
+            "EL": time_off,
             "Paid Holiday": paid_holiday or "",
             "Personal Leave": personal_leave,
+            "Missing Punch": missing_punch or "",
+            "Short Days": short_days or "",
+            "Permission Hours": format_hours_as_hm(permission_hours),
         }
 
     per_emp_counts = {
         key: emp_counts(g) for key, g in daily.groupby(["department", "emp_code", "emp_name"])
     }
 
-    summary_cols = ["Work Days", "Comp Off", "Time Off", "Paid Holiday", "Personal Leave"]
+    summary_cols = [
+        "Work Days", "Comp Off", "EL", "Paid Holiday", "Personal Leave",
+        "Missing Punch", "Short Days", "Permission Hours",
+    ]
     rows = []
     for dept in sorted(hours_pivot.index.get_level_values("department").unique()):
         dept_block = hours_pivot.xs(dept, level="department")
@@ -525,7 +634,91 @@ def hours_heat_band(value) -> str | None:
     return "veryhigh"
 
 
-def apply_special_days(daily: pd.DataFrame, special_days: dict) -> pd.DataFrame:
+# A shortfall this small or less (10 minutes) is ignored entirely — not
+# flagged, not counted toward Permission Hours — rather than counting
+# the full gap once past it, matching a typical grace-period convention
+# (a company grace period excuses being a few minutes short, it doesn't
+# just discount the first 10 minutes off someone who's short by more).
+_SHORT_HOURS_GRACE = 10 / 60
+
+def is_short_hours(value, full_day_hours=8.5) -> bool:
+    """True for a real day worked but short of that date's expected full
+    day (8.5h normally, or a lower figure on an EarlyClosureDay — see
+    attendance/views.py's _early_closure_hours) by more than the grace
+    period (_SHORT_HOURS_GRACE) — floored 3.5h below the full-day figure
+    (same width as the standard 5-8.5h band) so this stays distinct from
+    a "red" very-short day. Kept separate from hours_heat_band/
+    HEAT_COLORS (which still match the original workbook's own
+    background bands unchanged) — this only drives a text-color flag on
+    top of whichever background band the cell already has, not a
+    background of its own."""
+    if value == "" or value is None or pd.isna(value):
+        return False
+    value = float(value)
+    full_day_hours = float(full_day_hours)
+    floor = max(0.5, full_day_hours - 3.5)
+    return floor <= value < (full_day_hours - _SHORT_HOURS_GRACE)
+
+
+def permission_hours_by_employee(daily: pd.DataFrame, full_day_map: dict | None = None) -> dict:
+    """Per-employee total Permission Hours — the shortfall (that date's
+    expected full day, see is_short_hours, minus actual worked hours)
+    summed across each employee's Short Days that month, excluding
+    special_worked days. Same figure as month_attendance_view's own
+    "Permission Hours" summary column, computed independently here (a
+    plain groupby over the whole DataFrame rather than per-employee-
+    group) so _build_month_grid (the OT page's day-grids) can show it
+    without building that function's whole department/employee pivot
+    just for this one number.
+
+    full_day_map (date -> hours, from EarlyClosureDay) overrides the
+    default 8.5h for specific dates; a date with no entry keeps 8.5h."""
+    if daily.empty:
+        return {}
+    full_day_map = full_day_map or {}
+    full_day_series = daily["date"].dt.date.map(full_day_map).astype(float).fillna(8.5)
+    short_mask = pd.Series(
+        [is_short_hours(h, fd) for h, fd in zip(daily["work_hours"], full_day_series)],
+        index=daily.index,
+    )
+    if "special_worked" in daily.columns:
+        short_mask = short_mask & ~daily["special_worked"]
+    shortfall = (full_day_series - daily["work_hours"]).where(short_mask, 0.0)
+    return shortfall.groupby(daily["emp_code"]).sum().round(2).to_dict()
+
+
+def format_hours_as_hm(hours, allow_negative: bool = False) -> str:
+    """Decimal hours as a compact "Xh Ym"/"Ym" label instead — e.g. 0.9h
+    -> "54m", 1.5h -> "1h 30m" — for short-day shortfalls and Permission
+    Hours, where a fraction of an hour (e.g. "0.9") reads less naturally
+    than a minutes breakdown. Blank in, blank out (so a zero/blank
+    Permission Hours cell stays blank rather than becoming "0m").
+
+    allow_negative=True (for Paid OT Hours, which can genuinely go
+    negative when Permission Hours exceeds OT earned that month) instead
+    prefixes a negative result with "-" — e.g. -0.5h -> "-30m" — rather
+    than blanking it the way a zero/negative shortfall or Permission
+    total (which should never actually happen) would be."""
+    if hours is None or hours == "":
+        return ""
+    hours = float(hours)
+    if not allow_negative and hours <= 0:
+        return ""
+    sign = "-" if hours < 0 else ""
+    total_minutes = round(abs(hours) * 60)
+    if total_minutes <= 0:
+        return "" if not allow_negative else "0m"
+    h, m = divmod(total_minutes, 60)
+    if h and m:
+        return f"{sign}{h}h {m}m"
+    if h:
+        return f"{sign}{h}h"
+    return f"{sign}{m}m"
+
+
+def apply_special_days(
+    daily: pd.DataFrame, special_days: dict, downgraded: dict | None = None, skip: dict | None = None,
+) -> pd.DataFrame:
     """Overlays a company-wide Holiday/Paid Holiday/Comp Off calendar (see
     the SpecialDay model) onto the daily attendance DataFrame before
     metrics are computed. special_days maps date -> "H"/"PH"/"CO".
@@ -533,7 +726,19 @@ def apply_special_days(daily: pd.DataFrame, special_days: dict) -> pd.DataFrame:
     All three types apply to everyone on that date, unconditionally —
     status is overridden regardless of whether the employee actually came
     in, so Working Days / Paid Holiday / Comp Off counts always credit the
-    whole company for that date, matching the source workbook.
+    whole company for that date, matching the source workbook — except:
+
+    - anyone in downgraded (date -> set of emp_codes, from SpecialDay.
+      downgraded_employees) gets plain "H" (Holiday, unpaid) instead of
+      the date's real day_type — e.g. a declared Paid Holiday most
+      employees get paid for, but a few (say, still on probation) only
+      get as an unpaid Holiday. Meaningless (a no-op) on a date whose
+      day_type is already "H", since there's nothing to downgrade from.
+    - anyone in skip (date -> set of emp_codes — see
+      _special_days_and_downgrades' blanket Contractor/Paid-Holiday rule
+      in attendance/views.py) is left completely untouched, as if this
+      date had no calendar entry for them at all: their attendance for
+      that date is computed exactly like an ordinary day.
 
     Separately, anyone who *did* work that day gets it folded into
     ot_hours (so Time Off picks it up) and flagged via the "special_worked"
@@ -547,14 +752,27 @@ def apply_special_days(daily: pd.DataFrame, special_days: dict) -> pd.DataFrame:
     daily["special_worked"] = False
     if daily.empty or not special_days:
         return daily
+    downgraded = downgraded or {}
+    skip = skip or {}
     for raw_date, day_type in special_days.items():
         if day_type not in (STATUS_HOLIDAY, STATUS_PAID_HOLIDAY, STATUS_COMP_OFF):
             continue
         mask = daily["date"] == pd.Timestamp(raw_date)
         if not mask.any():
             continue
+        skip_codes = skip.get(raw_date)
+        if skip_codes:
+            mask = mask & ~daily["emp_code"].isin(skip_codes)
+            if not mask.any():
+                continue
+        downgraded_codes = downgraded.get(raw_date)
+        downgraded_mask = (
+            mask & daily["emp_code"].isin(downgraded_codes) if downgraded_codes
+            else pd.Series(False, index=daily.index)
+        )
         worked = mask & (daily["work_hours"] > 0)
-        daily.loc[mask, "status"] = day_type
+        daily.loc[mask & ~downgraded_mask, "status"] = day_type
+        daily.loc[downgraded_mask, "status"] = STATUS_HOLIDAY
         daily.loc[worked, "ot_hours"] = daily.loc[worked, ["ot_hours", "work_hours"]].max(axis=1)
         daily.loc[worked, "special_worked"] = True
     return daily
@@ -564,10 +782,17 @@ def _work_day_credit_series(g: pd.DataFrame) -> pd.Series:
     """Per-row Work Day credit for a group, zeroing out any day flagged
     special_worked (a Paid Holiday/Holiday/Comp Off someone worked through
     — that day's hours count toward Time Off instead, via apply_special_days
-    folding them into ot_hours)."""
+    folding them into ot_hours), and any day with a one-sided missing
+    punch (see punch_issues — a real in-punch with no out, or vice versa).
+    An incomplete punch pair can't be trusted to reflect a real full/half
+    day worked, so it's excluded here regardless of whatever work_hours
+    value happens to be stored for it, rather than relying on that
+    already (usually) being zero."""
     credit = g["work_hours"].apply(work_day_credit)
     if "special_worked" in g.columns:
         credit = credit.where(~g["special_worked"], 0.0)
+    missing_punch = g["time_in"].apply(_punch_missing) != g["time_out"].apply(_punch_missing)
+    credit = credit.where(~missing_punch, 0.0)
     return credit
 
 

@@ -182,6 +182,12 @@ class AttendanceRecord(models.Model):
     batch = models.ForeignKey(
         UploadBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name="records"
     )
+    # Set whenever HR corrects this row by hand (edit_record_view's
+    # single-cell popup, or bulk_set_shift_view's whole-day action) —
+    # never touched by the importer itself, so it stays a reliable "did
+    # a person change this, not just the device export" flag for
+    # Device Records to visually call out (see dashboard.html).
+    manually_edited = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["employee__code", "date"]
@@ -273,8 +279,10 @@ class MonthLock(models.Model):
 
 class SpecialDay(models.Model):
     """A company-wide calendar entry — applies to every employee on that
-    date. Set up on the /calendar/ page and overlaid onto attendance data
-    before metrics are computed (see src/metrics.apply_special_days)."""
+    date, except anyone listed in downgraded_employees, who get plain
+    Holiday (unpaid) instead of this date's real day_type (see
+    src/metrics.apply_special_days) — set up on the /calendar/ page and
+    overlaid onto attendance data before metrics are computed."""
 
     HOLIDAY = "H"
     PAID_HOLIDAY = "PH"
@@ -288,12 +296,65 @@ class SpecialDay(models.Model):
     date = models.DateField(unique=True)
     day_type = models.CharField(max_length=2, choices=TYPE_CHOICES)
     name = models.CharField(max_length=150, blank=True)
+    # Employees downgraded to plain Holiday (unpaid) on this date instead
+    # of its real day_type — e.g. a declared Paid Holiday that only some
+    # employees (say, those still on probation) actually get paid for;
+    # everyone else still gets the real day_type. Meaningless when
+    # day_type is already "H" (nothing to downgrade from).
+    downgraded_employees = models.ManyToManyField(
+        "Employee", blank=True, related_name="downgraded_special_days",
+    )
 
     class Meta:
         ordering = ["date"]
 
     def __str__(self):
         return f"{self.date} ({self.get_day_type_display()})"
+
+
+class EarlyClosureDay(models.Model):
+    """A date the whole company closes earlier than usual (e.g. a half
+    day before a festival) — company-wide, like SpecialDay. closing_time
+    (e.g. 14:30) is what HR actually knows and enters; full_day_hours
+    (the hours between the standard 9:00 AM start and closing_time)
+    replaces the standard 8.5h "what counts as a full day" baseline for
+    everyone on this date, so leaving at the sanctioned earlier time
+    isn't flagged as a Short Day or docked Permission Hours the way an
+    ordinary shortfall would be (see
+    src/metrics.is_short_hours/permission_hours_by_employee, and
+    attendance/views.py's _early_closure_hours). Doesn't touch
+    Holiday/Paid Holiday/Comp Off status at all — this is purely about
+    the expected-hours baseline, an orthogonal concept to SpecialDay."""
+
+    # Matches src/metrics.py's own _OT_NINE_AM — the one fixed reference
+    # point every shift-based OT/lateness calculation in this app already
+    # measures from, so "closes at 14:30" and "M-OT before 9:00 AM" agree
+    # on what "the start of the day" means.
+    STANDARD_START_HOUR = 9
+
+    date = models.DateField(unique=True)
+    closing_time = models.TimeField(
+        help_text="What time the company actually closes on this date (e.g. 14:30) — "
+                  "the expected full day for Short Days/Permission Hours is computed "
+                  "from this minus the standard 9:00 AM start.",
+    )
+    note = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ["date"]
+
+    def __str__(self):
+        return f"{self.date} (closes at {self.closing_time:%H:%M})"
+
+    @property
+    def full_day_hours(self) -> float:
+        """Hours between the standard 9:00 AM start and this date's
+        closing_time — see the class docstring."""
+        minutes = (
+            self.closing_time.hour * 60 + self.closing_time.minute
+            - self.STANDARD_START_HOUR * 60
+        )
+        return round(max(minutes, 0) / 60, 2)
 
 
 class CashWithdrawal(models.Model):
