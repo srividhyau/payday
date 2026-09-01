@@ -25,8 +25,8 @@ from src import metrics, payroll
 from .forms import UploadForm
 from .importer import import_file
 from .models import (
-    AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, Employee, LeaveLedgerEntry, MonthLock,
-    SalaryAdjustment, SpecialDay, UploadBatch,
+    AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, Employee, EmploymentPeriod, LeaveLedgerEntry,
+    MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,21 @@ def upload_view(request):
 
 
 def _load_daily_data() -> pd.DataFrame:
-    """Loads all attendance records into a DataFrame shaped for src/metrics.py."""
+    """Loads all attendance records into a DataFrame shaped for src/metrics.py.
+
+    Excludes any row whose date falls outside every one of that
+    employee's EmploymentPeriod ranges (employees with no periods
+    recorded at all are left alone — same leniency EmployeeQuerySet's
+    active_on()/active_during() already use). This matters because the
+    eSSL device export still lists a terminated employee's ID (it
+    doesn't know they left) and auto-marks them Absent every day, so a
+    re-upload can silently create a real AttendanceRecord for someone
+    long gone — active_on()/active_during() correctly keep such people
+    out of the Attendance/OT/Salary employee *lists*, but without this
+    filter here their leftover Absent row would still show up in every
+    page built from this data (Dashboard, OT Details, Salary...), since
+    none of them re-derive "was this person actually employed on this
+    date" themselves."""
     rows = AttendanceRecord.objects.select_related("employee", "employee__department").values(
         "employee__code", "employee__name", "employee__department__name", "employee__designation",
         "employee__category", "employee__subcategory", "employee__company",
@@ -113,7 +127,22 @@ def _load_daily_data() -> pd.DataFrame:
     })
     df["department"] = df["department"].fillna("Unassigned")
     df["date"] = pd.to_datetime(df["date"])
-    return df
+
+    periods_by_code: dict[str, list[tuple]] = {}
+    for p in EmploymentPeriod.objects.values("employee__code", "start_date", "end_date"):
+        periods_by_code.setdefault(p["employee__code"], []).append((p["start_date"], p["end_date"]))
+
+    def _covered(emp_code: str, dt) -> bool:
+        periods = periods_by_code.get(emp_code)
+        if not periods:
+            return True
+        d = dt.date()
+        return any(start <= d and (end is None or d <= end) for start, end in periods)
+
+    covered_mask = [
+        _covered(row.emp_code, row.date) for row in df.itertuples(index=False)
+    ]
+    return df[covered_mask].reset_index(drop=True)
 
 
 def _ot_payable_table(shift_ot_table: pd.DataFrame, staff_codes: set) -> pd.DataFrame:
@@ -414,6 +443,17 @@ def _restrict_to_ot_cells(table_rows: list) -> list:
     return table_rows
 
 
+def _attendance_visible_mask(daily: pd.DataFrame, departments: list[str]):
+    """Boolean mask selecting rows whose department is in `departments`
+    (case-insensitive) — None if `departments` is empty, meaning "no
+    restriction, keep every row" (dashboard_view treats None that way).
+    See settings.ATTENDANCE_VISIBLE_DEPARTMENTS."""
+    if not departments:
+        return None
+    wanted = {d.lower() for d in departments}
+    return daily["department"].str.lower().isin(wanted)
+
+
 @login_required
 def dashboard_view(request):
     """Server-rendered Month Attendance dashboard: KPIs, department
@@ -458,6 +498,9 @@ def dashboard_view(request):
     }
 
     daily = daily_all[(daily_all["date"].dt.year == year) & (daily_all["date"].dt.month == month)]
+    visible_mask = _attendance_visible_mask(daily, settings.ATTENDANCE_VISIBLE_DEPARTMENTS)
+    if visible_mask is not None:
+        daily = daily[visible_mask]
     if daily.empty:
         return render(request, "attendance/dashboard.html", {"empty": True, **month_nav})
 

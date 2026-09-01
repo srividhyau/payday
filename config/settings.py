@@ -36,6 +36,19 @@ if _env_file.exists():
 # var in any real deployment; this default is only for local dev.
 ATTENDANCE_LOCK_PIN = os.environ.get('ATTENDANCE_LOCK_PIN', '1234')
 
+# Employee.department names to show on the Dashboard/Device Records
+# grid (an allow-list, case-insensitive) — e.g. ["PRODUCTION DEPARTMENT",
+# "FINISHING DEPARTMENT"]. Empty means no restriction — every department
+# shows, same as before this setting existed. Doesn't affect Mark
+# Attendance, OT Details, or Salary, which build their own employee
+# lists independently of this. Current department names in the data:
+# PRODUCTION DEPARTMENT, Operator, FINISHING DEPARTMENT,
+# CUTTING DEPARTMENT, MV STAFFS, Fixed Payments, DefaultDepartment,
+# Contractor, Ironing & Bartrack, HOUSE KEEPING.
+ATTENDANCE_VISIBLE_DEPARTMENTS = [
+    "FINISHING DEPARTMENT", "CUTTING DEPARTMENT", "MV STAFFS", "HOUSE KEEPING", "Contractor",
+]
+
 # Telegram notification sent when attendance is saved from Mark Attendance's
 # Posted to one topic (message_thread_id) per feature area in a single
 # group chat, so a bot token + chat id are required plus one topic id per
