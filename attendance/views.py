@@ -1685,18 +1685,25 @@ _SALARY_TAB_KEYS = [
     ("staff", "Staff", "staff_rows"),
     ("contractors", "Contractors", "contractor_rows"),
     ("operators", "Operators", "operator_rows"),
+    ("fixed_payments", "Fixed Payments", "fixed_payment_rows"),
 ]
 
 # tab_key -> MonthLock.view constant — each Salary tab locks/unlocks
 # independently (e.g. Company Workers can be finalized while Operators is
 # still being entered), same PIN-gated mechanism as the Attendance
-# dashboard/OT page (see toggle_month_lock_view).
+# dashboard/OT page (see toggle_month_lock_view). Keys must match the
+# hidden "tab" field each tab's save <form> posts (salary.html) exactly —
+# "helpers" (plural), not "helper", since that's what the Helpers form
+# actually sends; a prior mismatch here silently skipped the server-side
+# lock check for that one tab (the UI's disabled fieldset still blocked
+# normal use, but a direct POST wouldn't have been refused).
 _SALARY_LOCK_VIEWS = {
     "company": MonthLock.VIEW_SALARY_COMPANY,
-    "helper": MonthLock.VIEW_SALARY_HELPER,
+    "helpers": MonthLock.VIEW_SALARY_HELPER,
     "staff": MonthLock.VIEW_SALARY_STAFF,
     "contractors": MonthLock.VIEW_SALARY_CONTRACTORS,
     "operators": MonthLock.VIEW_SALARY_OPERATORS,
+    "fixed_payments": MonthLock.VIEW_SALARY_FIXED_PAYMENTS,
 }
 
 
@@ -1774,6 +1781,20 @@ def _salary_context(current: date_cls) -> dict:
                 )
             elif kind == "operators":
                 calc = payroll.compute_operator_pay(manual_amount, deductions, additions)
+            elif kind == "fixed_payments":
+                # A recurring flat amount set once on the Employee record
+                # (Basic Salary — reused the same way Contractors reuse it
+                # as a day rate) rather than typed in fresh via manual
+                # amount every month.
+                calc = payroll.compute_operator_pay(emp.basic_salary, deductions, additions)
+            elif kind == "contractors":
+                # Contractors are paid per day actually worked, not a fixed
+                # monthly salary — Employee.basic_salary holds their day
+                # rate for this group (reused rather than a separate field,
+                # since it's otherwise unused for Contractors).
+                calc = payroll.compute_daily_rate_pay(
+                    emp.basic_salary, paid_days, adjust_days, deductions, additions,
+                )
             else:
                 calc = payroll.compute_prorated_pay(
                     emp.basic_salary, paid_days, working_days, adjust_days, deductions, additions,
@@ -1816,7 +1837,7 @@ def _salary_context(current: date_cls) -> dict:
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
             totals["da"] = sum((r["employee"].da for r in rows), Decimal(0))
             totals["hra"] = sum((r["employee"].hra for r in rows), Decimal(0))
-        elif kind in ("helper", "staff", "contractors"):
+        elif kind in ("helper", "staff", "contractors", "fixed_payments"):
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
         elif kind == "operators":
             totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
@@ -1848,31 +1869,82 @@ def _salary_context(current: date_cls) -> dict:
         "lock_status": lock_status,
     }
     for tab_key, _label, subcategory in _SALARY_SUBCATEGORY_TABS:
+        emp_filter = Q(subcategory__iexact=subcategory)
+        # House Keeping employees don't consistently carry subcategory
+        # "Helper" (one has it blank, per Employee data) but are paid the
+        # same prorated way — folded into the Helpers tab by department
+        # instead of leaving them off the Salary page (and Summary tab)
+        # entirely.
+        if tab_key == "helper":
+            emp_filter |= Q(department__name__iexact="HOUSE KEEPING")
         employees = (
-            Employee.objects.filter(subcategory__iexact=subcategory)
-            .active_during(month_start, month_end).order_by("name")
+            Employee.objects.filter(emp_filter)
+            .active_during(month_start, month_end).order_by("department__name", "name")
         )
         rows = build_rows(employees, tab_key)
         context[f"{tab_key}_rows"] = rows
         context[f"{tab_key}_totals"] = sum_rows(rows, tab_key)
     contractor_rows = build_rows(
-        Employee.objects.filter(department__name__iexact="Contractor").active_during(month_start, month_end).order_by("name"),
+        Employee.objects.filter(department__name__iexact="Contractor")
+        .active_during(month_start, month_end).order_by("department__name", "name"),
         "contractors",
     )
     context["contractor_rows"] = contractor_rows
     context["contractor_totals"] = sum_rows(contractor_rows, "contractors")
     operator_rows = build_rows(
-        Employee.objects.filter(category__iexact="Operator").active_during(month_start, month_end).order_by("name"),
+        Employee.objects.filter(category__iexact="Operator")
+        .active_during(month_start, month_end).order_by("department__name", "name"),
         "operators",
     )
     context["operator_rows"] = operator_rows
     context["operator_totals"] = sum_rows(operator_rows, "operators")
+    # Fixed Payments — recurring flat payments to specific individuals
+    # (e.g. rent) that ride along on the Salary page for convenience but
+    # aren't tied to attendance at all. The flat amount comes straight
+    # from Employee.basic_salary (set once, not re-entered every month —
+    # see build_rows's "fixed_payments" branch), unlike Operators' own
+    # manual_amount which really is typed in fresh each month.
+    fixed_payment_rows = build_rows(
+        Employee.objects.filter(department__name__iexact="Fixed Payments")
+        .active_during(month_start, month_end).order_by("department__name", "name"),
+        "fixed_payments",
+    )
+    context["fixed_payment_rows"] = fixed_payment_rows
+    context["fixed_payment_totals"] = sum_rows(fixed_payment_rows, "fixed_payments")
+
+    # Summary tab — one row per salary group: headcount and NET total
+    # (the one figure every group's rows carry in common — see
+    # build_rows/sum_rows above — Gross/PF/ESI/Deductions/Additions vary
+    # per group or aren't always meaningful across all five, so they're
+    # left out of this cross-group rollup), plus a grand total row
+    # summing every group together.
+    summary_rows = []
+    for label, rows_key, totals_key in [
+        ("Company Workers", "company_rows", "company_totals"),
+        ("Helpers", "helper_rows", "helper_totals"),
+        ("Staff", "staff_rows", "staff_totals"),
+        ("Contractors", "contractor_rows", "contractor_totals"),
+        ("Operators", "operator_rows", "operator_totals"),
+        ("Fixed Payments", "fixed_payment_rows", "fixed_payment_totals"),
+    ]:
+        totals = context[totals_key]
+        summary_rows.append({
+            "label": label,
+            "count": len(context[rows_key]),
+            "net": totals["calc"].get("net", Decimal(0)),
+        })
+    context["summary_rows"] = summary_rows
+    context["summary_grand_total"] = {
+        "count": sum(r["count"] for r in summary_rows),
+        "net": sum((r["net"] for r in summary_rows), Decimal(0)),
+    }
 
     context["missing_bank_details"] = [
         {"emp_code": r["employee"].code, "emp_name": r["employee"].name, "tab_label": tab_label}
         for tab_label, rows_key in [
             ("Company Workers", "company_rows"), ("Helpers", "helper_rows"), ("Staff", "staff_rows"),
             ("Contractors", "contractor_rows"), ("Operators", "operator_rows"),
+            ("Fixed Payments", "fixed_payment_rows"),
         ]
         for r in context[rows_key]
         if _row_missing_bank_details(r)
@@ -1894,7 +1966,7 @@ def salary_view(request):
         lock_view = _SALARY_LOCK_VIEWS.get(tab)
         if lock_view and MonthLock.objects.filter(year=year, month=month, view=lock_view).exists():
             _error(request, "This tab is locked for this month — unlock it first to make changes.")
-            return redirect(f"{request.path}?date={current.isoformat()}")
+            return redirect(f"{request.path}?date={current.isoformat()}#tab={tab}")
 
         employee_ids = request.POST.getlist("employee_id")
         saved = 0
@@ -1926,7 +1998,7 @@ def salary_view(request):
             "Salary adjustments saved: tab=%s %s-%s saved=%s by user=%s",
             tab, year, month, saved, request.user,
         )
-        return redirect(f"{request.path}?date={current.isoformat()}")
+        return redirect(f"{request.path}?date={current.isoformat()}#tab={tab}")
 
     context = _salary_context(current)
     return render(request, "attendance/salary.html", context)
@@ -2005,11 +2077,14 @@ def _salary_company_sheet_rows(rows, totals):
     return headers, col_groups, data_rows, total_row
 
 
-def _salary_prorated_sheet_rows(rows, totals, with_tds: bool):
+def _salary_prorated_sheet_rows(rows, totals, with_tds: bool, basic_salary_label: str = "Basic Salary"):
     """Helpers/Contractors (with_tds=False) and Staff (with_tds=True) —
-    same compute_prorated_pay shape, Staff just adds a TDS? column."""
+    same shape (a per-employee rate x Earned Days), Staff just adds a
+    TDS? column. basic_salary_label lets Contractors' sheet say "Day
+    Rate" instead, since Employee.basic_salary means something different
+    there (see build_rows/compute_daily_rate_pay in _salary_context)."""
     headers = [
-        "Code", "Employee", "Basic Salary", "Paid Days", "Adjust Days", "Earned Days",
+        "Code", "Employee", basic_salary_label, "Paid Days", "Adjust Days", "Earned Days",
         "Earned Salary", "Deductions", "Additions", "Hold",
     ]
     col_groups = [None, None, "fixed", "attendance", "attendance", "attendance", None, "deduction-emp", None, None]
@@ -2046,21 +2121,57 @@ def _salary_prorated_sheet_rows(rows, totals, with_tds: bool):
     return headers, col_groups, data_rows, total_row
 
 
-def _salary_operator_sheet_rows(rows, totals):
-    headers = ["Code", "Employee", "Earned Days", "Manual Amount", "Deductions", "Additions", "Hold", "Notes", "NET"]
-    col_groups = [None, None, "attendance", "fixed", "deduction-emp", None, None, None, "highlight"]
-    data_rows = [
-        [
-            r["employee"].code, r["employee"].name, float(r["earned_days"]),
-            float(r["manual_amount"] or 0), float(r["deductions"]), float(r["additions"]),
+def _salary_summary_sheet_rows(summary_rows, grand_total):
+    headers = ["Salary Group", "No. of People", "NET"]
+    col_groups = [None, None, "highlight"]
+    data_rows = [[r["label"], r["count"], float(r["net"])] for r in summary_rows]
+    total_row = ["Total", grand_total["count"], float(grand_total["net"])]
+    return headers, col_groups, data_rows, total_row
+
+
+def _salary_operator_sheet_rows(
+    rows, totals, with_earned_days: bool = True, manual_amount_label: str = "Manual Amount",
+    amount_from_basic_salary: bool = False, id_labels: tuple[str, str] = ("Code", "Employee"),
+):
+    """Operators (with_earned_days=True, amount_from_basic_salary=False)
+    tie a hand-typed manual amount to production days worked; Fixed
+    Payments (with_earned_days=False, amount_from_basic_salary=True) are
+    a flat recurring amount read straight from Employee.basic_salary
+    (set once, not re-entered every month) with no attendance tie-in at
+    all, so Earned Days is dropped entirely and the amount column is
+    relabeled "Fixed Payment" to match. id_labels relabels the first two
+    columns — Fixed Payments' payees aren't really "employees" with a
+    "code" (rent, etc.), so the page shows "Purpose"/"Name" for them
+    instead, reusing Employee.code/name as free text rather than adding
+    dedicated fields."""
+    headers = list(id_labels)
+    col_groups = [None, None]
+    if with_earned_days:
+        headers.append("Earned Days")
+        col_groups.append("attendance")
+    headers += [manual_amount_label, "Deductions", "Additions", "Hold", "Notes", "NET"]
+    col_groups += ["fixed", "deduction-emp", None, None, None, "highlight"]
+
+    data_rows = []
+    for r in rows:
+        row = [r["employee"].code, r["employee"].name]
+        if with_earned_days:
+            row.append(float(r["earned_days"]))
+        amount = r["employee"].basic_salary if amount_from_basic_salary else (r["manual_amount"] or 0)
+        row += [
+            float(amount), float(r["deductions"]), float(r["additions"]),
             "Yes" if r["hold"] else "No", r["notes"], float(r["calc"]["net"]),
         ]
-        for r in rows
-    ]
+        data_rows.append(row)
+
     # totals["calc"] is {} when the tab has zero rows this month — see the
     # matching comment in _salary_company_sheet_rows.
-    total_row = [
-        "", "Total", float(totals["earned_days"]), float(totals["manual_amount"]),
+    total_row = ["", "Total"]
+    if with_earned_days:
+        total_row.append(float(totals["earned_days"]))
+    total_amount = totals["basic_salary"] if amount_from_basic_salary else totals["manual_amount"]
+    total_row += [
+        float(total_amount),
         float(totals["deductions"]), float(totals["additions"]), "", "", float(totals["calc"].get("net", 0)),
     ]
     return headers, col_groups, data_rows, total_row
@@ -2131,16 +2242,34 @@ def salary_download_view(request):
     month_label = f"{context['month_name']} {context['year']}"
 
     sheet_builders = {
+        "summary": lambda: _salary_summary_sheet_rows(context["summary_rows"], context["summary_grand_total"]),
         "company": lambda: _salary_company_sheet_rows(context["company_rows"], context["company_totals"]),
         "helper": lambda: _salary_prorated_sheet_rows(context["helper_rows"], context["helper_totals"], with_tds=False),
         "staff": lambda: _salary_prorated_sheet_rows(context["staff_rows"], context["staff_totals"], with_tds=True),
         "contractors": lambda: (
-            _salary_prorated_sheet_rows(context["contractor_rows"], context["contractor_totals"], with_tds=False)
+            _salary_prorated_sheet_rows(
+                context["contractor_rows"], context["contractor_totals"], with_tds=False,
+                basic_salary_label="Day Rate",
+            )
         ),
         "operators": lambda: _salary_operator_sheet_rows(context["operator_rows"], context["operator_totals"]),
+        "fixed_payments": lambda: (
+            _salary_operator_sheet_rows(
+                context["fixed_payment_rows"], context["fixed_payment_totals"],
+                with_earned_days=False, manual_amount_label="Fixed Payment",
+                amount_from_basic_salary=True, id_labels=("Purpose", "Name"),
+            )
+        ),
     }
-    selected_keys = set(request.GET.getlist("tabs")) or {key for key, _, _ in _SALARY_TAB_KEYS}
-    selected = [(label, key) for key, label, _ in _SALARY_TAB_KEYS if key in selected_keys]
+    # "summary" isn't one of _SALARY_TAB_KEYS (that list is shared with the
+    # Bank download, which has no use for an aggregate sheet) — handled
+    # here instead, and placed first to match its position on the page
+    # and in the Telegram/Email pickers.
+    selected_keys = set(request.GET.getlist("tabs")) or ({key for key, _, _ in _SALARY_TAB_KEYS} | {"summary"})
+    selected = []
+    if "summary" in selected_keys:
+        selected.append(("Summary", "summary"))
+    selected += [(label, key) for key, label, _ in _SALARY_TAB_KEYS if key in selected_keys]
     if not selected:
         _error(request, "Select at least one tab to download.")
         return redirect(f"{reverse('salary')}?date={current.isoformat()}")

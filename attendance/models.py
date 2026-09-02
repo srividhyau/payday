@@ -261,6 +261,7 @@ class MonthLock(models.Model):
     VIEW_SALARY_STAFF = "salary_staff"
     VIEW_SALARY_CONTRACTORS = "salary_contractors"
     VIEW_SALARY_OPERATORS = "salary_operators"
+    VIEW_SALARY_FIXED_PAYMENTS = "salary_fixed_payments"
     VIEW_CHOICES = [
         (VIEW_ALL, "All"),
         (VIEW_ISSUES, "Missed Punch"),
@@ -270,6 +271,7 @@ class MonthLock(models.Model):
         (VIEW_SALARY_STAFF, "Salary — Staff"),
         (VIEW_SALARY_CONTRACTORS, "Salary — Contractors"),
         (VIEW_SALARY_OPERATORS, "Salary — Operators"),
+        (VIEW_SALARY_FIXED_PAYMENTS, "Salary — Fixed Payments"),
     ]
 
     year = models.IntegerField()

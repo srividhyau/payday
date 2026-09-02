@@ -114,6 +114,20 @@ def compute_prorated_pay(
     return {"earned_salary": round(earned_salary, 2), "net": round(net, 2)}
 
 
+def compute_daily_rate_pay(
+    day_rate: Decimal, paid_days: Decimal,
+    adjust_days: Decimal = Decimal(0), deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
+) -> dict:
+    """Contractors: paid a flat rate per day actually worked, not a fixed
+    monthly salary — so unlike compute_prorated_pay, this multiplies
+    straight through (day_rate * earned_days) with no working_days
+    denominator at all."""
+    earned_days = paid_days + adjust_days
+    earned_salary = day_rate * earned_days
+    net = earned_salary + additions - deductions
+    return {"earned_salary": round(earned_salary, 2), "net": round(net, 2)}
+
+
 def compute_operator_pay(
     manual_amount: Decimal | None, deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
 ) -> dict:
