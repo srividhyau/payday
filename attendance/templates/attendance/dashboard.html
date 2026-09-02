@@ -325,17 +325,53 @@
            its own, layered on top of whatever heat/special background
            the cell already has. */
         table.month td.short-hours { color: #C62828; font-weight: 700; }
-        /* Manually-edited marker — a small corner triangle (like a
-           spreadsheet comment flag), not a background/text color, so it
-           layers cleanly on top of whatever else the cell already shows
-           (heat band, special day, short-hours text, etc.). The hover
-           tooltip's own ::after (higher specificity via :hover) takes
-           over on hover, so the triangle just steps aside while the
-           tooltip is showing rather than competing with it. */
-        table.month td.editable-cell.manually-edited:not(:hover)::after {
+        /* Manually-edited marker — a corner triangle (top-right, like a
+           spreadsheet comment flag), color-coded by which field(s) were
+           hand-edited (see AttendanceRecord.manually_edited_fields /
+           edit_record_view): blue for a punch in/out fix, magenta for a
+           shift-code change, purple for a forced status. A cell touched
+           on more than one front gets a diagonal-striped fill (one band
+           per kind, via linear-gradient) instead of a single flat color
+           — the explicit :not() combinations below pick the right
+           single/two/three-band fill for whichever combination of
+           edited-* classes the cell actually has. Not a background/text
+           color of the cell itself, so it layers cleanly on top of
+           whatever else the cell already shows. The hover tooltip's own
+           ::after (equal specificity, but :not(:hover) here loses the
+           match on hover) takes over on hover, so the triangle just
+           steps aside while the tooltip is showing rather than
+           competing with it. */
+        table.month td.editable-cell[class*="edited-"]:not(:hover)::after {
             content: ""; position: absolute; top: 0; right: 0;
-            border-style: solid; border-width: 0 8px 8px 0;
-            border-color: transparent #1565C0 transparent transparent;
+            width: 12px; height: 12px;
+            clip-path: polygon(100% 0, 0 0, 100% 100%);
+        }
+        table.month td.editable-cell.edited-time:not(.edited-shift):not(.edited-status):not(:hover)::after {
+            background: #1565C0;
+        }
+        table.month td.editable-cell.edited-shift:not(.edited-time):not(.edited-status):not(:hover)::after {
+            background: #AD1457;
+        }
+        table.month td.editable-cell.edited-status:not(.edited-time):not(.edited-shift):not(:hover)::after {
+            background: #6A1B9A;
+        }
+        table.month td.editable-cell.edited-time.edited-shift:not(.edited-status):not(:hover)::after {
+            background: linear-gradient(135deg, #1565C0 0% 50%, #AD1457 50% 100%);
+        }
+        table.month td.editable-cell.edited-time.edited-status:not(.edited-shift):not(:hover)::after {
+            background: linear-gradient(135deg, #1565C0 0% 50%, #6A1B9A 50% 100%);
+        }
+        table.month td.editable-cell.edited-shift.edited-status:not(.edited-time):not(:hover)::after {
+            background: linear-gradient(135deg, #AD1457 0% 50%, #6A1B9A 50% 100%);
+        }
+        table.month td.editable-cell.edited-time.edited-shift.edited-status:not(:hover)::after {
+            background: linear-gradient(135deg, #1565C0 0% 33%, #AD1457 33% 66%, #6A1B9A 66% 100%);
+        }
+        /* Edited before manually_edited_fields existed (see edited_unknown
+           in views.py) — mutually exclusive with the three above (only
+           set when none of them are), so no combinator variants needed. */
+        table.month td.editable-cell.edited-unknown:not(:hover)::after {
+            background: #757575;
         }
         table.month td.punch-issue { background: #FF4D4D !important; }
 
@@ -627,7 +663,10 @@
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT shift</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT shift</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #1565C0"></span>Full-OT shift</span>
-                <span class="legend-item"><span class="swatch" style="background:#fff;position:relative;overflow:hidden;"><span style="position:absolute;top:0;right:0;border-style:solid;border-width:0 8px 8px 0;border-color:transparent #1565C0 transparent transparent;"></span></span>Manually edited</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;clip-path:polygon(100% 0,0 0,100% 100%);width:10px;height:10px;background-color:#1565C0;"></span>Edited — Punch In/Out</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;clip-path:polygon(100% 0,0 0,100% 100%);width:10px;height:10px;background-color:#AD1457;"></span>Edited — Shift</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;clip-path:polygon(100% 0,0 0,100% 100%);width:10px;height:10px;background-color:#6A1B9A;"></span>Edited — Status</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;clip-path:polygon(100% 0,0 0,100% 100%);width:10px;height:10px;background-color:#757575;"></span>Edited — detail not tracked (before this feature)</span>
             </div>
             <div class="view-switch-row">
                 <div class="view-switch">
@@ -661,7 +700,7 @@
                             {% else %}
                                 <td class="label" title="{{ row.label }}">{{ row.label }}</td>
                             {% for cell in row.day_cells %}
-                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% elif cell.leave %}leave-day{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.is_short %} short-hours{% endif %}{% if cell.manually_edited %} manually-edited{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}EL{% else %}{{ cell.value }}{% endif %}</td>
+                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% elif cell.leave %}leave-day{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.is_short %} short-hours{% endif %}{% if cell.edited_time %} edited-time{% endif %}{% if cell.edited_shift %} edited-shift{% endif %}{% if cell.edited_status %} edited-status{% endif %}{% if cell.edited_unknown %} edited-unknown{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}EL{% else %}{{ cell.value }}{% endif %}</td>
                             {% endfor %}
                             {% for value in row.summary_cells %}
                                 <td class="summary-highlight summary-col-cell">{{ value }}</td>

@@ -243,6 +243,7 @@ def _load_daily_data() -> pd.DataFrame:
         "employee__code", "employee__name", "employee__department__name", "employee__designation",
         "employee__category", "employee__subcategory", "employee__company",
         "date", "shift", "time_in", "time_out", "work_hours", "ot_hours", "status", "manually_edited",
+        "manually_edited_fields",
     )
     df = pd.DataFrame.from_records(rows)
     if df.empty:
@@ -339,6 +340,28 @@ def _apply_staff_ot_display(table_rows: list, shift_ot_table: pd.DataFrame) -> N
             cell["el_day_credit"] = el_day_credit_map.get(key, 0.0)
 
 
+def _merge_edited_fields(existing: str, changed: list[str]) -> str:
+    """Union `changed` field labels ("Punch In"/"Punch Out"/"Shift"/
+    "Status") into the existing comma-separated manually_edited_fields
+    value, preserving first-seen order and never dropping a field a
+    previous edit already recorded, even if this edit didn't touch it."""
+    fields = [f.strip() for f in existing.split(",") if f.strip()]
+    for field in changed:
+        if field not in fields:
+            fields.append(field)
+    return ", ".join(fields)
+
+
+def _append_edited_fields_line(title: str, edited_fields: str) -> str:
+    """Appends an "EDITED - ..." line to a day-cell's punch tooltip (see
+    metrics.punch_time_labels) naming which field(s) a hand edit actually
+    changed, so the tooltip says more than just "this was edited"."""
+    if not edited_fields:
+        return title
+    line = f"EDITED - {edited_fields}"
+    return f"{title}\n{line}" if title else line
+
+
 def _build_month_grid(
     daily: pd.DataFrame, special_days: dict, emp_rate_map: dict, ot_tooltip: bool = False,
     full_day_map: dict | None = None,
@@ -411,6 +434,9 @@ def _build_month_grid(
     manually_edited_map = {
         (r.emp_code, r.date): r.manually_edited for r in daily.itertuples(index=False)
     }
+    manually_edited_fields_map = {
+        (r.emp_code, r.date): r.manually_edited_fields for r in daily.itertuples(index=False)
+    }
     dept_map = {
         (r.emp_code, r.date): r.department for r in daily.itertuples(index=False)
     }
@@ -447,6 +473,10 @@ def _build_month_grid(
             # special_worked only drives the bold-red OT text (see "ot"
             # below), not the background.
             is_special_cell = not is_dept and emp_status in special_day_codes
+            edited_fields_set = (
+                set() if is_dept
+                else {f.strip() for f in manually_edited_fields_map.get(key, "").split(",") if f.strip()}
+            )
             shift, time_in, time_out = punch_map.get(key, ("", "", ""))
             time_in = metrics.clean_punch_time(time_in)
             time_out = metrics.clean_punch_time(time_out)
@@ -473,6 +503,25 @@ def _build_month_grid(
                 # Records so HR can see at a glance which cells aren't
                 # raw device data anymore.
                 "manually_edited": not is_dept and bool(manually_edited_map.get(key, False)),
+                # Which specific field(s) were hand-edited (see
+                # AttendanceRecord.manually_edited_fields) — each drives
+                # its own differently-colored corner-dot marker in
+                # dashboard.html (.edited-time/.edited-shift/.edited-status)
+                # instead of one generic "this was edited" flag, so HR can
+                # tell at a glance what kind of correction it was without
+                # needing a separate audit-log page.
+                "edited_time": bool({"Punch In", "Punch Out"} & edited_fields_set),
+                "edited_shift": "Shift" in edited_fields_set,
+                "edited_status": "Status" in edited_fields_set,
+                # Edited before manually_edited_fields existed, so which
+                # field changed was never captured — a neutral grey dot
+                # instead of one of the three specific colors above (or
+                # nothing at all, which would make an old edit silently
+                # stop showing as edited once this field-level tracking
+                # shipped).
+                "edited_unknown": (
+                    not is_dept and bool(manually_edited_map.get(key, False)) and not edited_fields_set
+                ),
                 # Text-color-only flag (see dashboard.html's .short-hours
                 # rule) for a real day worked short of the usual 8.5h full
                 # day — not on a special-day cell, which already has its
@@ -493,7 +542,13 @@ def _build_month_grid(
                     if not is_dept and not is_special_cell and metrics.is_short_hours(row[d], day_full_hours)
                     else ""
                 ),
-                "title": "" if is_dept else time_labels.get(key, ""),
+                "title": (
+                    ""
+                    if is_dept
+                    else _append_edited_fields_line(
+                        time_labels.get(key, ""), manually_edited_fields_map.get(key, "")
+                    )
+                ),
                 "issue": not is_dept and key in issues,
                 "special": emp_status if is_special_cell else "",
                 "leave": not is_dept and emp_status in ("A", "PL"),
@@ -917,6 +972,9 @@ def edit_record_view(request):
         _error(request, f"No attendance record for {emp_code} on {date_str}.")
         return redirect(next_url)
 
+    old_time_in, old_time_out = record.time_in, record.time_out
+    old_shift, old_status = record.shift, record.status
+
     record.time_in = time_in
     record.time_out = time_out
     # Staff are excluded from shift-based OT entirely (see overtime_view) —
@@ -933,6 +991,18 @@ def edit_record_view(request):
     # today's behavior unchanged.
     record.status = status_override if status_override in dict(AttendanceRecord.STATUS_CHOICES) else computed_status
     record.manually_edited = True
+
+    changed_fields = []
+    if record.time_in != old_time_in:
+        changed_fields.append("Punch In")
+    if record.time_out != old_time_out:
+        changed_fields.append("Punch Out")
+    if record.shift != old_shift:
+        changed_fields.append("Shift")
+    if record.status != old_status:
+        changed_fields.append("Status")
+    record.manually_edited_fields = _merge_edited_fields(record.manually_edited_fields, changed_fields)
+
     record.save()
     # On a date that's a company-wide Paid Holiday/Comp Off, apply_special_days
     # (see src/metrics.py) unconditionally overwrites status to that day_type
@@ -982,11 +1052,16 @@ def bulk_set_shift_view(request):
         _error(request, "This view is locked for this month — unlock it first to make changes.")
         return redirect(next_url)
 
-    updated = (
-        AttendanceRecord.objects.filter(date=date_str)
-        .exclude(employee__subcategory="Staff")
-        .update(shift=shift, manually_edited=True)
+    records = list(
+        AttendanceRecord.objects.filter(date=date_str).exclude(employee__subcategory="Staff")
     )
+    for record in records:
+        if record.shift != shift:
+            record.manually_edited_fields = _merge_edited_fields(record.manually_edited_fields, ["Shift"])
+        record.shift = shift
+        record.manually_edited = True
+    AttendanceRecord.objects.bulk_update(records, ["shift", "manually_edited", "manually_edited_fields"])
+    updated = len(records)
     if day_type in dict(SpecialDay.TYPE_CHOICES):
         SpecialDay.objects.update_or_create(date=date_str, defaults={"day_type": day_type})
     else:

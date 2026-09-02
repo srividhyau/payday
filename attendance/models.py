@@ -188,6 +188,15 @@ class AttendanceRecord(models.Model):
     # a person change this, not just the device export" flag for
     # Device Records to visually call out (see dashboard.html).
     manually_edited = models.BooleanField(default=False)
+    # Comma-separated subset of "Punch In", "Punch Out", "Shift", "Status"
+    # — which specific field(s) a hand edit actually changed, so the
+    # Device Records tooltip can say e.g. "EDITED - Punch Out, Status"
+    # instead of just flagging the row as edited with no detail. Grows by
+    # union across repeated edits (see edit_record_view/
+    # bulk_set_shift_view) rather than being overwritten each time, so a
+    # field edited once keeps showing here even if a later edit only
+    # touches something else.
+    manually_edited_fields = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
         ordering = ["employee__code", "date"]
