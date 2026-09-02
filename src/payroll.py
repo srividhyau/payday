@@ -136,3 +136,15 @@ def compute_operator_pay(
     with flat deductions/additions."""
     net = (manual_amount or Decimal(0)) + additions - deductions
     return {"net": round(net, 2)}
+
+
+def compute_fixed_payment_pay(
+    fixed_amount: Decimal, manual_amount: Decimal | None = None,
+    deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
+) -> dict:
+    """Fixed Payments: a recurring flat amount (Employee.basic_salary),
+    plus an optional manual top-up/adjustment for a specific month (e.g.
+    a one-off extra charge) on top of it — not a replacement for
+    fixed_amount the way Operators' manual_amount is their whole pay."""
+    net = fixed_amount + (manual_amount or Decimal(0)) + additions - deductions
+    return {"net": round(net, 2)}

@@ -915,6 +915,7 @@
                                 <tr>
                                     <th>Purpose</th><th>Name</th>
                                     <th class="num grp-fixed">Fixed Payment</th>
+                                    <th class="num grp-fixed">Manual Amount</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
                                     <th>Hold</th><th>Notes</th><th class="net grp-highlight">NET</th>
                                 </tr>
@@ -922,13 +923,14 @@
                             <tbody>
                                 {% regroup fixed_payment_rows by employee.department.name as fixed_payment_dept_list %}
                                 {% for dept in fixed_payment_dept_list %}
-                                <tr class="dept-row"><td colspan="8">{{ dept.grouper|default:"—" }}</td></tr>
+                                <tr class="dept-row"><td colspan="9">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
                                 <tr>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
                                     <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
+                                    <td class="num grp-fixed value-cell"><input class="adj-input" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
                                     <td><input type="checkbox" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
@@ -942,6 +944,7 @@
                                 <tr>
                                     <td colspan="2">Total</td>
                                     <td class="num">{{ fixed_payment_totals.basic_salary }}</td>
+                                    <td class="num">{{ fixed_payment_totals.manual_amount }}</td>
                                     <td class="num">{{ fixed_payment_totals.deductions }}</td>
                                     <td class="num">{{ fixed_payment_totals.additions }}</td>
                                     <td></td><td></td>

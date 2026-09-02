@@ -1784,9 +1784,13 @@ def _salary_context(current: date_cls) -> dict:
             elif kind == "fixed_payments":
                 # A recurring flat amount set once on the Employee record
                 # (Basic Salary — reused the same way Contractors reuse it
-                # as a day rate) rather than typed in fresh via manual
-                # amount every month.
-                calc = payroll.compute_operator_pay(emp.basic_salary, deductions, additions)
+                # as a day rate), plus an optional manual top-up for a
+                # specific month (e.g. a one-off extra charge) on top of
+                # it, unlike Operators' manual_amount which stands in for
+                # their whole pay.
+                calc = payroll.compute_fixed_payment_pay(
+                    emp.basic_salary, manual_amount, deductions, additions,
+                )
             elif kind == "contractors":
                 # Contractors are paid per day actually worked, not a fixed
                 # monthly salary — Employee.basic_salary holds their day
@@ -1837,9 +1841,16 @@ def _salary_context(current: date_cls) -> dict:
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
             totals["da"] = sum((r["employee"].da for r in rows), Decimal(0))
             totals["hra"] = sum((r["employee"].hra for r in rows), Decimal(0))
-        elif kind in ("helper", "staff", "contractors", "fixed_payments"):
+        elif kind in ("helper", "staff", "contractors"):
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
         elif kind == "operators":
+            totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
+        elif kind == "fixed_payments":
+            # Both figures apply here — the basic_salary-derived flat
+            # payment AND a manual_amount on top of it for the odd
+            # month it's more/less than usual (see build_rows/
+            # compute_fixed_payment_pay).
+            totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
             totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
         calc_keys = rows[0]["calc"].keys() if rows else []
         calc_totals = {k: Decimal(0) for k in calc_keys}
@@ -2129,49 +2140,46 @@ def _salary_summary_sheet_rows(summary_rows, grand_total):
     return headers, col_groups, data_rows, total_row
 
 
-def _salary_operator_sheet_rows(
-    rows, totals, with_earned_days: bool = True, manual_amount_label: str = "Manual Amount",
-    amount_from_basic_salary: bool = False, id_labels: tuple[str, str] = ("Code", "Employee"),
-):
-    """Operators (with_earned_days=True, amount_from_basic_salary=False)
-    tie a hand-typed manual amount to production days worked; Fixed
-    Payments (with_earned_days=False, amount_from_basic_salary=True) are
-    a flat recurring amount read straight from Employee.basic_salary
-    (set once, not re-entered every month) with no attendance tie-in at
-    all, so Earned Days is dropped entirely and the amount column is
-    relabeled "Fixed Payment" to match. id_labels relabels the first two
-    columns — Fixed Payments' payees aren't really "employees" with a
-    "code" (rent, etc.), so the page shows "Purpose"/"Name" for them
-    instead, reusing Employee.code/name as free text rather than adding
-    dedicated fields."""
-    headers = list(id_labels)
-    col_groups = [None, None]
-    if with_earned_days:
-        headers.append("Earned Days")
-        col_groups.append("attendance")
-    headers += [manual_amount_label, "Deductions", "Additions", "Hold", "Notes", "NET"]
-    col_groups += ["fixed", "deduction-emp", None, None, None, "highlight"]
-
-    data_rows = []
-    for r in rows:
-        row = [r["employee"].code, r["employee"].name]
-        if with_earned_days:
-            row.append(float(r["earned_days"]))
-        amount = r["employee"].basic_salary if amount_from_basic_salary else (r["manual_amount"] or 0)
-        row += [
-            float(amount), float(r["deductions"]), float(r["additions"]),
+def _salary_operator_sheet_rows(rows, totals):
+    headers = ["Code", "Employee", "Earned Days", "Manual Amount", "Deductions", "Additions", "Hold", "Notes", "NET"]
+    col_groups = [None, None, "attendance", "fixed", "deduction-emp", None, None, None, "highlight"]
+    data_rows = [
+        [
+            r["employee"].code, r["employee"].name, float(r["earned_days"]),
+            float(r["manual_amount"] or 0), float(r["deductions"]), float(r["additions"]),
             "Yes" if r["hold"] else "No", r["notes"], float(r["calc"]["net"]),
         ]
-        data_rows.append(row)
-
+        for r in rows
+    ]
     # totals["calc"] is {} when the tab has zero rows this month — see the
     # matching comment in _salary_company_sheet_rows.
-    total_row = ["", "Total"]
-    if with_earned_days:
-        total_row.append(float(totals["earned_days"]))
-    total_amount = totals["basic_salary"] if amount_from_basic_salary else totals["manual_amount"]
-    total_row += [
-        float(total_amount),
+    total_row = [
+        "", "Total", float(totals["earned_days"]), float(totals["manual_amount"]),
+        float(totals["deductions"]), float(totals["additions"]), "", "", float(totals["calc"].get("net", 0)),
+    ]
+    return headers, col_groups, data_rows, total_row
+
+
+def _salary_fixed_payment_sheet_rows(rows, totals):
+    """Fixed Payments: a recurring flat amount from Employee.basic_salary
+    (labeled "Fixed Payment") plus an optional Manual Amount top-up for a
+    specific month, both feeding NET — see compute_fixed_payment_pay.
+    "Code"/"Employee" are relabeled "Purpose"/"Name" since these payees
+    (rent, etc.) aren't really employees with a code."""
+    headers = ["Purpose", "Name", "Fixed Payment", "Manual Amount", "Deductions", "Additions", "Hold", "Notes", "NET"]
+    col_groups = [None, None, "fixed", "fixed", "deduction-emp", None, None, None, "highlight"]
+    data_rows = [
+        [
+            r["employee"].code, r["employee"].name, float(r["employee"].basic_salary),
+            float(r["manual_amount"] or 0), float(r["deductions"]), float(r["additions"]),
+            "Yes" if r["hold"] else "No", r["notes"], float(r["calc"]["net"]),
+        ]
+        for r in rows
+    ]
+    # totals["calc"] is {} when the tab has zero rows this month — see the
+    # matching comment in _salary_company_sheet_rows.
+    total_row = [
+        "", "Total", float(totals["basic_salary"]), float(totals["manual_amount"]),
         float(totals["deductions"]), float(totals["additions"]), "", "", float(totals["calc"].get("net", 0)),
     ]
     return headers, col_groups, data_rows, total_row
@@ -2254,11 +2262,7 @@ def salary_download_view(request):
         ),
         "operators": lambda: _salary_operator_sheet_rows(context["operator_rows"], context["operator_totals"]),
         "fixed_payments": lambda: (
-            _salary_operator_sheet_rows(
-                context["fixed_payment_rows"], context["fixed_payment_totals"],
-                with_earned_days=False, manual_amount_label="Fixed Payment",
-                amount_from_basic_salary=True, id_labels=("Purpose", "Name"),
-            )
+            _salary_fixed_payment_sheet_rows(context["fixed_payment_rows"], context["fixed_payment_totals"])
         ),
     }
     # "summary" isn't one of _SALARY_TAB_KEYS (that list is shared with the
