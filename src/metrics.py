@@ -62,6 +62,22 @@ def recompute_from_punch(time_in: str, time_out: str) -> tuple[float, str]:
     return hours, status
 
 
+def department_sort_key(department_order: list | None = None):
+    """Sort key function ordering department names by their position in
+    department_order (e.g. settings.ATTENDANCE_VISIBLE_DEPARTMENTS) —
+    any department not listed there sorts after all listed ones,
+    alphabetically among themselves. Shared by every place that groups
+    something by department (month_attendance_view's own grid, the OT
+    page's Monthly Summary tab, ...) so they all list departments in the
+    same order instead of some sorting alphabetically and others not."""
+    order_index = {d: i for i, d in enumerate(department_order or [])}
+
+    def key(dept):
+        return (order_index.get(dept, len(order_index)), dept)
+
+    return key
+
+
 def infer_working_days(daily: pd.DataFrame, special_days: dict | None = None) -> int:
     """Default working-day count: distinct dates present in the file that
     aren't a day off. A date counts as off if every employee is marked Week
@@ -354,7 +370,7 @@ def department_grouped_summary(emp_summary: pd.DataFrame) -> pd.DataFrame:
 
 def month_attendance_view(
     daily: pd.DataFrame, working_days: int | None = None, dates: list | None = None,
-    full_day_map: dict | None = None,
+    full_day_map: dict | None = None, department_order: list | None = None,
 ) -> tuple:
     """Single wide table matching the original Month_Attendance pivot sheet:
     a department label row (grouping only, no aggregated values) followed
@@ -362,6 +378,10 @@ def month_attendance_view(
     day's work hours, and summary columns on the right (Work Days = present
     days, CompOff, EL, Paid Holiday, Personal Leave, Missing Punch, Short
     Days, Permission Hours).
+
+    department_order (see department_sort_key) lists departments in the
+    same order they're shown elsewhere (e.g.
+    settings.ATTENDANCE_VISIBLE_DEPARTMENTS) instead of plain alphabetical.
 
     "EL" (labeled that way rather than "Time Off" — same underlying
     figure) is credited per day using the same tiered thresholds as
@@ -504,7 +524,9 @@ def month_attendance_view(
         "Missing Punch", "Short Days", "Permission Hours",
     ]
     rows = []
-    for dept in sorted(hours_pivot.index.get_level_values("department").unique()):
+    for dept in sorted(
+        hours_pivot.index.get_level_values("department").unique(), key=department_sort_key(department_order),
+    ):
         dept_block = hours_pivot.xs(dept, level="department")
         rows.append(
             ["▸ " + dept, "", *[float("nan")] * len(day_labels), *[""] * len(summary_cols)]

@@ -46,7 +46,8 @@ ATTENDANCE_LOCK_PIN = os.environ.get('ATTENDANCE_LOCK_PIN', '1234')
 # CUTTING DEPARTMENT, MV STAFFS, Fixed Payments, DefaultDepartment,
 # Contractor, Ironing & Bartrack, HOUSE KEEPING.
 ATTENDANCE_VISIBLE_DEPARTMENTS = [
-    "FINISHING DEPARTMENT", "CUTTING DEPARTMENT", "MV STAFFS", "HOUSE KEEPING", "Contractor",
+    "PRODUCTION DEPARTMENT", "FINISHING DEPARTMENT", "CUTTING DEPARTMENT",
+    "MV STAFFS", "Contractor", "HOUSE KEEPING",
 ]
 
 # Telegram notification sent when attendance is saved from Mark Attendance's

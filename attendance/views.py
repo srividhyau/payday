@@ -305,7 +305,10 @@ def _build_month_grid(
         pd.Timestamp(year=first_date.year, month=first_date.month, day=d)
         for d in range(1, days_in_month + 1)
     ]
-    month_view, day_labels = metrics.month_attendance_view(daily, working_days, dates=dates, full_day_map=full_day_map)
+    month_view, day_labels = metrics.month_attendance_view(
+        daily, working_days, dates=dates, full_day_map=full_day_map,
+        department_order=settings.ATTENDANCE_VISIBLE_DEPARTMENTS,
+    )
     time_labels = metrics.punch_time_labels(
         daily, shift_ot_map, ot_rate_map=emp_rate_map if ot_tooltip else None
     )
@@ -2751,7 +2754,7 @@ def _ot_details_context(date_param: str | None) -> dict:
                 "ot_amount": round(hours * rate, 2),
             })
 
-        for dept in sorted(emp_rows_by_dept):
+        for dept in sorted(emp_rows_by_dept, key=metrics.department_sort_key(settings.ATTENDANCE_VISIBLE_DEPARTMENTS)):
             emp_rows = sorted(emp_rows_by_dept[dept], key=lambda row: -row["ot_amount"])
             for i, row in enumerate(emp_rows):
                 row["is_top3"] = i < 3
