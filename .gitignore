@@ -17,6 +17,7 @@ venv/
 staticfiles/
 media/
 logs/
+upload_staging/
 
 # OS
 .DS_Store
