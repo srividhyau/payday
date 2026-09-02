@@ -3,12 +3,14 @@ import copy
 import html
 import json
 import logging
+import re
 import urllib.error
 import urllib.request
 import uuid
 from datetime import date as date_cls
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 import pandas as pd
 from django.conf import settings
@@ -22,9 +24,10 @@ from django.urls import reverse
 from django.utils.dateparse import parse_time
 
 from src import metrics, payroll
+from src import parser as attendance_parser
 
 from .forms import UploadForm
-from .importer import import_file
+from .importer import import_dataframe, import_file
 from .models import (
     AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmploymentPeriod,
     LeaveLedgerEntry, MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
@@ -68,27 +71,108 @@ def home_view(request):
     return render(request, "attendance/home.html")
 
 
+# Uploaded files are staged here (as <32-hex-token>.<ext>) between the
+# initial "parse" step and the "confirm" step of upload_view, so the
+# employee checklist can be built and reviewed before anything touches the
+# database. Never committed — see .gitignore.
+_UPLOAD_STAGING_DIR = Path(settings.BASE_DIR) / "upload_staging"
+_STAGED_UPLOAD_NAME_RE = re.compile(r"^[0-9a-f]{32}\.(xlsx|xlsm|xls|csv)$")
+
+
+def _staged_upload_path(staged_name: str) -> Path | None:
+    """Resolve a staged-upload filename from a form field back to its path
+    on disk, rejecting anything that isn't exactly the token format this
+    view generates (blocks path traversal via a hand-crafted field)."""
+    if not staged_name or not _STAGED_UPLOAD_NAME_RE.match(staged_name):
+        return None
+    return _UPLOAD_STAGING_DIR / staged_name
+
+
+def _cleanup_staged_upload(staged_name: str) -> None:
+    path = _staged_upload_path(staged_name)
+    if path and path.exists():
+        path.unlink(missing_ok=True)
+
+
 @login_required
 def upload_view(request):
     if request.method == "POST":
-        form = UploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            uploaded = request.FILES["file"]
+        action = request.POST.get("action", "parse")
+
+        if action == "cancel":
+            _cleanup_staged_upload(request.POST.get("staged_name", ""))
+            return redirect("upload")
+
+        if action == "confirm":
+            staged_name = request.POST.get("staged_name", "")
+            original_name = request.POST.get("file_name") or "upload"
+            selected_codes = set(request.POST.getlist("emp_codes"))
+            staged_path = _staged_upload_path(staged_name)
+            if not staged_path or not staged_path.exists():
+                messages.error(request, "That upload has expired — please upload the file again.")
+                return redirect("upload")
             try:
-                batch = import_file(uploaded, file_name=uploaded.name)
+                raw = attendance_parser.load_file(str(staged_path))
+                daily = attendance_parser.normalize(raw)
+                daily = daily[daily["emp_code"].astype(str).isin(selected_codes)].reset_index(drop=True)
+                batch = import_dataframe(daily, file_name=original_name)
                 messages.success(
                     request,
-                    f"Imported {batch.row_count} rows from {batch.period_start} to "
-                    f"{batch.period_end}.",
+                    f"Imported {batch.row_count} rows for {len(selected_codes)} selected "
+                    f"employee(s), {batch.period_start} to {batch.period_end}.",
                 )
                 logger.info(
-                    "Upload imported: %s rows, %s to %s, file=%s",
-                    batch.row_count, batch.period_start, batch.period_end, uploaded.name,
+                    "Upload imported (filtered): %s rows, %s employees selected, file=%s",
+                    batch.row_count, len(selected_codes), original_name,
                 )
             except Exception as exc:  # noqa: BLE001 - surface any parse/import error to HR
                 messages.error(request, f"Import failed: {exc}")
-                logger.exception("Upload import failed for file=%s", uploaded.name)
+                logger.exception("Filtered upload import failed for file=%s", original_name)
+            finally:
+                _cleanup_staged_upload(staged_name)
             return redirect("upload")
+
+        form = UploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded = request.FILES["file"]
+            suffix = Path(uploaded.name).suffix.lower().lstrip(".")
+            if suffix not in {"xlsx", "xlsm", "xls", "csv"}:
+                messages.error(request, "Unsupported file type — expected .xlsx, .xlsm, .xls, or .csv.")
+                return redirect("upload")
+
+            _UPLOAD_STAGING_DIR.mkdir(exist_ok=True)
+            staged_name = f"{uuid.uuid4().hex}.{suffix}"
+            staged_path = _UPLOAD_STAGING_DIR / staged_name
+            with open(staged_path, "wb") as fh:
+                for chunk in uploaded.chunks():
+                    fh.write(chunk)
+
+            try:
+                raw = attendance_parser.load_file(str(staged_path))
+                daily = attendance_parser.normalize(raw)
+            except Exception as exc:  # noqa: BLE001 - surface any parse error to HR
+                messages.error(request, f"Could not read that file: {exc}")
+                logger.exception("Upload parse failed for file=%s", uploaded.name)
+                staged_path.unlink(missing_ok=True)
+                return redirect("upload")
+
+            employees = (
+                daily[["emp_code", "emp_name"]]
+                .drop_duplicates()
+                .sort_values("emp_name")
+                .to_dict("records")
+            )
+            recent_batches = UploadBatch.objects.all()[:10]
+            return render(request, "attendance/upload.html", {
+                "form": UploadForm(),
+                "batches": recent_batches,
+                "pending": {
+                    "staged_name": staged_name,
+                    "file_name": uploaded.name,
+                    "employees": employees,
+                    "row_count": len(daily),
+                },
+            })
     else:
         form = UploadForm()
 

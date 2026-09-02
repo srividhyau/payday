@@ -629,8 +629,8 @@ def punch_issues(daily: pd.DataFrame) -> set:
 
 
 HEAT_COLORS = {
-    "red": "#F1A9A9",  # light red — 0.5-5h, a very short day
-    "green": "#D4EDDA",  # soft sage — 5-9.5h, normal range
+    "red": "#F1A9A9",  # light red — 0.5-5.5h, a very short day (matches work_day_credit's Half Day cutoff)
+    "green": "#D4EDDA",  # soft sage — 5.5-9.5h, normal range
     "mid": "#FFE8A1",  # warm gold — 9.5-10.5h, expected full day + some OT
     "high": "#E8C4E8",  # dusty plum — 10.5-11.5h, heavy OT
     "veryhigh": "#C9B8E8",  # lavender — past 11.5h, a darker/more saturated heavy-OT flag
@@ -639,13 +639,15 @@ HEAT_COLORS = {
 
 def hours_heat_band(value) -> str | None:
     """Discrete hours heat-map band matching the original workbook's
-    conditional formatting."""
+    conditional formatting. The red/green boundary sits at 5.5h, the same
+    threshold work_day_credit uses for a Half Day, so any half-day-credit
+    cell shows red rather than green."""
     if value == "" or value is None or pd.isna(value):
         return None
     value = float(value)
     if value < 0.5:
         return None
-    if value < 5:
+    if value <= 5.5:
         return "red"
     if value < 9.5:
         return "green"
@@ -673,10 +675,18 @@ def is_short_hours(value, full_day_hours=8.5) -> bool:
     HEAT_COLORS (which still match the original workbook's own
     background bands unchanged) — this only drives a text-color flag on
     top of whichever background band the cell already has, not a
-    background of its own."""
+    background of its own.
+
+    Excludes anything work_day_credit already counts as less than a full
+    Present (a Half Day, <=5.5h, or an Absent, <=3h) — those are already
+    reflected in Work Days/Personal Leave, so flagging them here too
+    would double-count the same shortfall under Short Days/Permission
+    Hours as well."""
     if value == "" or value is None or pd.isna(value):
         return False
     value = float(value)
+    if work_day_credit(value) < 1.0:
+        return False
     full_day_hours = float(full_day_hours)
     floor = max(0.5, full_day_hours - 3.5)
     return floor <= value < (full_day_hours - _SHORT_HOURS_GRACE)

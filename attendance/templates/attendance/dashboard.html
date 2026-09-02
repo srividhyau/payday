@@ -332,7 +332,7 @@
            tooltip's own ::after (higher specificity via :hover) takes
            over on hover, so the triangle just steps aside while the
            tooltip is showing rather than competing with it. */
-        table.month td.editable-cell.manually-edited::after {
+        table.month td.editable-cell.manually-edited:not(:hover)::after {
             content: ""; position: absolute; top: 0; right: 0;
             border-style: solid; border-width: 0 8px 8px 0;
             border-color: transparent #1565C0 transparent transparent;
@@ -347,10 +347,13 @@
         table.month td.special-PH { background: #4FB3A9; }
         table.month td.special-CO { background: #F5A85C; }
 
-        /* Absent / Personal Leave days — light grey, distinct from the
-           hours-based heat-map colors since there's no worked-hours value
-           to color-code on a day the employee wasn't in at all. */
-        table.month td.leave-day { background: #ececec; }
+        /* Absent / Personal Leave days — its own light-blue color, distinct
+           from the hours-based heat-map colors (there's no meaningful
+           worked-hours value to color-code — 0-0.4h isn't "worse than
+           half day", it's not attendance at all) and from the pale grey
+           special-H/blank-cell tones it used to share, which made it too
+           easy to mistake for "no data" at a glance. */
+        table.month td.leave-day { background: #BBDEFB; }
         /* Earned Leave — its own color (distinct from the plain grey
            Absent/PL gets) so a day spent from the EL balance reads at a
            glance, matching the EL & Comp-Off page's own bookkeeping. */
