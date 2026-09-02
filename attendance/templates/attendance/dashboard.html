@@ -325,26 +325,24 @@
            its own, layered on top of whatever heat/special background
            the cell already has. */
         table.month td.short-hours { color: #C62828; font-weight: 700; }
-        /* Manually-edited marker — a corner triangle (top-right, like a
-           spreadsheet comment flag), color-coded by which field(s) were
-           hand-edited (see AttendanceRecord.manually_edited_fields /
-           edit_record_view): blue for a punch in/out fix, magenta for a
-           shift-code change, purple for a forced status. A cell touched
-           on more than one front gets a diagonal-striped fill (one band
-           per kind, via linear-gradient) instead of a single flat color
-           — the explicit :not() combinations below pick the right
-           single/two/three-band fill for whichever combination of
-           edited-* classes the cell actually has. Not a background/text
-           color of the cell itself, so it layers cleanly on top of
-           whatever else the cell already shows. The hover tooltip's own
-           ::after (equal specificity, but :not(:hover) here loses the
-           match on hover) takes over on hover, so the triangle just
-           steps aside while the tooltip is showing rather than
-           competing with it. */
+        /* Manually-edited marker — a small corner dot (top-right),
+           color-coded by which field(s) were hand-edited (see
+           AttendanceRecord.manually_edited_fields / edit_record_view):
+           blue for a punch in/out fix, magenta for a shift-code change,
+           purple for a forced status. A cell touched on more than one
+           front gets one dot per kind, laid out left of the anchor dot
+           via box-shadow (cheaper than extra elements) — the explicit
+           :not() combinations below pick the right one/two/three-dot
+           pattern for whichever combination of edited-* classes the
+           cell actually has. Not a background/text color of the cell
+           itself, so it layers cleanly on top of whatever else the cell
+           already shows. The hover tooltip's own ::after (equal
+           specificity, but :not(:hover) here loses the match on hover)
+           takes over on hover, so the dots just step aside while the
+           tooltip is showing rather than competing with it. */
         table.month td.editable-cell[class*="edited-"]:not(:hover)::after {
-            content: ""; position: absolute; top: 0; right: 0;
-            width: 12px; height: 12px;
-            clip-path: polygon(100% 0, 0 0, 100% 100%);
+            content: ""; position: absolute; top: 2px; right: 2px;
+            width: 4px; height: 4px; border-radius: 50%;
         }
         table.month td.editable-cell.edited-time:not(.edited-shift):not(.edited-status):not(:hover)::after {
             background: #1565C0;
@@ -356,16 +354,16 @@
             background: #6A1B9A;
         }
         table.month td.editable-cell.edited-time.edited-shift:not(.edited-status):not(:hover)::after {
-            background: linear-gradient(135deg, #1565C0 0% 50%, #AD1457 50% 100%);
+            background: #1565C0; box-shadow: -6px 0 0 #AD1457;
         }
         table.month td.editable-cell.edited-time.edited-status:not(.edited-shift):not(:hover)::after {
-            background: linear-gradient(135deg, #1565C0 0% 50%, #6A1B9A 50% 100%);
+            background: #1565C0; box-shadow: -6px 0 0 #6A1B9A;
         }
         table.month td.editable-cell.edited-shift.edited-status:not(.edited-time):not(:hover)::after {
-            background: linear-gradient(135deg, #AD1457 0% 50%, #6A1B9A 50% 100%);
+            background: #AD1457; box-shadow: -6px 0 0 #6A1B9A;
         }
         table.month td.editable-cell.edited-time.edited-shift.edited-status:not(:hover)::after {
-            background: linear-gradient(135deg, #1565C0 0% 33%, #AD1457 33% 66%, #6A1B9A 66% 100%);
+            background: #1565C0; box-shadow: -6px 0 0 #AD1457, -12px 0 0 #6A1B9A;
         }
         /* Edited before manually_edited_fields existed (see edited_unknown
            in views.py) — mutually exclusive with the three above (only
@@ -564,6 +562,7 @@
         .edit-modal button:hover { background: var(--bg); }
         .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
         .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
+        .edit-modal button[type="submit"]:disabled { background: #ccc; color: #888; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -663,10 +662,10 @@
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT shift</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT shift</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #1565C0"></span>Full-OT shift</span>
-                <span class="legend-item"><span class="swatch" style="background:#fff;clip-path:polygon(100% 0,0 0,100% 100%);width:10px;height:10px;background-color:#1565C0;"></span>Edited — Punch In/Out</span>
-                <span class="legend-item"><span class="swatch" style="background:#fff;clip-path:polygon(100% 0,0 0,100% 100%);width:10px;height:10px;background-color:#AD1457;"></span>Edited — Shift</span>
-                <span class="legend-item"><span class="swatch" style="background:#fff;clip-path:polygon(100% 0,0 0,100% 100%);width:10px;height:10px;background-color:#6A1B9A;"></span>Edited — Status</span>
-                <span class="legend-item"><span class="swatch" style="background:#fff;clip-path:polygon(100% 0,0 0,100% 100%);width:10px;height:10px;background-color:#757575;"></span>Edited — detail not tracked (before this feature)</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;border-radius:50%;width:5px;height:5px;background-color:#1565C0;"></span>Edited — Punch In/Out</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;border-radius:50%;width:5px;height:5px;background-color:#AD1457;"></span>Edited — Shift</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;border-radius:50%;width:5px;height:5px;background-color:#6A1B9A;"></span>Edited — Status</span>
+                <span class="legend-item"><span class="swatch" style="background:#fff;border-radius:50%;width:5px;height:5px;background-color:#757575;"></span>Edited — detail not tracked (before this feature)</span>
             </div>
             <div class="view-switch-row">
                 <div class="view-switch">
@@ -729,6 +728,10 @@
                     <label>Time Out
                         <input type="text" name="time_out" id="editTimeOut" placeholder="HH:MM">
                     </label>
+                    <p class="msg error" id="editClearWarning" style="display:none;">
+                        This cell had real punch times — clearing both Time In and Time Out would
+                        wipe them. Save is disabled until at least one is filled in.
+                    </p>
                     <label>Status
                         <select name="status" id="editStatus">
                             <option value="">Auto (from Time In/Out)</option>
@@ -757,7 +760,7 @@
                     <p class="edit-staff-note" id="editStaffNote" style="display:none;">Shift isn't editable for Staff — they're excluded from shift-based OT (see EL instead).</p>
                     <div class="edit-actions">
                         <button type="button" id="editCancel">Cancel</button>
-                        <button type="submit">Save</button>
+                        <button type="submit" id="editSaveBtn">Save</button>
                     </div>
                 </form>
             </div>
@@ -832,6 +835,34 @@
         var editOverlay = document.getElementById('editOverlay');
         if (editOverlay) {
             var editNextBase = document.getElementById('editNext').value;
+            var editTimeInEl = document.getElementById('editTimeIn');
+            var editTimeOutEl = document.getElementById('editTimeOut');
+            var editClearWarning = document.getElementById('editClearWarning');
+            var editSaveBtn = document.getElementById('editSaveBtn');
+            // True for whatever cell is currently open in the popup, if it
+            // had a real punch on either side before editing started — set
+            // on each cell click, read by the guard below. Clearing a cell
+            // that never had a punch (a plain Absent/Leave day) is a
+            // normal, intentional save, so the guard only fires when
+            // there's something real to lose.
+            var editHadPunchOriginally = false;
+            function updateEditClearGuard() {
+                var bothNowEmpty = !editTimeInEl.value.trim() && !editTimeOutEl.value.trim();
+                var block = editHadPunchOriginally && bothNowEmpty;
+                editClearWarning.style.display = block ? 'block' : 'none';
+                editSaveBtn.disabled = block;
+            }
+            editTimeInEl.addEventListener('input', updateEditClearGuard);
+            editTimeOutEl.addEventListener('input', updateEditClearGuard);
+            // Backstop in case the disabled button is somehow bypassed
+            // (e.g. submitting via Enter in an older browser) — re-checks
+            // the same condition and blocks the POST outright.
+            document.getElementById('editForm').addEventListener('submit', function (event) {
+                if (editHadPunchOriginally && !editTimeInEl.value.trim() && !editTimeOutEl.value.trim()) {
+                    event.preventDefault();
+                    updateEditClearGuard();
+                }
+            });
             document.querySelectorAll('table.month td.editable-cell').forEach(function (cell) {
                 cell.addEventListener('click', function () {
                     if (isMonthLocked || !cell.dataset.emp || !cell.dataset.date) return;
@@ -839,8 +870,10 @@
                     document.getElementById('editDate').value = cell.dataset.date;
                     document.getElementById('editEmpLabel').textContent = cell.dataset.emp;
                     document.getElementById('editDateLabel').textContent = cell.dataset.date;
-                    document.getElementById('editTimeIn').value = cell.dataset.in || '';
-                    document.getElementById('editTimeOut').value = cell.dataset.out || '';
+                    editTimeInEl.value = cell.dataset.in || '';
+                    editTimeOutEl.value = cell.dataset.out || '';
+                    editHadPunchOriginally = !!(cell.dataset.in || cell.dataset.out);
+                    updateEditClearGuard();
                     // Only pre-select the Status dropdown when the day is
                     // already on one of the statuses nothing auto-derives
                     // (recompute_from_punch only ever produces P/HD/A) —

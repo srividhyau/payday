@@ -422,6 +422,7 @@
         .edit-modal button:hover { background: var(--bg); }
         .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
         .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
+        .edit-modal button[type="submit"]:disabled { background: #ccc; color: #888; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -724,6 +725,10 @@
                             <label>Time Out
                                 <input type="text" name="time_out" id="editTimeOut" placeholder="HH:MM">
                             </label>
+                            <p class="msg error" id="editClearWarning" style="display:none;">
+                                This cell had real punch times — clearing both Time In and Time Out would
+                                wipe them. Save is disabled until at least one is filled in.
+                            </p>
                             <label>Status
                                 <select name="status" id="editStatus">
                                     <option value="">Auto (from Time In/Out)</option>
@@ -752,7 +757,7 @@
                             <p class="edit-staff-note" id="editStaffNote" style="display:none;">Shift isn't editable for Staff — they're excluded from shift-based OT (see EL instead).</p>
                             <div class="edit-actions">
                                 <button type="button" id="editCancel">Cancel</button>
-                                <button type="submit">Save</button>
+                                <button type="submit" id="editSaveBtn">Save</button>
                             </div>
                         </form>
                     </div>
@@ -923,6 +928,34 @@
             var editOverlay = document.getElementById('editOverlay');
             var editNextInput = document.getElementById('editNext');
             var editNextBase = editNextInput.value;
+            var editTimeInEl = document.getElementById('editTimeIn');
+            var editTimeOutEl = document.getElementById('editTimeOut');
+            var editClearWarning = document.getElementById('editClearWarning');
+            var editSaveBtn = document.getElementById('editSaveBtn');
+            // True for whatever cell is currently open in the popup, if it
+            // had a real punch on either side before editing started — set
+            // on each cell click, read by the guard below. Clearing a cell
+            // that never had a punch (a plain Absent/Leave day) is a
+            // normal, intentional save, so the guard only fires when
+            // there's something real to lose.
+            var editHadPunchOriginally = false;
+            function updateEditClearGuard() {
+                var bothNowEmpty = !editTimeInEl.value.trim() && !editTimeOutEl.value.trim();
+                var block = editHadPunchOriginally && bothNowEmpty;
+                editClearWarning.style.display = block ? 'block' : 'none';
+                editSaveBtn.disabled = block;
+            }
+            editTimeInEl.addEventListener('input', updateEditClearGuard);
+            editTimeOutEl.addEventListener('input', updateEditClearGuard);
+            // Backstop in case the disabled button is somehow bypassed
+            // (e.g. submitting via Enter in an older browser) — re-checks
+            // the same condition and blocks the POST outright.
+            document.getElementById('editForm').addEventListener('submit', function (event) {
+                if (editHadPunchOriginally && !editTimeInEl.value.trim() && !editTimeOutEl.value.trim()) {
+                    event.preventDefault();
+                    updateEditClearGuard();
+                }
+            });
             grid.querySelectorAll('td.editable-cell').forEach(function (cell) {
                 cell.addEventListener('click', function () {
                     if (isOtLocked || !cell.dataset.emp || !cell.dataset.date) return;
@@ -930,8 +963,10 @@
                     document.getElementById('editDate').value = cell.dataset.date;
                     document.getElementById('editEmpLabel').textContent = cell.dataset.emp;
                     document.getElementById('editDateLabel').textContent = cell.dataset.date;
-                    document.getElementById('editTimeIn').value = cell.dataset.in || '';
-                    document.getElementById('editTimeOut').value = cell.dataset.out || '';
+                    editTimeInEl.value = cell.dataset.in || '';
+                    editTimeOutEl.value = cell.dataset.out || '';
+                    editHadPunchOriginally = !!(cell.dataset.in || cell.dataset.out);
+                    updateEditClearGuard();
                     // Only pre-select the Status dropdown when the day is
                     // already on one of the statuses nothing auto-derives
                     // (recompute_from_punch only ever produces P/HD/A) —
