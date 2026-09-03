@@ -208,30 +208,14 @@
         .tab-lock-icon .icon-unlocked { color: #16a34a; }
 
         /* --- Month Attendance grid --- */
-        /* overflow-x: auto alone doesn't make position: sticky headers
-           freeze — with no height cap, .grid-scroll never actually
-           overflows vertically, so it's the *page* that scrolls, not
-           this container, and sticky has nothing to stick relative to.
-           max-height + overflow-y: auto gives it a real internal
-           vertical scrollport (like a frozen-pane spreadsheet view) so
-           the sticky header/label cells actually have something to
-           freeze against. */
         .grid-scroll {
             overflow-x: auto;
-            overflow-y: auto;
-            max-height: 75vh;
             border: 1px solid var(--border);
             border-radius: 10px;
             max-width: 100%;
         }
         table.month {
-            /* separate + zero spacing, not collapse — Safari (and older
-               WebKit generally) doesn't reliably keep position: sticky
-               header/label cells fixed on a border-collapsed table; this
-               renders visually identical (adjoining 1px borders) while
-               actually freezing correctly. */
-            border-collapse: separate;
-            border-spacing: 0;
+            border-collapse: collapse;
             table-layout: fixed;
             font-size: 0.8rem;
         }
@@ -247,9 +231,6 @@
 
         table.month th {
             background: #FFF9B0;
-            position: sticky;
-            top: 0;
-            z-index: 2;
             /* overflow-wrap (not word-break) so it only splits mid-word as a
                last resort, preferring to break at the space between words
                like "Paid Holiday". */
@@ -263,18 +244,21 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            position: sticky;
-            left: 0;
-            z-index: 1;
             background: #fff;
         }
         table.month th.label {
-            position: sticky;
-            left: 0;
-            z-index: 3;
             background: #FFF9B0;
         }
         table.month tr.dept td { background: #FCE4D6; }
+        /* An Operator with subcategory="Company" (see _salary_context/
+           Employee.category) doesn't punch a device at all — their
+           whole row would otherwise look like a run of blank/absent
+           cells rather than "not hours-tracked", so the row itself
+           gets a light tint to flag that at a glance. Explicit .label
+           override since that column has its own background declared
+           separately above. */
+        table.month tr.work-operator-row td { background: #F3E5F5; }
+        table.month tr.work-operator-row td.label { background: #F3E5F5; }
         table.month td.dept-header {
             /* spans the full row (colspan), so it doesn't need to be sticky or
                constrained to the label column's width like employee rows */
@@ -293,10 +277,10 @@
            data-tooltip + a ::after pseudo-element instead to get a bigger,
            bold, bright yellow label on hover. */
         table.month td[data-tooltip] { cursor: help; position: relative; }
-        /* Bump the hovered cell itself above the sticky thead (z-index 2/3)
-           and the sticky .topbar (z-index 30) — the ::after's own z-index
-           only ranks it among its own td's stacking context, not against
-           other positioned ancestors/siblings on the page. */
+        /* Bump the hovered cell itself above the sticky .topbar (z-index
+           30) — the ::after's own z-index only ranks it among its own
+           td's stacking context, not against other positioned
+           ancestors/siblings on the page. */
         table.month td[data-tooltip]:hover { z-index: 40; }
         table.month td[data-tooltip]:hover::after {
             content: attr(data-tooltip);
@@ -403,6 +387,13 @@
            special-H/blank-cell tones it used to share, which made it too
            easy to mistake for "no data" at a glance. */
         table.month td.leave-day { background: #BBDEFB; }
+        /* Hand-marked Present with no recorded hours (see present_no_hours
+           in views.py) — someone who doesn't punch a device at all (e.g.
+           an Operator with subcategory="Company" — see _salary_context)
+           but is credited a work day by hand. Distinct from leave-day/
+           heat bands so it doesn't read as either "absent" or "a real
+           logged-hours day". */
+        table.month td.present-no-hours { background: #D1C4E9; color: #4527A0; font-weight: 700; }
         /* Earned Leave — its own color (distinct from the plain grey
            Absent/PL gets) so a day spent from the EL balance reads at a
            glance, matching the EL & Comp-Off page's own bookkeeping. */
@@ -680,7 +671,9 @@
                 <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
                 <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
                 <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
-                <span class="legend-item"><span class="swatch" style="background:#ececec"></span>Absent / Leave</span>
+                <span class="legend-item"><span class="swatch" style="background:#BBDEFB"></span>Absent / Leave</span>
+                <span class="legend-item"><span class="swatch" style="background:#D1C4E9"></span>Present (hand-marked, no hours)</span>
+                <span class="legend-item"><span class="swatch" style="background:#F3E5F5"></span>Operator + Company work (whole row)</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #2E7D32"></span>M-OT shift</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT shift</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT shift</span>
@@ -716,13 +709,13 @@
                     </thead>
                     <tbody>
                         {% for row in table_rows %}
-                        <tr class="{% if row.is_dept %}dept{% endif %}">
+                        <tr class="{% if row.is_dept %}dept{% elif row.is_work_operator %}work-operator-row{% endif %}">
                             {% if row.is_dept %}
                                 <td class="label dept-header" colspan="{{ total_cols }}" title="{{ row.label|slice:'2:' }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
                             {% else %}
                                 <td class="label" title="{{ row.label }}">{{ row.label }}</td>
                             {% for cell in row.day_cells %}
-                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% elif cell.leave %}leave-day{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short %} short-hours{% endif %}{% if cell.edited_time %} edited-time{% endif %}{% if cell.edited_shift %} edited-shift{% endif %}{% if cell.edited_status %} edited-status{% endif %}{% if cell.edited_unknown %} edited-unknown{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% else %}{{ cell.value }}{% endif %}</td>
+                                <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% elif cell.leave %}leave-day{% elif cell.present_no_hours %}present-no-hours{% elif cell.band %}heat-{{ cell.band }}{% endif %}{% if cell.ot %} ot-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short %} short-hours{% endif %}{% if cell.edited_time %} edited-time{% endif %}{% if cell.edited_shift %} edited-shift{% endif %}{% if cell.edited_status %} edited-status{% endif %}{% if cell.edited_unknown %} edited-unknown{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% elif cell.present_no_hours %}P{% else %}{{ cell.value }}{% endif %}</td>
                             {% endfor %}
                             {% for value in row.summary_cells %}
                                 <td class="summary-highlight summary-col-cell">{{ value }}</td>
@@ -1061,6 +1054,7 @@
             }
             history.replaceState(null, '', location.pathname + location.search);
         }
+
     </script>
 </body>
 </html>

@@ -523,7 +523,7 @@ def month_attendance_view(
     }
 
     summary_cols = [
-        "Work Days", "Comp Off", "EL Earned", "Paid Holiday", "Personal Leave",
+        "Work Days", "EL Earned", "Paid Holiday", "Personal Leave",
         "Missing Punch", "Short Days", "Permission Hours",
     ]
     rows = []
@@ -822,8 +822,25 @@ def _work_day_credit_series(g: pd.DataFrame) -> pd.Series:
     An incomplete punch pair can't be trusted to reflect a real full/half
     day worked, so it's excluded here regardless of whatever work_hours
     value happens to be stored for it, rather than relying on that
-    already (usually) being zero."""
+    already (usually) being zero.
+
+    A day hand-marked Present with no recorded hours at all (manually_
+    edited=True, work_hours<=0 — see edit_record_view/
+    set_attendance_status_view) gets full credit here instead of
+    work_day_credit's usual 0 — this is how employees who never punch a
+    device at all (e.g. an Operator with subcategory="Company" — see
+    _salary_context) get
+    counted as having worked. work_hours alone can't distinguish that
+    from a genuinely absent day, so the explicit manual-Present signal
+    is what's used instead."""
     credit = g["work_hours"].apply(work_day_credit)
+    if "manually_edited" in g.columns and "status" in g.columns:
+        status_only_present = (
+            g["manually_edited"].astype(bool)
+            & (g["status"] == STATUS_PRESENT)
+            & (g["work_hours"].fillna(0) <= 0)
+        )
+        credit = credit.where(~status_only_present, 1.0)
     if "special_worked" in g.columns:
         credit = credit.where(~g["special_worked"], 0.0)
     missing_punch = g["time_in"].apply(_punch_missing) != g["time_out"].apply(_punch_missing)

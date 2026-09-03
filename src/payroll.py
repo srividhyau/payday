@@ -130,12 +130,20 @@ def compute_daily_rate_pay(
 
 def compute_operator_pay(
     manual_amount: Decimal | None, deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
+    already_paid: Decimal = Decimal(0),
 ) -> dict:
     """Operators: pay is piece-rate/production-based, entered by hand each
     month (not derivable from attendance at all) — this just combines it
-    with flat deductions/additions."""
-    net = (manual_amount or Decimal(0)) + additions - deductions
-    return {"net": round(net, 2)}
+    with flat deductions/additions.
+
+    already_paid is for Operators who also do Company Worker (salaried)
+    work some days (category="Operator", subcategory="Company") and get
+    paid for that separately via the Company Workers tab (see
+    _salary_context in attendance/views.py) — so it's subtracted here to
+    avoid double-paying them for the same days. Zero (a no-op) for every
+    ordinary Operator."""
+    net = (manual_amount or Decimal(0)) + additions - deductions - already_paid
+    return {"net": round(net, 2), "already_paid": round(already_paid, 2)}
 
 
 def compute_fixed_payment_pay(

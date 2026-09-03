@@ -194,32 +194,25 @@
         }
         .tab-picker-menu hr.picker-sep { border: none; border-top: 1px solid var(--border); margin: 0.2rem 0; width: 100%; }
 
-        /* max-height + overflow-y: auto gives each table its own real
-           internal vertical scrollport (like a frozen-pane spreadsheet
-           view) — without a height cap, overflow-x: auto alone never
-           actually overflows vertically, so it's the *page* that
-           scrolls instead of this container, and the sticky header
-           cells below have nothing to stick relative to. */
-        .table-wrap { overflow-x: auto; overflow-y: auto; max-height: 75vh; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem; }
-        .table-wrap.fit-content { display: inline-block; max-height: none; }
-        /* separate + zero spacing, not collapse — Safari (and older
-           WebKit generally) doesn't reliably keep position: sticky header
-           cells fixed on a border-collapsed table; this renders visually
-           identical (adjoining 1px borders) while actually freezing
-           correctly. */
-        table.simple { border-collapse: separate; border-spacing: 0; width: 100%; }
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem; }
+        .table-wrap.fit-content { display: inline-block; }
+        table.simple { border-collapse: collapse; width: 100%; }
         table.simple.fit-content { width: auto; }
         table.simple tr.dept-row td {
             background: #FCE4D6;
             font-weight: 700;
             color: var(--navy-deep);
         }
+        /* An Operator with subcategory="Company" (see _salary_context)
+           appears on both the Company Workers and Operators tabs; same
+           light tint as their Dashboard row so they're recognizable as
+           the same dual-role person across pages. */
+        table.simple tr.work-operator-row td { background: #F3E5F5; }
         table.simple th, table.simple td { padding: 0.5rem 0.7rem; font-size: 0.82rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
         table.simple th {
             background: #FFF9B0; color: var(--text-muted); font-weight: 600; font-size: 0.72rem;
             text-transform: uppercase; letter-spacing: 0.03em;
             white-space: normal; max-width: 6.5rem; line-height: 1.25; vertical-align: bottom;
-            position: sticky; top: 0; z-index: 2;
         }
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
@@ -577,7 +570,7 @@
                                 {% for dept in company_dept_list %}
                                 <tr class="dept-row"><td colspan="24">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr>
+                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>
@@ -678,7 +671,7 @@
                                 {% for dept in helper_dept_list %}
                                 <tr class="dept-row"><td colspan="11">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr>
+                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -744,7 +737,7 @@
                                 {% for dept in staff_dept_list %}
                                 <tr class="dept-row"><td colspan="12">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr>
+                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -812,7 +805,7 @@
                                 {% for dept in contractor_dept_list %}
                                 <tr class="dept-row"><td colspan="11">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr>
+                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -868,6 +861,7 @@
                                     <th>Code</th><th>Employee</th>
                                     <th class="num grp-attendance sum-cell">Earned Days</th>
                                     <th class="num grp-fixed">Manual Amount</th>
+                                    <th class="num grp-deduction-emp">Company Pay</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
                                     <th>Hold</th><th>Notes</th><th class="net grp-highlight">NET</th>
                                 </tr>
@@ -875,14 +869,15 @@
                             <tbody>
                                 {% regroup operator_rows by employee.department.name as operator_dept_list %}
                                 {% for dept in operator_dept_list %}
-                                <tr class="dept-row"><td colspan="9">{{ dept.grouper|default:"—" }}</td></tr>
+                                <tr class="dept-row"><td colspan="10">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr>
+                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
                                     <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
                                     <td class="num grp-fixed value-cell"><input class="adj-input" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
+                                    <td class="num grp-deduction-emp">{% if row.calc.already_paid %}{{ row.calc.already_paid }}{% endif %}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
                                     <td><input type="checkbox" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
@@ -897,6 +892,7 @@
                                     <td colspan="2">Total</td>
                                     <td class="num">{{ operator_totals.earned_days }}</td>
                                     <td class="num">{{ operator_totals.manual_amount }}</td>
+                                    <td class="num">{{ operator_totals.calc.already_paid }}</td>
                                     <td class="num">{{ operator_totals.deductions }}</td>
                                     <td class="num">{{ operator_totals.additions }}</td>
                                     <td></td><td></td>
@@ -937,7 +933,7 @@
                                 {% for dept in fixed_payment_dept_list %}
                                 <tr class="dept-row"><td colspan="9">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr>
+                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -1000,25 +996,6 @@
 
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
     <script>
-        // Company Workers' header has two stacked rows (rowspan="2" ids +
-        // a second row of sub-column labels) — both need position:
-        // sticky, but the second row's "top" has to sit right below
-        // however tall the first row actually rendered (its cells can
-        // wrap to 2 lines depending on column width), so it's measured
-        // rather than guessed. Re-run whenever a tab becomes visible
-        // (a hidden panel's table reports 0 height for everything) and
-        // on resize (narrower columns can wrap differently).
-        function stickSalarySubHeaderRows() {
-            document.querySelectorAll('table.simple thead').forEach(function (thead) {
-                var rows = thead.querySelectorAll('tr');
-                if (rows.length < 2) return;
-                var firstRowHeight = rows[0].getBoundingClientRect().height;
-                if (!firstRowHeight) return;
-                rows[1].querySelectorAll('th').forEach(function (th) {
-                    th.style.top = firstRowHeight + 'px';
-                });
-            });
-        }
         // Scoped to [data-tab] so the Download link and Send to Telegram
         // button (plain .tab-btn elements with no data-tab, since neither
         // switches panels) don't get treated as switchable tabs.
@@ -1030,14 +1007,11 @@
             document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
             btn.classList.add('active');
             panel.style.display = '';
-            stickSalarySubHeaderRows();
             return true;
         }
         document.querySelectorAll('.tab-btn[data-tab]').forEach(function (btn) {
             btn.addEventListener('click', function () { activateSalaryTab(btn.dataset.tab); });
         });
-        window.addEventListener('resize', stickSalarySubHeaderRows);
-        stickSalarySubHeaderRows();
         // After saving a tab, the redirect back here carries which tab it
         // was (see salary_view's "#tab=..." redirect) so the page reopens
         // on that same tab instead of always falling back to Summary

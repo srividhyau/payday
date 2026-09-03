@@ -429,6 +429,30 @@ def _build_month_grid(
     staff_map = {
         (r.emp_code, r.date): r.subcategory == "Staff" for r in daily.itertuples(index=False)
     }
+    # An Operator who also does salaried Company Worker days (category=
+    # "Operator", subcategory="Company" — see _salary_context) often
+    # doesn't punch a device at all on plain Operator days; their whole
+    # row is flagged so the Dashboard can color it distinctly, since
+    # every cell in it will otherwise look like a blank/absent row
+    # rather than "not tracked by hours at all".
+    work_operator_map = {
+        r.emp_code: (
+            (r.category or "").strip().lower() == "operator"
+            and (r.subcategory or "").strip().lower() == "company"
+        )
+        for r in daily.itertuples(index=False)
+    }
+    # An Operator who only does OT work (category="Operator", subcategory
+    # ="OT" — see dashboard_view's exclusion) punches normally but is
+    # flagged so the OT Details grid (the only page that shows them) can
+    # color the row distinctly too.
+    ot_operator_map = {
+        r.emp_code: (
+            (r.category or "").strip().lower() == "operator"
+            and (r.subcategory or "").strip().lower() == "ot"
+        )
+        for r in daily.itertuples(index=False)
+    }
     special_worked_map = {
         (r.emp_code, r.date): r.special_worked for r in daily.itertuples(index=False)
     }
@@ -456,7 +480,7 @@ def _build_month_grid(
     # function, and table_row construction below does row[c] for c in
     # summary_cols, so a mismatch here would KeyError.
     summary_cols = [
-        "Work Days", "Comp Off", "EL Earned", "Paid Holiday", "Personal Leave",
+        "Work Days", "EL Earned", "Paid Holiday", "Personal Leave",
         "Missing Punch", "Short Days", "Permission Hours",
     ]
     _EL_SUMMARY_COL_INDEX = summary_cols.index("EL Earned")
@@ -498,6 +522,20 @@ def _build_month_grid(
             day_cells.append({
                 "value": "" if pd.isna(row[d]) else f"{row[d]:.1f}",
                 "band": metrics.hours_heat_band(row[d]),
+                # Hand-marked Present with no recorded hours at all (see
+                # edit_record_view/set_attendance_status_view) — someone
+                # who doesn't punch a device (e.g. an Operator with
+                # subcategory="Company" — see _salary_context) but is
+                # being credited a work day by hand. hours_heat_band
+                # gives no color for 0h, so this
+                # would otherwise render as a blank cell even though it
+                # now correctly counts toward Work Days (see
+                # _work_day_credit_series) — a distinct color instead of
+                # blank makes it visually confirmable.
+                "present_no_hours": (
+                    not is_dept and emp_status == "P" and manually_edited_map.get(key, False)
+                    and (pd.isna(row[d]) or row[d] <= 0)
+                ),
                 # A person corrected this cell by hand (edit_record_view
                 # or bulk_set_shift_view — see AttendanceRecord.
                 # manually_edited), as opposed to it just reflecting
@@ -610,6 +648,8 @@ def _build_month_grid(
         table_rows.append({
             "label": row["Row Labels"],
             "is_dept": is_dept,
+            "is_work_operator": not is_dept and work_operator_map.get(row["Emp Code"], False),
+            "is_ot_operator": not is_dept and ot_operator_map.get(row["Emp Code"], False),
             "day_cells": day_cells,
             "summary_cells": summary_cells,
             "total_ot": "" if is_dept or not total_ot else round(float(total_ot), 2),
@@ -795,6 +835,17 @@ def dashboard_view(request):
     visible_mask = _attendance_visible_mask(daily, settings.ATTENDANCE_VISIBLE_DEPARTMENTS)
     if visible_mask is not None:
         daily = daily[visible_mask]
+    # An Operator with subcategory="OT" (Employee.category/subcategory)
+    # punches normally but only does OT work, not regular attendance —
+    # they're tracked on the OT Details page (_ot_details_context,
+    # unfiltered by category) instead of cluttering this grid, which is
+    # for regular attendance.
+    daily = daily[
+        ~(
+            (daily["category"].fillna("").str.lower() == "operator")
+            & (daily["subcategory"].fillna("").str.lower() == "ot")
+        )
+    ]
     if daily.empty:
         return render(request, "attendance/dashboard.html", {"empty": True, **month_nav})
 
@@ -987,8 +1038,22 @@ def edit_record_view(request):
     try:
         record = AttendanceRecord.objects.get(employee__code=emp_code, date=date_str)
     except AttendanceRecord.DoesNotExist:
-        _error(request, f"No attendance record for {emp_code} on {date_str}.")
-        return redirect(next_url)
+        # No device import ever touched this employee/date — normal for
+        # someone who doesn't punch at all (e.g. an Operator with
+        # subcategory="Company" whose Company-Worker days are recorded
+        # by hand — see _salary_context).
+        # Start from a blank Absent day rather than refusing the edit, so
+        # the popup can be used to create the first record for them, not
+        # just correct an existing one.
+        try:
+            employee = Employee.objects.get(code=emp_code)
+        except Employee.DoesNotExist:
+            _error(request, f"No employee with code {emp_code}.")
+            return redirect(next_url)
+        record = AttendanceRecord(
+            employee=employee, date=date_str,
+            status="A", shift="", time_in="", time_out="", work_hours=0,
+        )
 
     old_time_in, old_time_out = record.time_in, record.time_out
     old_shift, old_status = record.shift, record.status
@@ -1724,6 +1789,24 @@ _SALARY_LOCK_VIEWS = {
     "fixed_payments": MonthLock.VIEW_SALARY_FIXED_PAYMENTS,
 }
 
+# tab_key -> which SalaryAdjustment fields that tab's own <form> actually
+# has inputs for (see salary.html) — salary_view's save only touches
+# these, leaving every other field alone. Needed because SalaryAdjustment
+# is one shared row per (employee, month): every Salary tab an employee
+# appears in reads/writes the *same* row, and saving a tab that doesn't
+# display e.g. manual_amount would otherwise reset it to blank on every
+# save, wiping out whatever a different tab had set — harmless until now
+# since no employee ever appeared in two tabs, but an Operator with
+# subcategory="Company" (see _salary_context) does exactly that.
+_SALARY_TAB_EDITABLE_FIELDS = {
+    "company": {"adjust_days", "deductions", "additions", "hold"},
+    "helpers": {"adjust_days", "deductions", "additions", "hold"},
+    "staff": {"adjust_days", "deductions", "additions", "hold"},
+    "contractors": {"adjust_days", "deductions", "additions", "hold"},
+    "operators": {"manual_amount", "deductions", "additions", "hold", "notes"},
+    "fixed_payments": {"manual_amount", "deductions", "additions", "hold", "notes"},
+}
+
 
 def _salary_decimal(request, field: str, emp_id) -> Decimal:
     raw = request.POST.get(f"{field}_{emp_id}", "").strip()
@@ -1782,7 +1865,7 @@ def _salary_context(current: date_cls) -> dict:
         ).values("employee_id").annotate(n=Count("id"))
     }
 
-    def build_rows(employees, kind):
+    def build_rows(employees, kind, already_paid_map=None):
         rows = []
         for emp in employees:
             adj = adjustments.get(emp.id)
@@ -1798,7 +1881,14 @@ def _salary_context(current: date_cls) -> dict:
                     pf_enabled=emp.pf_enabled, esi_enabled=emp.esi_enabled,
                 )
             elif kind == "operators":
-                calc = payroll.compute_operator_pay(manual_amount, deductions, additions)
+                # An Operator with subcategory="Company" also does
+                # salaried Company Worker days some of the month — see
+                # already_paid_map/company_net_by_employee below — so
+                # whatever they already got paid there is subtracted
+                # here to avoid double-paying them. Zero for every
+                # ordinary Operator, who never appears in that map.
+                already_paid = (already_paid_map or {}).get(emp.id, Decimal(0))
+                calc = payroll.compute_operator_pay(manual_amount, deductions, additions, already_paid)
             elif kind == "fixed_payments":
                 # A recurring flat amount set once on the Employee record
                 # (Basic Salary — reused the same way Contractors reuse it
@@ -1906,6 +1996,15 @@ def _salary_context(current: date_cls) -> dict:
         # entirely.
         if tab_key == "helper":
             emp_filter |= Q(department__name__iexact="HOUSE KEEPING")
+        # An Operator who also does some days of salaried Company Worker
+        # work (category="Operator", subcategory="Company") is already
+        # picked up by this tab's own subcategory="Company" match above —
+        # no separate condition needed. They get a real, PF/ESI-covered
+        # salary for those days off their actual (manually-entered — see
+        # edit_record_view) attendance, same as any other Company Worker;
+        # see the Operators query below for the other side of this (their
+        # Operators pay gets this NET subtracted, purely by employee id,
+        # regardless of which condition put them on this tab).
         employees = (
             Employee.objects.filter(emp_filter)
             .active_during(month_start, month_end).order_by("department__name", "name")
@@ -1920,10 +2019,16 @@ def _salary_context(current: date_cls) -> dict:
     )
     context["contractor_rows"] = contractor_rows
     context["contractor_totals"] = sum_rows(contractor_rows, "contractors")
+    # Any Operator who also landed on the Company Workers tab above (via
+    # subcategory="Company") gets that NET looked up here by employee id
+    # so the Operators build below can subtract it — regardless of why
+    # they're on both tabs. Empty dict, and a no-op lookup, for anyone
+    # who's Operators-only.
+    company_net_by_employee = {r["employee"].id: r["calc"]["net"] for r in context["company_rows"]}
     operator_rows = build_rows(
         Employee.objects.filter(category__iexact="Operator")
         .active_during(month_start, month_end).order_by("department__name", "name"),
-        "operators",
+        "operators", already_paid_map=company_net_by_employee,
     )
     context["operator_rows"] = operator_rows
     context["operator_totals"] = sum_rows(operator_rows, "operators")
@@ -1997,29 +2102,35 @@ def salary_view(request):
             _error(request, "This tab is locked for this month — unlock it first to make changes.")
             return redirect(f"{request.path}?date={current.isoformat()}#tab={tab}")
 
+        editable_fields = _SALARY_TAB_EDITABLE_FIELDS.get(tab, set())
         employee_ids = request.POST.getlist("employee_id")
         saved = 0
         for emp_id in employee_ids:
             emp = Employee.objects.filter(id=emp_id).first()
             if not emp:
                 continue
-            manual_amount_raw = request.POST.get(f"manual_amount_{emp_id}", "").strip()
-            manual_amount = None
-            if manual_amount_raw:
-                try:
-                    manual_amount = Decimal(manual_amount_raw)
-                except InvalidOperation:
-                    manual_amount = None
+            defaults = {}
+            if "adjust_days" in editable_fields:
+                defaults["adjust_days"] = _salary_decimal(request, "adjust_days", emp_id)
+            if "deductions" in editable_fields:
+                defaults["deductions"] = _salary_decimal(request, "deductions", emp_id)
+            if "additions" in editable_fields:
+                defaults["additions"] = _salary_decimal(request, "additions", emp_id)
+            if "manual_amount" in editable_fields:
+                manual_amount_raw = request.POST.get(f"manual_amount_{emp_id}", "").strip()
+                manual_amount = None
+                if manual_amount_raw:
+                    try:
+                        manual_amount = Decimal(manual_amount_raw)
+                    except InvalidOperation:
+                        manual_amount = None
+                defaults["manual_amount"] = manual_amount
+            if "hold" in editable_fields:
+                defaults["hold"] = request.POST.get(f"hold_{emp_id}") == "on"
+            if "notes" in editable_fields:
+                defaults["notes"] = request.POST.get(f"notes_{emp_id}", "").strip()
             SalaryAdjustment.objects.update_or_create(
-                employee=emp, year=year, month=month,
-                defaults={
-                    "adjust_days": _salary_decimal(request, "adjust_days", emp_id),
-                    "deductions": _salary_decimal(request, "deductions", emp_id),
-                    "additions": _salary_decimal(request, "additions", emp_id),
-                    "manual_amount": manual_amount,
-                    "hold": request.POST.get(f"hold_{emp_id}") == "on",
-                    "notes": request.POST.get(f"notes_{emp_id}", "").strip(),
-                },
+                employee=emp, year=year, month=month, defaults=defaults,
             )
             saved += 1
         messages.success(request, f"Saved salary adjustments for {saved} employee(s) ({tab}).")
@@ -2159,12 +2270,20 @@ def _salary_summary_sheet_rows(summary_rows, grand_total):
 
 
 def _salary_operator_sheet_rows(rows, totals):
-    headers = ["Code", "Employee", "Earned Days", "Manual Amount", "Deductions", "Additions", "Hold", "Notes", "NET"]
-    col_groups = [None, None, "attendance", "fixed", "deduction-emp", None, None, None, "highlight"]
+    # "Company Pay" — the Company-Workers NET already paid this month to
+    # an Operator with subcategory="Company" (see compute_operator_pay's
+    # already_paid param), auto-subtracted into NET; zero/blank for an ordinary
+    # Operator, who never has this figure.
+    headers = [
+        "Code", "Employee", "Earned Days", "Manual Amount", "Company Pay", "Deductions", "Additions",
+        "Hold", "Notes", "NET",
+    ]
+    col_groups = [None, None, "attendance", "fixed", "deduction-emp", "deduction-emp", None, None, None, "highlight"]
     data_rows = [
         [
             r["employee"].code, r["employee"].name, float(r["earned_days"]),
-            float(r["manual_amount"] or 0), float(r["deductions"]), float(r["additions"]),
+            float(r["manual_amount"] or 0), float(r["calc"].get("already_paid", 0)),
+            float(r["deductions"]), float(r["additions"]),
             "Yes" if r["hold"] else "No", r["notes"], float(r["calc"]["net"]),
         ]
         for r in rows
@@ -2173,6 +2292,7 @@ def _salary_operator_sheet_rows(rows, totals):
     # matching comment in _salary_company_sheet_rows.
     total_row = [
         "", "Total", float(totals["earned_days"]), float(totals["manual_amount"]),
+        float(totals["calc"].get("already_paid", 0)),
         float(totals["deductions"]), float(totals["additions"]), "", "", float(totals["calc"].get("net", 0)),
     ]
     return headers, col_groups, data_rows, total_row

@@ -197,42 +197,32 @@
         /* --- Full Monthly OT grid (same look/logic as the dashboard's OT
            View tab, permanently on instead of toggled — see
            attendance/views.py _build_month_grid) --- */
-        /* overflow-x: auto alone doesn't make position: sticky headers
-           freeze — with no height cap, .grid-scroll never actually
-           overflows vertically, so it's the *page* that scrolls, not
-           this container, and sticky has nothing to stick relative to.
-           max-height + overflow-y: auto gives it a real internal
-           vertical scrollport (like a frozen-pane spreadsheet view) so
-           the sticky header/label cells actually have something to
-           freeze against. */
         .grid-scroll {
             overflow-x: auto;
-            overflow-y: auto;
-            max-height: 75vh;
             border: 1px solid var(--border);
             border-radius: 10px;
             max-width: 100%;
         }
-        /* separate + zero spacing, not collapse — Safari (and older
-           WebKit generally) doesn't reliably keep position: sticky
-           header/label cells fixed on a border-collapsed table; this
-           renders visually near-identical (adjoining 1px borders)
-           while actually freezing correctly. */
-        table.month { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 0.8rem; }
+        table.month { border-collapse: collapse; table-layout: fixed; font-size: 0.8rem; }
         table.month th, table.month td { border: 1px solid #666; padding: 0.3rem 0.35rem; text-align: center; white-space: nowrap; }
         table.month col.label-col { width: 100px; }
         table.month col.day-col { width: 34px; }
         table.month col.summary-col { width: 82px; }
         table.month th {
-            background: #FFF9B0; position: sticky; top: 0; z-index: 2;
+            background: #FFF9B0;
             white-space: normal; overflow-wrap: break-word; line-height: 1.15; vertical-align: bottom;
         }
         table.month td.label {
             text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            position: sticky; left: 0; z-index: 1; background: #fff;
+            background: #fff;
         }
-        table.month th.label { position: sticky; left: 0; z-index: 3; background: #FFF9B0; }
+        table.month th.label { background: #FFF9B0; }
         table.month tr.dept td { background: #FCE4D6; }
+        /* An Operator with subcategory="OT" (see dashboard_view's
+           exclusion) only shows up on this page, not the Dashboard — the
+           name cell gets the same tint as the Operator+Company row on
+           the Dashboard, so the marker reads consistently across pages. */
+        table.month tr.ot-operator-row td.label { background: #F3E5F5; }
         table.month td.dept-header { position: static; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
         table.month tr.dept:hover td { filter: brightness(0.97); }
         table.month .toggle-icon { display: inline-block; width: 0.9em; }
@@ -240,10 +230,10 @@
         table.month tfoot td.label { background: #FFF9B0; }
 
         table.month td[data-tooltip] { cursor: help; position: relative; }
-        /* Bump the hovered cell itself above the sticky thead (z-index 2/3)
-           and the sticky .topbar (z-index 30) — the ::after's own z-index
-           only ranks it among its own td's stacking context, not against
-           other positioned ancestors/siblings on the page. */
+        /* Bump the hovered cell itself above the sticky .topbar (z-index
+           30) — the ::after's own z-index only ranks it among its own
+           td's stacking context, not against other positioned
+           ancestors/siblings on the page. */
         table.month td[data-tooltip]:hover { z-index: 40; }
         table.month td[data-tooltip]:hover::after {
             content: attr(data-tooltip);
@@ -261,55 +251,6 @@
            flip it to open downward instead. */
         table.month tbody tr:nth-child(-n+3) td[data-tooltip]:hover::after {
             bottom: auto; top: 100%; margin-bottom: 0; margin-top: 6px;
-        }
-
-        /* Manually-edited marker — a small corner dot (top-right),
-           color-coded by which field(s) were hand-edited (see
-           AttendanceRecord.manually_edited_fields / edit_record_view):
-           blue for a punch in/out fix, magenta for a shift-code change,
-           purple for a forced status (e.g. downgrading a Paid Holiday to
-           a plain Holiday for one employee). A cell touched on more than
-           one front gets one dot per kind, laid out left of the anchor
-           dot via box-shadow — the explicit :not() combinations below
-           pick the right one/two/three-dot pattern for whichever
-           combination of edited-* classes the cell actually has. Not a
-           background/text color of the cell itself, so it layers
-           cleanly on top of whatever else the cell already shows
-           (special-H/PH/CO, shift-flag border, heat band, ...). The
-           hover tooltip's own ::after (equal specificity, but
-           :not(:hover) here loses the match on hover) takes over on
-           hover, so the dots just step aside while the tooltip is
-           showing rather than competing with it. */
-        table.month td.editable-cell[class*="edited-"]:not(:hover)::after {
-            content: ""; position: absolute; top: 2px; right: 2px;
-            width: 4px; height: 4px; border-radius: 50%;
-        }
-        table.month td.editable-cell.edited-time:not(.edited-shift):not(.edited-status):not(:hover)::after {
-            background: #1565C0;
-        }
-        table.month td.editable-cell.edited-shift:not(.edited-time):not(.edited-status):not(:hover)::after {
-            background: #AD1457;
-        }
-        table.month td.editable-cell.edited-status:not(.edited-time):not(.edited-shift):not(:hover)::after {
-            background: #6A1B9A;
-        }
-        table.month td.editable-cell.edited-time.edited-shift:not(.edited-status):not(:hover)::after {
-            background: #1565C0; box-shadow: -6px 0 0 #AD1457;
-        }
-        table.month td.editable-cell.edited-time.edited-status:not(.edited-shift):not(:hover)::after {
-            background: #1565C0; box-shadow: -6px 0 0 #6A1B9A;
-        }
-        table.month td.editable-cell.edited-shift.edited-status:not(.edited-time):not(:hover)::after {
-            background: #AD1457; box-shadow: -6px 0 0 #6A1B9A;
-        }
-        table.month td.editable-cell.edited-time.edited-shift.edited-status:not(:hover)::after {
-            background: #1565C0; box-shadow: -6px 0 0 #AD1457, -12px 0 0 #6A1B9A;
-        }
-        /* Edited before manually_edited_fields existed (see edited_unknown
-           in views.py) — mutually exclusive with the three above (only
-           set when none of them are), so no combinator variants needed. */
-        table.month td.editable-cell.edited-unknown:not(:hover)::after {
-            background: #757575;
         }
 
         table.month td.special-H { background: #D6D6D6; }
@@ -387,7 +328,7 @@
         table.month td.shift-flag-E-OT::before,
         table.month td.shift-flag-ME-OT::before,
         table.month td.shift-flag-Full-OT::before {
-            content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 4px;
+            content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
         }
         table.month td.shift-flag-M-OT::before { background: #2E7D32; }
         table.month td.shift-flag-E-OT::before { background: #800000; }
@@ -445,7 +386,7 @@
         table.month td.gs-suggest-E-OT::before,
         table.month td.gs-suggest-ME-OT::before,
         table.month td.gs-suggest-Full-OT::before {
-            content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 4px;
+            content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
         }
         table.month td.gs-suggest-M-OT::before { background: #2E7D32; }
         table.month td.gs-suggest-E-OT::before { background: #800000; }
@@ -620,7 +561,6 @@
                             <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT</span>
                             <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #1565C0"></span>Full-OT</span>
                         </div>
-                        <p class="caption">Click any day cell to fix a missed punch or set its shift code. Click a date's column header to set that shift for everyone that day (Staff excluded). Every employee is listed, grouped by department — rows with no OT shift (real or suggested) are hidden until they get one. Click a department row to collapse it.</p>
                         <div class="grid-scroll">
                             <table class="month grid-editable" id="otViewGrid">
                                 <colgroup>
@@ -647,7 +587,7 @@
                                 </thead>
                                 <tbody>
                                     {% for row in editable_table_rows %}
-                                    <tr class="{% if row.is_dept %}dept{% endif %}">
+                                    <tr class="{% if row.is_dept %}dept{% elif row.is_ot_operator %}ot-operator-row{% endif %}">
                                         {% if row.is_dept %}
                                             <td class="label dept-header" colspan="{{ total_cols }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
                                         {% else %}
@@ -778,7 +718,7 @@
                                 </thead>
                                 <tbody>
                                     {% for row in table_rows %}
-                                    <tr class="{% if row.is_dept %}dept{% elif row.is_top3 %}top3-row{% endif %}">
+                                    <tr class="{% if row.is_dept %}dept{% elif row.is_ot_operator %}ot-operator-row{% elif row.is_top3 %}top3-row{% endif %}">
                                         {% if row.is_dept %}
                                             <td class="label dept-header" colspan="{{ total_cols }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
                                         {% else %}
@@ -1256,6 +1196,7 @@
                 });
             });
         })();
+
     </script>
 </body>
 </html>

@@ -41,14 +41,51 @@ class EmployeeQuerySet(models.QuerySet):
 
 
 class Employee(models.Model):
+    # These two fields together decide Salary-page tab membership for
+    # everyone not routed by department (Contractors/Fixed Payments/House
+    # Keeping — see attendance/views.py's _salary_context): subcategory
+    # alone for Company/Helper/Staff, and category="Operator" + one of
+    # subcategory's Operator-only values for the Operators tab (blank
+    # subcategory = plain piece-rate Operator, "Company" = also does
+    # salaried Company Worker days some of the month, "OT" = OT-only,
+    # hidden from the regular Attendance dashboard). See attendance/
+    # views.py's _salary_context, _build_month_grid, and dashboard_view
+    # for exactly how each value is used.
+    CATEGORY_OPERATOR = "Operator"
+    CATEGORY_CHOICES = [
+        (CATEGORY_OPERATOR, "Operator"),
+    ]
+    SUBCATEGORY_COMPANY = "Company"
+    SUBCATEGORY_HELPER = "Helper"
+    SUBCATEGORY_STAFF = "Staff"
+    SUBCATEGORY_OT = "OT"
+    SUBCATEGORY_CHOICES = [
+        (SUBCATEGORY_COMPANY, "Company"),
+        (SUBCATEGORY_HELPER, "Helper"),
+        (SUBCATEGORY_STAFF, "Staff"),
+        (SUBCATEGORY_OT, "OT"),
+    ]
+
     code = models.CharField(max_length=30, unique=True)
     name = models.CharField(max_length=150)
     company = models.CharField(max_length=150, blank=True)
     category = models.CharField(
-        max_length=100, blank=True,
-        help_text="Broad category from the attendance export, e.g. Staff/Helper/Worker.",
+        max_length=100, blank=True, choices=CATEGORY_CHOICES,
+        help_text='Set to "Operator" for piece-rate Operators (see Subcategory '
+                   "for the Company/OT variants) — leave blank for everyone else, "
+                   "including Company Workers/Helpers/Staff (those are set via "
+                   "Subcategory instead) and Contractors/Fixed Payments (set via "
+                   "Department instead).",
     )
-    subcategory = models.CharField(max_length=100, blank=True)
+    subcategory = models.CharField(
+        max_length=100, blank=True, choices=SUBCATEGORY_CHOICES,
+        help_text='"Company"/"Helper"/"Staff" put a non-Operator on that Salary '
+                   'tab. Alongside category="Operator": blank is a plain Operator, '
+                   '"Company" also does salaried Company Worker days some of the '
+                   'month (paid on both tabs, with the Company Worker pay '
+                   'auto-subtracted from Operators pay), "OT" only does OT work '
+                   "and is hidden from the regular Attendance dashboard.",
+    )
     department = models.ForeignKey(
         Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="employees"
     )
