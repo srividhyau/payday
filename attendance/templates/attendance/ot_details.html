@@ -197,7 +197,22 @@
         /* --- Full Monthly OT grid (same look/logic as the dashboard's OT
            View tab, permanently on instead of toggled — see
            attendance/views.py _build_month_grid) --- */
-        .grid-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; }
+        /* overflow-x: auto alone doesn't make position: sticky headers
+           freeze — with no height cap, .grid-scroll never actually
+           overflows vertically, so it's the *page* that scrolls, not
+           this container, and sticky has nothing to stick relative to.
+           max-height + overflow-y: auto gives it a real internal
+           vertical scrollport (like a frozen-pane spreadsheet view) so
+           the sticky header/label cells actually have something to
+           freeze against. */
+        .grid-scroll {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 75vh;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            max-width: 100%;
+        }
         /* separate + zero spacing, not collapse — Safari (and older
            WebKit generally) doesn't reliably keep position: sticky
            header/label cells fixed on a border-collapsed table; this
@@ -209,14 +224,14 @@
         table.month col.day-col { width: 34px; }
         table.month col.summary-col { width: 82px; }
         table.month th {
-            background: #fafafa; position: sticky; top: 0; z-index: 2;
+            background: #FFF9B0; position: sticky; top: 0; z-index: 2;
             white-space: normal; overflow-wrap: break-word; line-height: 1.15; vertical-align: bottom;
         }
         table.month td.label {
             text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             position: sticky; left: 0; z-index: 1; background: #fff;
         }
-        table.month th.label { position: sticky; left: 0; z-index: 3; background: #fafafa; }
+        table.month th.label { position: sticky; left: 0; z-index: 3; background: #FFF9B0; }
         table.month tr.dept td { background: #FCE4D6; }
         table.month td.dept-header { position: static; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
         table.month tr.dept:hover td { filter: brightness(0.97); }
@@ -311,6 +326,40 @@
         table.month tbody tr:last-child td.special-H,
         table.month tbody tr:last-child td.special-PH,
         table.month tbody tr:last-child td.special-CO { border-bottom: 2px solid #555; }
+        /* A cell that's both a calendar special day AND has a shift-flag
+           (someone worked that Holiday/Paid Holiday/Comp Off with an OT
+           shift assigned) would otherwise show the shift-flag's plain
+           yellow (its background is !important — see below) instead of
+           the special-day color, hiding which calendar day type it was.
+           These combined selectors have more classes than the shift-flag
+           rule alone, so they win regardless of declaration order even
+           though both sides are !important — restoring the special-day
+           background (matching the Dashboard, which never lets heat/OT
+           coloring override it either) while the shift-flag border
+           accent (::before) and OT text still show through normally.
+           :not(.el-credit-cell) so a Staff cell earning "+1 EL"/"+0.5
+           EL" (which always carries special + shift-flag together too,
+           since that's exactly what el_day_credit fires on) keeps its
+           own bright-cyan callout instead — that distinction matters
+           more there than which calendar day type it was. */
+        table.month td.editable-cell.special-H.shift-flag-M-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-H.shift-flag-E-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-H.shift-flag-ME-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-H.shift-flag-Full-OT:not(.el-credit-cell) {
+            background: #D6D6D6 !important; color: #1a1a1a;
+        }
+        table.month td.editable-cell.special-PH.shift-flag-M-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-PH.shift-flag-E-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-PH.shift-flag-ME-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-PH.shift-flag-Full-OT:not(.el-credit-cell) {
+            background: #4FB3A9 !important; color: #1a1a1a;
+        }
+        table.month td.editable-cell.special-CO.shift-flag-M-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-CO.shift-flag-E-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-CO.shift-flag-ME-OT:not(.el-credit-cell),
+        table.month td.editable-cell.special-CO.shift-flag-Full-OT:not(.el-credit-cell) {
+            background: #F5A85C !important; color: #1a1a1a;
+        }
 
         table.month td.summary-highlight { background: #FFF9B0; }
         table.month tr.dept td.summary-highlight { background: #FCE4D6; }
@@ -347,8 +396,13 @@
 
         /* Every cell without a real/suggested shift flag stays blank; the
            rest show In/Out time instead of worked hours (see the swap
-           script below) — this grid is always in "OT view" mode. */
-        table.month td.editable-cell:not(.label):not(.shift-flag-M-OT):not(.shift-flag-E-OT):not(.shift-flag-ME-OT):not(.shift-flag-Full-OT):not(.gs-show-time):not(.el-day) {
+           script below) — this grid is always in "OT view" mode.
+           :not(.special-H/-PH/-CO) too — without these, this rule (more
+           classes + !important) wiped out the calendar special-day
+           background on any Holiday/Paid Holiday/Comp Off cell that
+           didn't also have a shift-flag (i.e. wasn't worked), forcing
+           it transparent instead. */
+        table.month td.editable-cell:not(.label):not(.shift-flag-M-OT):not(.shift-flag-E-OT):not(.shift-flag-ME-OT):not(.shift-flag-Full-OT):not(.gs-show-time):not(.el-day):not(.special-H):not(.special-PH):not(.special-CO) {
             background: transparent !important;
             color: transparent;
         }
@@ -366,7 +420,10 @@
         table.month td.editable-cell.shift-flag-E-OT,
         table.month td.editable-cell.shift-flag-ME-OT,
         table.month td.editable-cell.shift-flag-Full-OT {
-            background: #FFF9B0 !important;
+            /* Was the same #FFF9B0 as the table header/Total-row yellow —
+               changed so a real OT-shift cell doesn't read like a header
+               or total at a glance. */
+            background: #AEDCFB !important;
             color: #1a1a1a;
         }
         /* EL Given — same bright cyan as EL Taken above (see comment
@@ -557,7 +614,7 @@
                             <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
                             <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
                             <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
-                            <span class="legend-item"><span class="swatch" style="background:#FFF9B0"></span>Confirmed OT shift</span>
+                            <span class="legend-item"><span class="swatch" style="background:#AEDCFB"></span>Confirmed OT shift</span>
                             <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #2E7D32"></span>M-OT</span>
                             <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT</span>
                             <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT</span>
@@ -688,7 +745,7 @@
                             <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
                             <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
                             <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
-                            <span class="legend-item"><span class="swatch" style="background:#FFF9B0"></span>Confirmed OT shift</span>
+                            <span class="legend-item"><span class="swatch" style="background:#AEDCFB"></span>Confirmed OT shift</span>
                             <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #2E7D32"></span>M-OT</span>
                             <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT</span>
                             <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT</span>

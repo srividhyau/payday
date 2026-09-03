@@ -188,10 +188,12 @@ def _special_days_and_downgrades() -> tuple[dict, dict, dict]:
     Holiday applies to.
 
     skip additionally excludes every Contractor-department employee
-    entirely from Paid Holiday dates — a blanket policy (contractors
-    aren't entitled to paid holidays at all), so their day computes
-    completely normally there instead of getting any Holiday/Paid
-    Holiday treatment, same as an ordinary working day."""
+    entirely from every calendar day type (Holiday, Paid Holiday, Comp
+    Off) — a blanket policy: contractors are paid strictly per day
+    actually worked, with no holiday/OT concept at all, so a day they
+    worked always counts as a plain Work Day (see Salary's Paid Days,
+    which already counts it that way) instead of getting folded into
+    Holiday/Paid Holiday/OT-EL treatment like other employee types."""
     special_days: dict = {}
     downgraded: dict = {}
     for sd in SpecialDay.objects.prefetch_related("downgraded_employees"):
@@ -205,9 +207,8 @@ def _special_days_and_downgrades() -> tuple[dict, dict, dict]:
     )
     skip: dict = {}
     if contractor_codes:
-        for d, day_type in special_days.items():
-            if day_type == SpecialDay.PAID_HOLIDAY:
-                skip[d] = contractor_codes
+        for d in special_days:
+            skip[d] = contractor_codes
 
     return special_days, downgraded, skip
 
@@ -455,9 +456,10 @@ def _build_month_grid(
     # function, and table_row construction below does row[c] for c in
     # summary_cols, so a mismatch here would KeyError.
     summary_cols = [
-        "Work Days", "Comp Off", "EL", "Paid Holiday", "Personal Leave",
+        "Work Days", "Comp Off", "EL Earned", "Paid Holiday", "Personal Leave",
         "Missing Punch", "Short Days", "Permission Hours",
     ]
+    _EL_SUMMARY_COL_INDEX = summary_cols.index("EL Earned")
 
     table_rows = []
     for _, row in month_view.iterrows():
@@ -592,6 +594,18 @@ def _build_month_grid(
         ot_rate = float(emp_rate_map.get(row["Emp Code"], 0)) if not is_dept else 0
         total_ot_amount = float(total_ot) * ot_rate if not is_dept else 0
         el_days = emp_el_days.get(row["Emp Code"], 0) if not is_dept else 0
+        # The summary table's own "EL" column (from month_attendance_view)
+        # is a different, older calculation that deliberately excludes a
+        # worked Holiday/Paid Holiday/Comp Off — but that's exactly what
+        # el_days (this same overtime_view-based figure the "+1 EL"/"+0.5
+        # EL" day cells use — see _apply_staff_ot_display) credits. Swap
+        # it in for individual Staff rows so the two agree instead of a
+        # cell reading "+1 EL" while this column shows 0 for the same
+        # month. Left alone for non-Staff rows (that "" is intentional —
+        # see month_attendance_view) and department subtotal rows (still
+        # aggregated from the older figure; not revisited here).
+        if not is_dept and isinstance(summary_cells[_EL_SUMMARY_COL_INDEX], (int, float)):
+            summary_cells[_EL_SUMMARY_COL_INDEX] = el_days
         permission_hours = emp_permission_hours.get(row["Emp Code"], 0) if not is_dept else 0
         table_rows.append({
             "label": row["Row Labels"],
@@ -796,6 +810,10 @@ def dashboard_view(request):
     grid = _build_month_grid(daily, special_days, emp_rate_map, full_day_map=full_day_map)
     working_days = grid["working_days"]
     issues = grid["issues"]
+    # A worked Holiday/Paid Holiday/Comp Off should read as "+1 EL"/"+0.5
+    # EL" for Staff wherever their month is shown, not just on the OT
+    # page's tabs (see _apply_staff_ot_display).
+    _apply_staff_ot_display(grid["table_rows"], grid["shift_ot_table"])
 
     emp_summary = metrics.employee_summary(daily, working_days, shift_ot_map=grid["emp_ot_totals"])
     dept_summary = metrics.department_summary(emp_summary)

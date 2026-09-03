@@ -383,15 +383,18 @@ def month_attendance_view(
     same order they're shown elsewhere (e.g.
     settings.ATTENDANCE_VISIBLE_DEPARTMENTS) instead of plain alphabetical.
 
-    "EL" (labeled that way rather than "Time Off" — same underlying
-    figure) is credited per day using the same tiered thresholds as
-    Work Days (work_day_credit: <=3h -> 0, <=5.5h -> half day, >5.5h ->
-    full day), applied to ot_hours instead of work_hours, then summed —
-    and only for employees whose subcategory is "Staff" (everyone else
-    shows blank, this metric doesn't apply to them). Excludes
-    special_worked days (a worked Holiday/Paid Holiday/Comp Off folds
-    its whole span into ot_hours too — see apply_special_days — but
-    that's real work done, not time taken off) and missing-punch days,
+    "EL Earned" (labeled that way rather than "Time Off" — same
+    underlying figure, and distinct from the day-cell "+1 EL"/"+0.5 EL"
+    marker used elsewhere for a worked Holiday/Paid Holiday/Comp Off,
+    which attendance/views.py substitutes in for individual Staff rows
+    on top of this) is credited per day using the same tiered thresholds
+    as Work Days (work_day_credit: <=3h -> 0, <=5.5h -> half day, >5.5h
+    -> full day), applied to ot_hours instead of work_hours, then
+    summed — and only for employees whose subcategory is "Staff"
+    (everyone else shows blank, this metric doesn't apply to them).
+    Excludes special_worked days (a worked Holiday/Paid Holiday/Comp Off
+    folds its whole span into ot_hours too — see apply_special_days —
+    but that's real work done, not time taken off) and missing-punch days,
     same exclusions Work Days already applies via
     _work_day_credit_series.
 
@@ -507,7 +510,7 @@ def month_attendance_view(
         return {
             "Work Days": work_days,
             "Comp Off": comp_off or "",
-            "EL": time_off,
+            "EL Earned": time_off,
             "Paid Holiday": paid_holiday or "",
             "Personal Leave": personal_leave,
             "Missing Punch": missing_punch or "",
@@ -520,7 +523,7 @@ def month_attendance_view(
     }
 
     summary_cols = [
-        "Work Days", "Comp Off", "EL", "Paid Holiday", "Personal Leave",
+        "Work Days", "Comp Off", "EL Earned", "Paid Holiday", "Personal Leave",
         "Missing Punch", "Short Days", "Permission Hours",
     ]
     rows = []

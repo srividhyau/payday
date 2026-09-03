@@ -194,9 +194,20 @@
         }
         .tab-picker-menu hr.picker-sep { border: none; border-top: 1px solid var(--border); margin: 0.2rem 0; width: 100%; }
 
-        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem; }
-        .table-wrap.fit-content { display: inline-block; }
-        table.simple { border-collapse: collapse; width: 100%; }
+        /* max-height + overflow-y: auto gives each table its own real
+           internal vertical scrollport (like a frozen-pane spreadsheet
+           view) — without a height cap, overflow-x: auto alone never
+           actually overflows vertically, so it's the *page* that
+           scrolls instead of this container, and the sticky header
+           cells below have nothing to stick relative to. */
+        .table-wrap { overflow-x: auto; overflow-y: auto; max-height: 75vh; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem; }
+        .table-wrap.fit-content { display: inline-block; max-height: none; }
+        /* separate + zero spacing, not collapse — Safari (and older
+           WebKit generally) doesn't reliably keep position: sticky header
+           cells fixed on a border-collapsed table; this renders visually
+           identical (adjoining 1px borders) while actually freezing
+           correctly. */
+        table.simple { border-collapse: separate; border-spacing: 0; width: 100%; }
         table.simple.fit-content { width: auto; }
         table.simple tr.dept-row td {
             background: #FCE4D6;
@@ -208,6 +219,7 @@
             background: #FFF9B0; color: var(--text-muted); font-weight: 600; font-size: 0.72rem;
             text-transform: uppercase; letter-spacing: 0.03em;
             white-space: normal; max-width: 6.5rem; line-height: 1.25; vertical-align: bottom;
+            position: sticky; top: 0; z-index: 2;
         }
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
@@ -988,6 +1000,25 @@
 
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
     <script>
+        // Company Workers' header has two stacked rows (rowspan="2" ids +
+        // a second row of sub-column labels) — both need position:
+        // sticky, but the second row's "top" has to sit right below
+        // however tall the first row actually rendered (its cells can
+        // wrap to 2 lines depending on column width), so it's measured
+        // rather than guessed. Re-run whenever a tab becomes visible
+        // (a hidden panel's table reports 0 height for everything) and
+        // on resize (narrower columns can wrap differently).
+        function stickSalarySubHeaderRows() {
+            document.querySelectorAll('table.simple thead').forEach(function (thead) {
+                var rows = thead.querySelectorAll('tr');
+                if (rows.length < 2) return;
+                var firstRowHeight = rows[0].getBoundingClientRect().height;
+                if (!firstRowHeight) return;
+                rows[1].querySelectorAll('th').forEach(function (th) {
+                    th.style.top = firstRowHeight + 'px';
+                });
+            });
+        }
         // Scoped to [data-tab] so the Download link and Send to Telegram
         // button (plain .tab-btn elements with no data-tab, since neither
         // switches panels) don't get treated as switchable tabs.
@@ -999,11 +1030,14 @@
             document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
             btn.classList.add('active');
             panel.style.display = '';
+            stickSalarySubHeaderRows();
             return true;
         }
         document.querySelectorAll('.tab-btn[data-tab]').forEach(function (btn) {
             btn.addEventListener('click', function () { activateSalaryTab(btn.dataset.tab); });
         });
+        window.addEventListener('resize', stickSalarySubHeaderRows);
+        stickSalarySubHeaderRows();
         // After saving a tab, the redirect back here carries which tab it
         // was (see salary_view's "#tab=..." redirect) so the page reopens
         // on that same tab instead of always falling back to Summary
