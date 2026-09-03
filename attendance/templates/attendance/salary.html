@@ -239,10 +239,11 @@
            is one merged group covering both Employer and Employee columns
            (Employer's own PF+ESI shown first, then Employee's) so there's
            a single arrow for both instead of two. */
-        table.simple .detail-fixed, table.simple .detail-earned, table.simple .detail-pfesi { display: none; }
+        table.simple .detail-fixed, table.simple .detail-earned, table.simple .detail-pfesi, table.simple .detail-el { display: none; }
         table.simple.show-fixed .detail-fixed { display: table-cell; }
         table.simple.show-earned .detail-earned { display: table-cell; }
         table.simple.show-pfesi .detail-pfesi { display: table-cell; }
+        table.simple.show-el .detail-el { display: table-cell; }
         table.simple th.group-toggle { cursor: pointer; }
         table.simple th.group-toggle:hover { filter: brightness(0.94); }
         table.simple th.group-toggle .group-arrow { font-size: 0.7rem; margin-left: 0.15rem; }
@@ -259,7 +260,12 @@
         table.simple th.grp-deduction-emp, table.simple td.grp-deduction-emp { background: #FFF2CC; }
         table.simple th.grp-deduction-employer, table.simple td.grp-deduction-employer { background: #FFE0B2; }
         table.simple th.grp-highlight, table.simple td.grp-highlight { background: #FFFF00; }
-        table.simple th.grp-attendance, table.simple th.grp-deduction-emp, table.simple th.grp-deduction-employer { color: var(--navy-deep); }
+        /* Staff-only EL group (EL/Total EL/EL Balance/EL Used) — its own
+           lavender so the whole EL picture reads as one block, distinct
+           from the plain attendance-blue Paid Days/Adjust Days/Earned
+           Days group next to it. */
+        table.simple th.grp-el, table.simple td.grp-el { background: #E1D5F5; }
+        table.simple th.grp-attendance, table.simple th.grp-deduction-emp, table.simple th.grp-deduction-employer, table.simple th.grp-el { color: var(--navy-deep); }
         table.simple th.grp-highlight { color: #1a1a1a; }
         /* Sums (PF+ESI, Total Deductions) stand out dark/bold; the
            individual components they add up from sit one shade lighter,
@@ -272,9 +278,16 @@
         table.simple tbody tr:hover td.grp-deduction-emp { background: #f7e9b8; }
         table.simple tbody tr:hover td.grp-deduction-employer { background: #f7ca85; }
         table.simple tbody tr:hover td.grp-highlight { background: #f2f200; }
+        table.simple tbody tr:hover td.grp-el { background: #cbb8ec; }
         table.simple td.grp-attendance .adj-input,
         table.simple td.grp-deduction-emp .adj-input,
         table.simple td.grp-deduction-employer .adj-input { background: transparent; }
+        /* Personal Leave — unpaid, so it gets its own light-red flag
+           instead of the neutral attendance-blue every other days/leave
+           column shares, distinguishing "days not accounted for" at a
+           glance from "days that are". */
+        table.simple th.personal-leave-cell, table.simple td.personal-leave-cell { background: #FFCDD2; color: #B71C1C; }
+        table.simple tbody tr:hover td.personal-leave-cell { background: #f5b3ba; }
 
         .adj-input {
             width: 5.5rem; padding: 0.3rem 0.4rem; border: 1px solid var(--border); border-radius: 6px;
@@ -376,7 +389,7 @@
             </div>
         {% endif %}
 
-        <p class="working-days">Working days = calendar days minus Sundays — Paid Holiday/Comp Off don't reduce this, they add to each employee's Paid Days instead (see the per-employee column below).</p>
+        <p class="working-days">Working Days is inferred from actual attendance (same figure the Dashboard/OT pages show) — not a fixed "calendar days minus Sundays" count, so it adjusts if a Sunday is worked company-wide. Paid Holiday adds to each employee's Paid Days below (see the Paid Holiday column); Comp Off does not.</p>
 
         <div class="card">
             <div class="tab-row">
@@ -541,7 +554,10 @@
                                 <tr>
                                     <th rowspan="2">Code</th><th rowspan="2">Employee</th>
                                     <th colspan="1" data-expanded-colspan="5" class="num grp-fixed group-toggle" data-group="fixed">Fixed Salary <span class="group-arrow">&#9656;</span></th>
-                                    <th rowspan="2" class="num grp-attendance">Paid Days</th><th rowspan="2" class="num grp-attendance">Adjust Days</th><th rowspan="2" class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th rowspan="2" class="num grp-attendance">Paid Days</th>
+                                    <th rowspan="2" class="num grp-attendance">Paid Holiday</th>
+                                    <th rowspan="2" class="num grp-attendance">Adjust Days</th><th rowspan="2" class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th rowspan="2" class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th colspan="1" data-expanded-colspan="3" class="num group-toggle" data-group="earned">Earned Breakdown <span class="group-arrow">&#9656;</span></th>
                                     <th colspan="1" data-expanded-colspan="6" class="num group-toggle" data-group="pfesi">PF + ESI <span class="group-arrow">&#9656;</span></th>
                                     <th rowspan="2" class="num grp-deduction-emp">Deductions</th><th rowspan="2" class="num grp-deduction-emp sum-cell">Total Deductions</th><th rowspan="2" class="num">Additions</th>
@@ -568,7 +584,7 @@
                             <tbody>
                                 {% regroup company_rows by employee.department.name as company_dept_list %}
                                 {% for dept in company_dept_list %}
-                                <tr class="dept-row"><td colspan="24">{{ dept.grouper|default:"—" }}</td></tr>
+                                <tr class="dept-row"><td colspan="26">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
                                 <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
@@ -588,8 +604,10 @@
                                     <td class="num grp-fixed value-cell detail-fixed">{{ row.employee.hra }}</td>
                                     <td class="num grp-fixed sum-cell">{{ row.calc.gross }}</td>
                                     <td class="num grp-attendance">{{ row.paid_days }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_holiday }}</td>
                                     <td class="num grp-attendance"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
                                     <td class="num grp-attendance sum-cell">{{ row.calc.earned_days }}</td>
+                                    <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num value-cell detail-earned">{{ row.calc.earned_basic_da }}</td>
                                     <td class="num value-cell detail-earned">{{ row.calc.earned_hra }}</td>
                                     <td class="num sum-cell">{{ row.calc.earned_total }}</td>
@@ -617,8 +635,10 @@
                                     <td class="num detail-fixed">{{ company_totals.hra }}</td>
                                     <td class="num">{{ company_totals.calc.gross }}</td>
                                     <td class="num">{{ company_totals.paid_days }}</td>
+                                    <td class="num">{{ company_totals.paid_holiday }}</td>
                                     <td class="num">{{ company_totals.adjust_days }}</td>
                                     <td class="num">{{ company_totals.calc.earned_days }}</td>
+                                    <td class="num personal-leave-cell">{{ company_totals.personal_leave }}</td>
                                     <td class="num detail-earned">{{ company_totals.calc.earned_basic_da }}</td>
                                     <td class="num detail-earned">{{ company_totals.calc.earned_hra }}</td>
                                     <td class="num">{{ company_totals.calc.earned_total }}</td>
@@ -659,7 +679,10 @@
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th><th class="num grp-fixed">Basic Salary</th>
-                                    <th class="num grp-attendance">Paid Days</th><th class="num grp-attendance">Adjust Days</th><th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num grp-attendance">Paid Days</th>
+                                    <th class="num grp-attendance">Paid Holiday</th>
+                                    <th class="num grp-attendance">Adjust Days</th><th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th class="num sum-cell">Earned Salary</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
                                     <th>Hold</th>
@@ -669,7 +692,7 @@
                             <tbody>
                                 {% regroup helper_rows by employee.department.name as helper_dept_list %}
                                 {% for dept in helper_dept_list %}
-                                <tr class="dept-row"><td colspan="11">{{ dept.grouper|default:"—" }}</td></tr>
+                                <tr class="dept-row"><td colspan="13">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
                                 <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
@@ -677,8 +700,10 @@
                                     <td>{{ row.employee.name }}</td>
                                     <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
                                     <td class="num grp-attendance">{{ row.paid_days }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_holiday }}</td>
                                     <td class="num grp-attendance"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
                                     <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num sum-cell">{{ row.calc.earned_salary }}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
@@ -693,8 +718,10 @@
                                     <td colspan="2">Total</td>
                                     <td class="num">{{ helper_totals.basic_salary }}</td>
                                     <td class="num">{{ helper_totals.paid_days }}</td>
+                                    <td class="num">{{ helper_totals.paid_holiday }}</td>
                                     <td class="num">{{ helper_totals.adjust_days }}</td>
                                     <td class="num">{{ helper_totals.earned_days }}</td>
+                                    <td class="num personal-leave-cell">{{ helper_totals.personal_leave }}</td>
                                     <td class="num">{{ helper_totals.calc.earned_salary }}</td>
                                     <td class="num">{{ helper_totals.deductions }}</td>
                                     <td class="num">{{ helper_totals.additions }}</td>
@@ -721,21 +748,31 @@
                     {% if lock_status.staff %}<p class="lock-banner">🔒 Staff is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.staff or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap">
-                        <table class="simple">
+                        <table class="simple" id="staffTable">
                             <thead>
                                 <tr>
-                                    <th>Code</th><th>Employee</th><th class="num grp-fixed">Basic Salary</th>
-                                    <th class="num grp-attendance">Paid Days</th><th class="num grp-attendance">Adjust Days</th><th class="num grp-attendance sum-cell">Earned Days</th>
-                                    <th class="num sum-cell">Earned Salary</th>
-                                    <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
-                                    <th>Hold</th>
-                                    <th>TDS?</th><th class="net grp-highlight">NET</th>
+                                    <th rowspan="2">Code</th><th rowspan="2">Employee</th><th rowspan="2" class="num grp-fixed">Basic Salary</th>
+                                    <th rowspan="2" class="num grp-attendance">Paid Days</th>
+                                    <th rowspan="2" class="num grp-attendance">Paid Holiday</th>
+                                    <th colspan="1" data-expanded-colspan="4" class="num grp-el group-toggle" data-group="el">EL <span class="group-arrow">&#9656;</span></th>
+                                    <th rowspan="2" class="num grp-attendance">Adjust Days</th><th rowspan="2" class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th rowspan="2" class="num grp-attendance personal-leave-cell">Personal Leave</th>
+                                    <th rowspan="2" class="num sum-cell">Earned Salary</th>
+                                    <th rowspan="2" class="num grp-deduction-emp">Deductions</th><th rowspan="2" class="num">Additions</th>
+                                    <th rowspan="2">Hold</th>
+                                    <th rowspan="2">TDS?</th><th rowspan="2" class="net grp-highlight">NET</th>
+                                </tr>
+                                <tr>
+                                    <th class="num grp-el sub-th detail-el">EL Earned</th>
+                                    <th class="num grp-el sub-th detail-el">Total EL</th>
+                                    <th class="num grp-el sub-th detail-el">EL Balance</th>
+                                    <th class="num grp-el sub-th sum-cell">EL Used</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% regroup staff_rows by employee.department.name as staff_dept_list %}
                                 {% for dept in staff_dept_list %}
-                                <tr class="dept-row"><td colspan="12">{{ dept.grouper|default:"—" }}</td></tr>
+                                <tr class="dept-row"><td colspan="18">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
                                 <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
@@ -743,8 +780,14 @@
                                     <td>{{ row.employee.name }}</td>
                                     <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
                                     <td class="num grp-attendance">{{ row.paid_days }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_holiday }}</td>
+                                    <td class="num grp-el value-cell detail-el">{{ row.el_days }}</td>
+                                    <td class="num grp-el value-cell detail-el">{{ row.total_el }}</td>
+                                    <td class="num grp-el value-cell detail-el">{{ row.el_balance }}</td>
+                                    <td class="num grp-el sum-cell">{{ row.el_used }}</td>
                                     <td class="num grp-attendance"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
                                     <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num sum-cell">{{ row.calc.earned_salary }}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
@@ -760,8 +803,14 @@
                                     <td colspan="2">Total</td>
                                     <td class="num">{{ staff_totals.basic_salary }}</td>
                                     <td class="num">{{ staff_totals.paid_days }}</td>
+                                    <td class="num">{{ staff_totals.paid_holiday }}</td>
+                                    <td class="num detail-el">{{ staff_totals.el_days }}</td>
+                                    <td class="num detail-el">{{ staff_totals.total_el }}</td>
+                                    <td class="num detail-el">{{ staff_totals.el_balance }}</td>
+                                    <td class="num">{{ staff_totals.el_used }}</td>
                                     <td class="num">{{ staff_totals.adjust_days }}</td>
                                     <td class="num">{{ staff_totals.earned_days }}</td>
+                                    <td class="num personal-leave-cell">{{ staff_totals.personal_leave }}</td>
                                     <td class="num">{{ staff_totals.calc.earned_salary }}</td>
                                     <td class="num">{{ staff_totals.deductions }}</td>
                                     <td class="num">{{ staff_totals.additions }}</td>
@@ -793,7 +842,10 @@
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th><th class="num grp-fixed">Day Rate</th>
-                                    <th class="num grp-attendance">Paid Days</th><th class="num grp-attendance">Adjust Days</th><th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num grp-attendance">Paid Days</th>
+                                    <th class="num grp-attendance">Paid Holiday</th>
+                                    <th class="num grp-attendance">Adjust Days</th><th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th class="num sum-cell">Earned Salary</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
                                     <th>Hold</th>
@@ -803,7 +855,7 @@
                             <tbody>
                                 {% regroup contractor_rows by employee.department.name as contractor_dept_list %}
                                 {% for dept in contractor_dept_list %}
-                                <tr class="dept-row"><td colspan="11">{{ dept.grouper|default:"—" }}</td></tr>
+                                <tr class="dept-row"><td colspan="13">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
                                 <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
@@ -811,8 +863,10 @@
                                     <td>{{ row.employee.name }}</td>
                                     <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
                                     <td class="num grp-attendance">{{ row.paid_days }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_holiday }}</td>
                                     <td class="num grp-attendance"><input class="adj-input" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
                                     <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num sum-cell">{{ row.calc.earned_salary }}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
@@ -827,8 +881,10 @@
                                     <td colspan="2">Total</td>
                                     <td class="num">{{ contractor_totals.basic_salary }}</td>
                                     <td class="num">{{ contractor_totals.paid_days }}</td>
+                                    <td class="num">{{ contractor_totals.paid_holiday }}</td>
                                     <td class="num">{{ contractor_totals.adjust_days }}</td>
                                     <td class="num">{{ contractor_totals.earned_days }}</td>
+                                    <td class="num personal-leave-cell">{{ contractor_totals.personal_leave }}</td>
                                     <td class="num">{{ contractor_totals.calc.earned_salary }}</td>
                                     <td class="num">{{ contractor_totals.deductions }}</td>
                                     <td class="num">{{ contractor_totals.additions }}</td>
@@ -860,6 +916,8 @@
                                 <tr>
                                     <th>Code</th><th>Employee</th>
                                     <th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num grp-attendance">Paid Holiday</th>
+                                    <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th class="num grp-fixed">Manual Amount</th>
                                     <th class="num grp-deduction-emp">Company Pay</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
@@ -867,15 +925,14 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% regroup operator_rows by employee.department.name as operator_dept_list %}
-                                {% for dept in operator_dept_list %}
-                                <tr class="dept-row"><td colspan="10">{{ dept.grouper|default:"—" }}</td></tr>
-                                {% for row in dept.list %}
+                                {% for row in operator_rows %}
                                 <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
                                     <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_holiday }}</td>
+                                    <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num grp-fixed value-cell"><input class="adj-input" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
                                     <td class="num grp-deduction-emp">{% if row.calc.already_paid %}{{ row.calc.already_paid }}{% endif %}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
@@ -885,12 +942,13 @@
                                     <td class="net grp-highlight">{{ row.calc.net }}</td>
                                 </tr>
                                 {% endfor %}
-                                {% endfor %}
                             </tbody>
                             <tfoot>
                                 <tr>
                                     <td colspan="2">Total</td>
                                     <td class="num">{{ operator_totals.earned_days }}</td>
+                                    <td class="num">{{ operator_totals.paid_holiday }}</td>
+                                    <td class="num personal-leave-cell">{{ operator_totals.personal_leave }}</td>
                                     <td class="num">{{ operator_totals.manual_amount }}</td>
                                     <td class="num">{{ operator_totals.calc.already_paid }}</td>
                                     <td class="num">{{ operator_totals.deductions }}</td>
@@ -1023,18 +1081,21 @@
             }
         }
 
-        var companyTable = document.getElementById('companyTable');
-        if (companyTable) {
-            companyTable.querySelectorAll('th.group-toggle').forEach(function (th) {
-                th.addEventListener('click', function () {
-                    var group = th.dataset.group;
-                    var showing = companyTable.classList.toggle('show-' + group);
-                    th.setAttribute('colspan', showing ? th.dataset.expandedColspan : '1');
-                    var arrow = th.querySelector('.group-arrow');
-                    if (arrow) arrow.textContent = showing ? '▾' : '▸';
-                });
+        // Generic column-group collapse/expand — works for any table with
+        // th.group-toggle cells (Company Workers' Fixed Salary/Earned
+        // Breakdown/PF+ESI groups, Staff's EL group), scoped to whichever
+        // table the clicked header actually belongs to rather than one
+        // hardcoded table id.
+        document.querySelectorAll('table.simple th.group-toggle').forEach(function (th) {
+            th.addEventListener('click', function () {
+                var table = th.closest('table');
+                var group = th.dataset.group;
+                var showing = table.classList.toggle('show-' + group);
+                th.setAttribute('colspan', showing ? th.dataset.expandedColspan : '1');
+                var arrow = th.querySelector('.group-arrow');
+                if (arrow) arrow.textContent = showing ? '▾' : '▸';
             });
-        }
+        });
 
         // "Send to Telegram" — screenshots each tab's table in turn (only
         // showing/hiding whichever one isn't already visible around its

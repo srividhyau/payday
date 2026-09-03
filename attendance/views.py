@@ -1847,7 +1847,6 @@ def _salary_context(current: date_cls) -> dict:
     _, days_in_month = py_calendar.monthrange(year, month)
     month_start, month_end = current.replace(day=1), current.replace(day=days_in_month)
 
-    working_days = payroll.working_days_in_month(year, month)
     special_day_counts = {
         r["day_type"]: r["n"]
         for r in SpecialDay.objects.filter(date__year=year, date__month=month)
@@ -1858,25 +1857,125 @@ def _salary_context(current: date_cls) -> dict:
     comp_off_count = special_day_counts.get(SpecialDay.COMP_OFF, 0)
 
     adjustments = {a.employee_id: a for a in SalaryAdjustment.objects.filter(year=year, month=month)}
-    paid_days_map = {
-        r["employee_id"]: r["n"]
-        for r in AttendanceRecord.objects.filter(
-            date__year=year, date__month=month, status__in=["P", "PH", "CO"],
-        ).values("employee_id").annotate(n=Count("id"))
-    }
+
+    # Paid Days is now built from the same attendance-derived Work Days +
+    # Paid Holiday figures the Dashboard/OT pages show (by emp_code),
+    # rather than a raw count of AttendanceRecord.status in [P, PH, CO] —
+    # that raw count credited a Comp Off day taken as a full paid day
+    # (Comp Off is deliberately NOT included here — see the conversation
+    # this replaced it in) and gave a partial-hours day the same full
+    # credit as a complete one, both of which Work Days already corrects
+    # for (work_day_credit's half-day tiers, and excluding worked special
+    # days since those fold into OT instead — see _work_day_credit_series).
+    # Personal Leave (all tabs but Fixed Payments) and EL Earned (Staff
+    # only) are also sourced from here, for the same reuse-not-reimplement
+    # reason. EL is still display-only (not fed into any payroll.py
+    # compute_* function); Paid Days now directly drives Earned Days and
+    # every pay calculation below.
+    #
+    # working_days itself is also computed here now (metrics.
+    # infer_working_days, same as the Dashboard/OT pages), not via
+    # payroll.working_days_in_month's fixed "calendar days minus Sundays"
+    # — the two disagree whenever a Sunday is (or isn't) actually worked
+    # company-wide, which used to silently shift Personal Leave (and the
+    # Earned Days ÷ Working Days pay ratio!) by a day between this page
+    # and the Dashboard for the exact same month.
+    daily_all = _load_daily_data()
+    daily = daily_all[(daily_all["date"].dt.year == year) & (daily_all["date"].dt.month == month)]
+    working_days = 0
+    emp_work_days: dict[str, float] = {}
+    emp_personal_leave: dict[str, float] = {}
+    emp_paid_holiday: dict[str, float] = {}
+    emp_el_days: dict[str, float] = {}
+    if not daily.empty:
+        special_days, downgraded_special_days, skip_special_days = _special_days_and_downgrades()
+        daily = metrics.apply_special_days(daily, special_days, downgraded_special_days, skip_special_days)
+        working_days = metrics.infer_working_days(daily, special_days)
+        full_day_map = _early_closure_hours()
+        month_view, _day_labels = metrics.month_attendance_view(
+            daily, working_days=working_days, full_day_map=full_day_map,
+        )
+        real_rows = month_view[month_view["Emp Code"] != ""]
+        emp_work_days = dict(zip(real_rows["Emp Code"], real_rows["Work Days"]))
+        emp_personal_leave = dict(zip(real_rows["Emp Code"], real_rows["Personal Leave"]))
+        # "Paid Holiday" is "" (not 0) when the count is zero — see
+        # month_attendance_view's emp_counts — normalized to a plain 0
+        # here so summing/display doesn't have to special-case it.
+        emp_paid_holiday = {
+            code: (val if val != "" else 0)
+            for code, val in zip(real_rows["Emp Code"], real_rows["Paid Holiday"])
+        }
+        # "EL Earned" here (not month_view's own column of the same name)
+        # to match the day-cell "+1 EL"/"+0.5 EL" markers and the OT
+        # page's EL Days column exactly — see _ot_payable_table's
+        # docstring for why those two EL figures can otherwise disagree.
+        shift_ot_table = metrics.overtime_view(daily)
+        staff_codes = (
+            set(daily.loc[daily["subcategory"] == "Staff", "emp_code"])
+            if "subcategory" in daily.columns else set()
+        )
+        ot_payable_table = _ot_payable_table(shift_ot_table, staff_codes)
+        if not ot_payable_table.empty:
+            emp_el_days = (
+                ot_payable_table[ot_payable_table["is_el_day"]]
+                .groupby("emp_code")["el_day_credit"].sum().to_dict()
+            )
+
+    # Staff only: whatever Personal Leave isn't otherwise accounted for
+    # is covered by the employee's own EL balance where there's room,
+    # same as an explicit EL application already is — see
+    # _leave_ledger_context, reused here (rather than reimplemented) so
+    # this can never disagree with the Leave Ledger page/what "Post this
+    # month" would actually save. A month HR has already posted is
+    # respected as-is (its el_taken doesn't retroactively pick up
+    # Personal Leave coverage) — only a not-yet-posted month's live
+    # preview gets this extra deduction layered on top.
+    el_ledger_by_emp = {row["employee"].id: row for row in _leave_ledger_context(current)["rows"]}
 
     def build_rows(employees, kind, already_paid_map=None):
         rows = []
         for emp in employees:
             adj = adjustments.get(emp.id)
-            paid_days = Decimal(paid_days_map.get(emp.id, 0))
+            # "Paid Days" displays as Work Days alone; Paid Holiday shows
+            # as its own column right after it (see build_rows below) —
+            # pay itself needs the combined figure, so this is what
+            # actually goes into every compute_* call. Earned Days
+            # (paid_days_for_calc + adjust_days) therefore equals the
+            # sum of the three visible columns left-to-right: Paid Days
+            # + Paid Holiday + Adjust Days. Comp Off is deliberately not
+            # included — see the conversation this was last reverted in.
+            work_days_only = Decimal(str(round(emp_work_days.get(emp.code, 0), 2)))
+            paid_holiday_days = Decimal(str(round(emp_paid_holiday.get(emp.code, 0), 2)))
+            paid_days_for_calc = work_days_only + paid_holiday_days
+            # Staff only: cover this month's Personal Leave out of EL
+            # balance where there's room, on top of whatever EL an
+            # explicit application already used — see el_ledger_by_emp
+            # above. total_el/el_used/el_balance are shown as their own
+            # columns; el_used_for_pl also feeds Earned Days (a day
+            # covered by earned leave is a paid day) — but the Personal
+            # Leave figure itself always shows the full original gap,
+            # regardless of how much of it EL ended up covering.
+            total_el = el_used = el_balance = Decimal(0)
+            personal_leave_gap = Decimal(str(round(emp_personal_leave.get(emp.code, 0), 2)))
+            el_used_for_pl = Decimal(0)
+            if kind == "staff":
+                ledger = el_ledger_by_emp.get(emp.id)
+                if ledger:
+                    total_el = ledger["prior_el_balance"] + ledger["el_credited"]
+                    explicit_el_taken = ledger["el_taken"]
+                    balance_after_explicit = total_el - explicit_el_taken
+                    available_for_pl = max(balance_after_explicit, Decimal(0))
+                    el_used_for_pl = min(personal_leave_gap, available_for_pl)
+                    el_used = explicit_el_taken + el_used_for_pl
+                    el_balance = balance_after_explicit - el_used_for_pl
+                    paid_days_for_calc += el_used_for_pl
             adjust_days = adj.adjust_days if adj else Decimal(0)
             deductions = adj.deductions if adj else Decimal(0)
             additions = adj.additions if adj else Decimal(0)
             manual_amount = adj.manual_amount if adj else None
             if kind == "company":
                 calc = payroll.compute_company_worker_pay(
-                    emp.basic_salary, emp.hra, emp.da, paid_days, working_days,
+                    emp.basic_salary, emp.hra, emp.da, paid_days_for_calc, working_days,
                     adjust_days, deductions, additions,
                     pf_enabled=emp.pf_enabled, esi_enabled=emp.esi_enabled,
                 )
@@ -1905,11 +2004,11 @@ def _salary_context(current: date_cls) -> dict:
                 # rate for this group (reused rather than a separate field,
                 # since it's otherwise unused for Contractors).
                 calc = payroll.compute_daily_rate_pay(
-                    emp.basic_salary, paid_days, adjust_days, deductions, additions,
+                    emp.basic_salary, paid_days_for_calc, adjust_days, deductions, additions,
                 )
             else:
                 calc = payroll.compute_prorated_pay(
-                    emp.basic_salary, paid_days, working_days, adjust_days, deductions, additions,
+                    emp.basic_salary, paid_days_for_calc, working_days, adjust_days, deductions, additions,
                 )
             hold = adj.hold if adj else False
             if hold:
@@ -1920,15 +2019,31 @@ def _salary_context(current: date_cls) -> dict:
                 calc = {**calc, "net": Decimal(0)}
             rows.append({
                 "employee": emp,
-                "paid_days": paid_days,
+                # Work Days alone — see paid_days_for_calc above for why
+                # Paid Holiday isn't folded in here even though it does
+                # feed Earned Days/NET (shown as its own column instead).
+                "paid_days": work_days_only,
                 "adjust_days": adjust_days,
-                "earned_days": round(paid_days + adjust_days, 2),
+                "earned_days": round(paid_days_for_calc + adjust_days, 2),
                 "deductions": deductions,
                 "additions": additions,
                 "manual_amount": manual_amount,
                 "hold": hold,
                 "notes": adj.notes if adj else "",
                 "calc": calc,
+                # el_days/total_el/el_used/el_balance are display-only —
+                # personal_leave is NOT (for Staff): the el_used_for_pl
+                # portion is already folded into paid_days_for_calc
+                # above, so it does feed Earned Days/NET despite showing
+                # here as the reduced (post-EL-coverage) remainder.
+                # paid_holiday is likewise already folded in for every
+                # kind, not just Staff.
+                "personal_leave": personal_leave_gap if kind != "fixed_payments" else 0,
+                "paid_holiday": paid_holiday_days if kind != "fixed_payments" else Decimal(0),
+                "el_days": emp_el_days.get(emp.code, 0) if kind == "staff" else 0,
+                "total_el": total_el,
+                "el_used": el_used,
+                "el_balance": el_balance,
             })
         return rows
 
@@ -1944,6 +2059,12 @@ def _salary_context(current: date_cls) -> dict:
             "earned_days": sum((r["earned_days"] for r in rows), Decimal(0)),
             "deductions": sum((r["deductions"] for r in rows), Decimal(0)),
             "additions": sum((r["additions"] for r in rows), Decimal(0)),
+            "personal_leave": round(sum(r["personal_leave"] for r in rows), 1),
+            "paid_holiday": round(sum(r["paid_holiday"] for r in rows), 1),
+            "el_days": round(sum(r["el_days"] for r in rows), 1),
+            "total_el": sum((r["total_el"] for r in rows), Decimal(0)),
+            "el_used": sum((r["el_used"] for r in rows), Decimal(0)),
+            "el_balance": sum((r["el_balance"] for r in rows), Decimal(0)),
         }
         if kind == "company":
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
@@ -2027,7 +2148,7 @@ def _salary_context(current: date_cls) -> dict:
     company_net_by_employee = {r["employee"].id: r["calc"]["net"] for r in context["company_rows"]}
     operator_rows = build_rows(
         Employee.objects.filter(category__iexact="Operator")
-        .active_during(month_start, month_end).order_by("department__name", "name"),
+        .active_during(month_start, month_end).order_by("name"),
         "operators", already_paid_map=company_net_by_employee,
     )
     context["operator_rows"] = operator_rows
@@ -2153,6 +2274,7 @@ def salary_view(request):
 _SALARY_GROUP_FILLS = {
     "fixed": "ECEEF0",
     "attendance": "B4C7E7",
+    "el": "E1D5F5",
     "deduction-emp": "FFF2CC",
     "deduction-employer": "FFE0B2",
     "highlight": "FFFF00",
@@ -2170,7 +2292,7 @@ _SALARY_GROUP_FILLS = {
 def _salary_company_sheet_rows(rows, totals):
     headers = [
         "Code", "Employee", "Basic", "DA", "Basic+DA", "HRA", "Gross",
-        "Paid Days", "Adjust Days", "Earned Days",
+        "Paid Days", "Paid Holiday", "Adjust Days", "Earned Days", "Personal Leave",
         "Earned Basic+DA", "Earned HRA", "Earned Total Wages",
         "PF (Employee)", "ESI (Employee)", "PF+ESI (Employee)",
         "PF (Employer)", "ESI (Employer)", "PF+ESI (Employer)",
@@ -2178,7 +2300,7 @@ def _salary_company_sheet_rows(rows, totals):
     ]
     col_groups = [
         None, None, "fixed", "fixed", "fixed", "fixed", "fixed",
-        "attendance", "attendance", "attendance",
+        "attendance", "attendance", "attendance", "attendance", "attendance",
         None, None, None,
         "deduction-emp", "deduction-emp", "deduction-emp",
         "deduction-employer", "deduction-employer", "deduction-employer",
@@ -2189,7 +2311,8 @@ def _salary_company_sheet_rows(rows, totals):
             r["employee"].code, r["employee"].name,
             float(r["employee"].basic_salary), float(r["employee"].da), float(r["calc"]["basic_da"]),
             float(r["employee"].hra), float(r["calc"]["gross"]),
-            float(r["paid_days"]), float(r["adjust_days"]), float(r["calc"]["earned_days"]),
+            float(r["paid_days"]), float(r["paid_holiday"]), float(r["adjust_days"]), float(r["calc"]["earned_days"]),
+            float(r["personal_leave"]),
             float(r["calc"]["earned_basic_da"]), float(r["calc"]["earned_hra"]), float(r["calc"]["earned_total"]),
             float(r["calc"]["pf"]), float(r["calc"]["esi"]), float(r["calc"]["pf_esi_employee"]),
             float(r["calc"]["pf_employer"]), float(r["calc"]["esi_employer"]), float(r["calc"]["pf_esi_employer"]),
@@ -2207,7 +2330,8 @@ def _salary_company_sheet_rows(rows, totals):
         "", "Total",
         float(totals["basic_salary"]), float(totals["da"]), float(c.get("basic_da", 0)),
         float(totals["hra"]), float(c.get("gross", 0)),
-        float(totals["paid_days"]), float(totals["adjust_days"]), float(c.get("earned_days", 0)),
+        float(totals["paid_days"]), float(totals["paid_holiday"]), float(totals["adjust_days"]),
+        float(c.get("earned_days", 0)), float(totals["personal_leave"]),
         float(c.get("earned_basic_da", 0)), float(c.get("earned_hra", 0)), float(c.get("earned_total", 0)),
         float(c.get("pf", 0)), float(c.get("esi", 0)), float(c.get("pf_esi_employee", 0)),
         float(c.get("pf_employer", 0)), float(c.get("esi_employer", 0)), float(c.get("pf_esi_employer", 0)),
@@ -2223,11 +2347,15 @@ def _salary_prorated_sheet_rows(rows, totals, with_tds: bool, basic_salary_label
     TDS? column. basic_salary_label lets Contractors' sheet say "Day
     Rate" instead, since Employee.basic_salary means something different
     there (see build_rows/compute_daily_rate_pay in _salary_context)."""
-    headers = [
-        "Code", "Employee", basic_salary_label, "Paid Days", "Adjust Days", "Earned Days",
-        "Earned Salary", "Deductions", "Additions", "Hold",
-    ]
-    col_groups = [None, None, "fixed", "attendance", "attendance", "attendance", None, "deduction-emp", None, None]
+    headers = ["Code", "Employee", basic_salary_label, "Paid Days", "Paid Holiday"]
+    col_groups = [None, None, "fixed", "attendance", "attendance"]
+    if with_tds:
+        headers += ["EL", "Total EL", "EL Balance", "EL Used"]
+        col_groups += ["el", "el", "el", "el"]
+    headers += ["Adjust Days", "Earned Days", "Personal Leave"]
+    col_groups += ["attendance", "attendance", "attendance"]
+    headers += ["Earned Salary", "Deductions", "Additions", "Hold"]
+    col_groups += [None, "deduction-emp", None, None]
     if with_tds:
         headers.append("TDS?")
         col_groups.append(None)
@@ -2238,7 +2366,14 @@ def _salary_prorated_sheet_rows(rows, totals, with_tds: bool, basic_salary_label
     for r in rows:
         row = [
             r["employee"].code, r["employee"].name, float(r["employee"].basic_salary),
-            float(r["paid_days"]), float(r["adjust_days"]), float(r["earned_days"]),
+            float(r["paid_days"]), float(r["paid_holiday"]),
+        ]
+        if with_tds:
+            row += [
+                float(r["el_days"]), float(r["total_el"]), float(r["el_balance"]), float(r["el_used"]),
+            ]
+        row += [float(r["adjust_days"]), float(r["earned_days"]), float(r["personal_leave"])]
+        row += [
             float(r["calc"]["earned_salary"]), float(r["deductions"]), float(r["additions"]),
             "Yes" if r["hold"] else "No",
         ]
@@ -2252,9 +2387,14 @@ def _salary_prorated_sheet_rows(rows, totals, with_tds: bool, basic_salary_label
     c = totals["calc"]
     total_row = [
         "", "Total", float(totals["basic_salary"]),
-        float(totals["paid_days"]), float(totals["adjust_days"]), float(totals["earned_days"]),
-        float(c.get("earned_salary", 0)), float(totals["deductions"]), float(totals["additions"]), "",
+        float(totals["paid_days"]), float(totals["paid_holiday"]),
     ]
+    if with_tds:
+        total_row += [
+            float(totals["el_days"]), float(totals["total_el"]), float(totals["el_balance"]), float(totals["el_used"]),
+        ]
+    total_row += [float(totals["adjust_days"]), float(totals["earned_days"]), float(totals["personal_leave"])]
+    total_row += [float(c.get("earned_salary", 0)), float(totals["deductions"]), float(totals["additions"]), ""]
     if with_tds:
         total_row.append("")
     total_row.append(float(c.get("net", 0)))
@@ -2275,13 +2415,17 @@ def _salary_operator_sheet_rows(rows, totals):
     # already_paid param), auto-subtracted into NET; zero/blank for an ordinary
     # Operator, who never has this figure.
     headers = [
-        "Code", "Employee", "Earned Days", "Manual Amount", "Company Pay", "Deductions", "Additions",
-        "Hold", "Notes", "NET",
+        "Code", "Employee", "Earned Days", "Paid Holiday", "Personal Leave", "Manual Amount", "Company Pay",
+        "Deductions", "Additions", "Hold", "Notes", "NET",
     ]
-    col_groups = [None, None, "attendance", "fixed", "deduction-emp", "deduction-emp", None, None, None, "highlight"]
+    col_groups = [
+        None, None, "attendance", "attendance", "attendance", "fixed", "deduction-emp",
+        "deduction-emp", None, None, None, "highlight",
+    ]
     data_rows = [
         [
             r["employee"].code, r["employee"].name, float(r["earned_days"]),
+            float(r["paid_holiday"]), float(r["personal_leave"]),
             float(r["manual_amount"] or 0), float(r["calc"].get("already_paid", 0)),
             float(r["deductions"]), float(r["additions"]),
             "Yes" if r["hold"] else "No", r["notes"], float(r["calc"]["net"]),
@@ -2291,7 +2435,8 @@ def _salary_operator_sheet_rows(rows, totals):
     # totals["calc"] is {} when the tab has zero rows this month — see the
     # matching comment in _salary_company_sheet_rows.
     total_row = [
-        "", "Total", float(totals["earned_days"]), float(totals["manual_amount"]),
+        "", "Total", float(totals["earned_days"]),
+        float(totals["paid_holiday"]), float(totals["personal_leave"]), float(totals["manual_amount"]),
         float(totals["calc"].get("already_paid", 0)),
         float(totals["deductions"]), float(totals["additions"]), "", "", float(totals["calc"].get("net", 0)),
     ]
