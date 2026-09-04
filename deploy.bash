@@ -121,6 +121,11 @@ server {
     listen 80;
     server_name ${DOMAIN};
 
+    # Default is 1MB — the report buttons attach multiple full-resolution
+    # html2canvas screenshots per request (Email report, multi-tab
+    # Telegram sends), which routinely exceeds that.
+    client_max_body_size 25M;
+
     location /static/ {
         alias ${PROJECT_DIR}/staticfiles/;
     }
