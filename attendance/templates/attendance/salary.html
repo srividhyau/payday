@@ -208,18 +208,17 @@
            light tint as their Dashboard row so they're recognizable as
            the same dual-role person across pages. */
         table.simple tr.work-operator-row td { background: #F3E5F5; }
-        table.simple th, table.simple td { padding: 0.5rem 0.7rem; font-size: 0.82rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        table.simple th, table.simple td { padding: 0.5rem 0.7rem; font-size: 0.82rem; text-align: left; border: 1px solid #666; white-space: nowrap; }
         table.simple th {
             background: #FFF9B0; color: var(--text-muted); font-weight: 600; font-size: 0.72rem;
             text-transform: uppercase; letter-spacing: 0.03em;
             white-space: normal; max-width: 6.5rem; line-height: 1.25; vertical-align: bottom;
         }
-        table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
         table.simple td.num, table.simple th.num { text-align: right; }
         table.simple tfoot td {
             font-weight: 700; color: var(--navy-deep); background: #fafbfc;
-            border-top: 2px solid var(--border); border-bottom: none;
+            border-top: 2px solid #666;
         }
         table.simple tfoot tr:hover td { background: #fafbfc; }
         .emp-sub-ids { font-size: 0.68rem; color: var(--text-muted); font-weight: 400; margin-top: 0.15rem; white-space: nowrap; }
@@ -393,23 +392,23 @@
 
         <div class="card">
             <div class="tab-row">
-                <button type="button" class="tab-btn active" data-tab="summary">Summary</button>
-                <button type="button" class="tab-btn" data-tab="company">Company Workers
+                <button type="button" class="tab-btn{% if initial_tab == "summary" %} active{% endif %}" data-tab="summary">Summary</button>
+                <button type="button" class="tab-btn{% if initial_tab == "company" %} active{% endif %}" data-tab="company">Company Workers
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_company" data-label="Company Workers" data-action="{% if lock_status.company %}unlock{% else %}lock{% endif %}">{% if lock_status.company %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button>
-                <button type="button" class="tab-btn" data-tab="helpers">Helpers
+                <button type="button" class="tab-btn{% if initial_tab == "helpers" %} active{% endif %}" data-tab="helpers">Helpers
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_helper" data-label="Helpers" data-action="{% if lock_status.helpers %}unlock{% else %}lock{% endif %}">{% if lock_status.helpers %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button>
-                <button type="button" class="tab-btn" data-tab="staff">Staff
+                <button type="button" class="tab-btn{% if initial_tab == "staff" %} active{% endif %}" data-tab="staff">Staff
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_staff" data-label="Staff" data-action="{% if lock_status.staff %}unlock{% else %}lock{% endif %}">{% if lock_status.staff %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button>
-                <button type="button" class="tab-btn" data-tab="contractors">Contractors
+                <button type="button" class="tab-btn{% if initial_tab == "contractors" %} active{% endif %}" data-tab="contractors">Contractors
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_contractors" data-label="Contractors" data-action="{% if lock_status.contractors %}unlock{% else %}lock{% endif %}">{% if lock_status.contractors %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button>
-                <button type="button" class="tab-btn" data-tab="operators">Operators
+                <button type="button" class="tab-btn{% if initial_tab == "operators" %} active{% endif %}" data-tab="operators">Operators
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_operators" data-label="Operators" data-action="{% if lock_status.operators %}unlock{% else %}lock{% endif %}">{% if lock_status.operators %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button>
-                <button type="button" class="tab-btn" data-tab="fixed_payments">Fixed Payments
+                <button type="button" class="tab-btn{% if initial_tab == "fixed_payments" %} active{% endif %}" data-tab="fixed_payments">Fixed Payments
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_fixed_payments" data-label="Fixed Payments" data-action="{% if lock_status.fixed_payments %}unlock{% else %}lock{% endif %}">{% if lock_status.fixed_payments %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button>
                 <details class="tab-picker">
@@ -510,7 +509,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="summary">
+            <div class="tab-panel" data-panel="summary"{% if initial_tab != "summary" %} style="display:none;"{% endif %}>
                 <div class="table-wrap fit-content">
                     <table class="simple fit-content">
                         <thead>
@@ -540,7 +539,7 @@
                 </div>
             </div>
 
-            <div class="tab-panel" data-panel="company" style="display:none;">
+            <div class="tab-panel" data-panel="company"{% if initial_tab != "company" %} style="display:none;"{% endif %}>
                 {% if company_rows %}
                 <form method="post">
                     {% csrf_token %}
@@ -548,8 +547,8 @@
                     <input type="hidden" name="tab" value="company">
                     {% if lock_status.company %}<p class="lock-banner">🔒 Company Workers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.company or is_salary_viewer %}disabled{% endif %}>
-                    <div class="table-wrap">
-                        <table class="simple" id="companyTable">
+                    <div class="table-wrap fit-content">
+                        <table class="simple fit-content" id="companyTable">
                             <thead>
                                 <tr>
                                     <th rowspan="2">Code</th><th rowspan="2">Employee</th>
@@ -666,7 +665,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="helpers" style="display:none;">
+            <div class="tab-panel" data-panel="helpers"{% if initial_tab != "helpers" %} style="display:none;"{% endif %}>
                 {% if helper_rows %}
                 <form method="post">
                     {% csrf_token %}
@@ -674,8 +673,8 @@
                     <input type="hidden" name="tab" value="helpers">
                     {% if lock_status.helpers %}<p class="lock-banner">🔒 Helpers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.helpers or is_salary_viewer %}disabled{% endif %}>
-                    <div class="table-wrap">
-                        <table class="simple">
+                    <div class="table-wrap fit-content">
+                        <table class="simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th><th class="num grp-fixed">Basic Salary</th>
@@ -739,7 +738,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="staff" style="display:none;">
+            <div class="tab-panel" data-panel="staff"{% if initial_tab != "staff" %} style="display:none;"{% endif %}>
                 {% if staff_rows %}
                 <form method="post">
                     {% csrf_token %}
@@ -747,8 +746,8 @@
                     <input type="hidden" name="tab" value="staff">
                     {% if lock_status.staff %}<p class="lock-banner">🔒 Staff is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.staff or is_salary_viewer %}disabled{% endif %}>
-                    <div class="table-wrap">
-                        <table class="simple" id="staffTable">
+                    <div class="table-wrap fit-content">
+                        <table class="simple fit-content" id="staffTable">
                             <thead>
                                 <tr>
                                     <th rowspan="2">Code</th><th rowspan="2">Employee</th><th rowspan="2" class="num grp-fixed">Basic Salary</th>
@@ -829,7 +828,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="contractors" style="display:none;">
+            <div class="tab-panel" data-panel="contractors"{% if initial_tab != "contractors" %} style="display:none;"{% endif %}>
                 {% if contractor_rows %}
                 <form method="post">
                     {% csrf_token %}
@@ -837,8 +836,8 @@
                     <input type="hidden" name="tab" value="contractors">
                     {% if lock_status.contractors %}<p class="lock-banner">🔒 Contractors is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.contractors or is_salary_viewer %}disabled{% endif %}>
-                    <div class="table-wrap">
-                        <table class="simple">
+                    <div class="table-wrap fit-content">
+                        <table class="simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th><th class="num grp-fixed">Day Rate</th>
@@ -902,7 +901,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="operators" style="display:none;">
+            <div class="tab-panel" data-panel="operators"{% if initial_tab != "operators" %} style="display:none;"{% endif %}>
                 {% if operator_rows %}
                 <form method="post">
                     {% csrf_token %}
@@ -910,8 +909,8 @@
                     <input type="hidden" name="tab" value="operators">
                     {% if lock_status.operators %}<p class="lock-banner">🔒 Operators is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.operators or is_salary_viewer %}disabled{% endif %}>
-                    <div class="table-wrap">
-                        <table class="simple">
+                    <div class="table-wrap fit-content">
+                        <table class="simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th>
@@ -967,7 +966,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="fixed_payments" style="display:none;">
+            <div class="tab-panel" data-panel="fixed_payments"{% if initial_tab != "fixed_payments" %} style="display:none;"{% endif %}>
                 {% if fixed_payment_rows %}
                 <form method="post">
                     {% csrf_token %}
@@ -975,8 +974,8 @@
                     <input type="hidden" name="tab" value="fixed_payments">
                     {% if lock_status.fixed_payments %}<p class="lock-banner">🔒 Fixed Payments is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.fixed_payments or is_salary_viewer %}disabled{% endif %}>
-                    <div class="table-wrap">
-                        <table class="simple">
+                    <div class="table-wrap fit-content">
+                        <table class="simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Purpose</th><th>Name</th>
@@ -1067,19 +1066,21 @@
             panel.style.display = '';
             return true;
         }
+        // Which tab starts open is decided server-side (salary_view's
+        // ?tab= handling, passed through as initial_tab — see the active
+        // class/display:none on the buttons/panels above), including
+        // right after a save redirects back here. Clicking a tab client-
+        // side keeps the address bar's ?tab= in sync too, so whatever
+        // tab you're looking at is always the same real URL you'd get by
+        // typing/bookmarking/sharing it directly.
         document.querySelectorAll('.tab-btn[data-tab]').forEach(function (btn) {
-            btn.addEventListener('click', function () { activateSalaryTab(btn.dataset.tab); });
+            btn.addEventListener('click', function () {
+                if (!activateSalaryTab(btn.dataset.tab)) return;
+                var url = new URL(location.href);
+                url.searchParams.set('tab', btn.dataset.tab);
+                history.replaceState(null, '', url);
+            });
         });
-        // After saving a tab, the redirect back here carries which tab it
-        // was (see salary_view's "#tab=..." redirect) so the page reopens
-        // on that same tab instead of always falling back to Summary
-        // (the default active tab on a plain page load).
-        if (location.hash.indexOf('#tab=') === 0) {
-            var savedTab = decodeURIComponent(location.hash.slice('#tab='.length));
-            if (activateSalaryTab(savedTab)) {
-                history.replaceState(null, '', location.pathname + location.search);
-            }
-        }
 
         // Generic column-group collapse/expand — works for any table with
         // th.group-toggle cells (Company Workers' Fixed Salary/Earned

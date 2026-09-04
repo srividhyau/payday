@@ -517,7 +517,6 @@
                             <span class="tab-lock-icon" data-label="OT View" data-action="{% if is_locked_ot %}unlock{% else %}lock{% endif %}" title="{% if is_locked_ot %}Unlock{% else %}Lock{% endif %} OT View">{% if is_locked_ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
                         </button>
                         <button type="button" class="tab-btn" data-tab="summary">Monthly Summary</button>
-                        <button type="button" class="tab-btn" data-tab="grid">Full Monthly View</button>
                         <a class="icon-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
                         </a>
@@ -593,7 +592,7 @@
                                         {% else %}
                                             <td class="label" title="{{ row.label }}">{{ row.label }}</td>
                                         {% for cell in row.day_cells %}
-                                            <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short and not cell.shift_flag %} short-hours{% endif %}{% if cell.edited_time %} edited-time{% endif %}{% if cell.edited_shift %} edited-shift{% endif %}{% if cell.edited_status %} edited-status{% endif %}{% if cell.edited_unknown %} edited-unknown{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}" data-edited-time="{% if cell.edited_time %}1{% endif %}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% elif cell.is_short and not cell.shift_flag %}-{{ cell.short_hours_label }}{% else %}{{ cell.value }}{% endif %}</td>
+                                            <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short and not cell.shift_flag %} short-hours{% endif %}{% if cell.edited_time %} edited-time{% endif %}{% if cell.edited_shift %} edited-shift{% endif %}{% if cell.edited_status %} edited-status{% endif %}{% if cell.edited_unknown %} edited-unknown{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}" data-edited-time="{% if cell.edited_time %}1{% endif %}" data-suggested-shift="{{ cell.suggested_shift }}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% elif cell.is_short and not cell.shift_flag %}-{{ cell.short_hours_label }}{% else %}{{ cell.value }}{% endif %}</td>
                                         {% endfor %}
                                             <td class="ot-total-highlight ot-total-col">{{ row.total_ot_label }}</td>
                                             <td class="summary-highlight ot-total-col">{{ row.permission_hours }}</td>
@@ -679,80 +678,6 @@
                         {% endif %}
                     </div>
 
-                    <div class="tab-panel" data-panel="grid" style="display:none;">
-                        {% if table_rows %}
-                        <div class="month-legend">
-                            <span class="legend-item"><span class="swatch" style="background:#D6D6D6"></span>Holiday</span>
-                            <span class="legend-item"><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
-                            <span class="legend-item"><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
-                            <span class="legend-item"><span class="swatch" style="background:#AEDCFB"></span>Confirmed OT shift</span>
-                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #2E7D32"></span>M-OT</span>
-                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #800000"></span>E-OT</span>
-                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #EF6C00"></span>ME-OT</span>
-                            <span class="legend-item"><span class="swatch" style="background:#fff;border-left:4px solid #1565C0"></span>Full-OT</span>
-                        </div>
-                        <p class="caption">Only employees with OT (real or suggested) that month are shown, grouped by department. Click a department row to collapse it.</p>
-                        <div class="grid-scroll">
-                            <table class="month">
-                                <colgroup>
-                                    <col class="label-col">
-                                    {% for d in day_headers %}<col class="day-col">{% endfor %}
-                                    <col class="summary-col ot-total-col">
-                                    <col class="summary-col ot-total-col">
-                                    <col class="summary-col ot-total-col">
-                                    <col class="summary-col ot-total-col">
-                                    <col class="summary-col ot-total-col">
-                                    <col class="summary-col ot-total-col">
-                                </colgroup>
-                                <thead>
-                                    <tr>
-                                        <th class="label"></th>
-                                        {% for d in day_headers %}<th class="{% if d.special %}special-{{ d.special }}{% endif %}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
-                                        <th class="ot-total-col">OT Hours</th>
-                                        <th class="ot-total-col">Permission Hrs</th>
-                                        <th class="ot-total-col ot-highlight-col">Paid OT Hours</th>
-                                        <th class="ot-total-col">OT Rate/hr</th>
-                                        <th class="ot-total-col ot-highlight-col">OT Amount</th>
-                                        <th class="ot-total-col ot-highlight-col">EL Days</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for row in table_rows %}
-                                    <tr class="{% if row.is_dept %}dept{% elif row.is_ot_operator %}ot-operator-row{% elif row.is_top3 %}top3-row{% endif %}">
-                                        {% if row.is_dept %}
-                                            <td class="label dept-header" colspan="{{ total_cols }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
-                                        {% else %}
-                                            <td class="label" title="{{ row.label }}">{{ row.label }}</td>
-                                        {% for cell in row.day_cells %}
-                                            <td class="editable-cell {% if cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short and not cell.shift_flag %} short-hours{% endif %}{% if cell.edited_time %} edited-time{% endif %}{% if cell.edited_shift %} edited-shift{% endif %}{% if cell.edited_status %} edited-status{% endif %}{% if cell.edited_unknown %} edited-unknown{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% elif cell.is_short and not cell.shift_flag %}-{{ cell.short_hours_label }}{% else %}{{ cell.value }}{% endif %}</td>
-                                        {% endfor %}
-                                            <td class="ot-total-highlight ot-total-col">{{ row.total_ot_label }}</td>
-                                            <td class="summary-highlight ot-total-col">{{ row.permission_hours }}</td>
-                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.paid_ot_hours }}</td>
-                                            <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
-                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.total_ot_amount }}</td>
-                                            <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.el_days|floatformat:"-1" }}</td>
-                                        {% endif %}
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td class="label" colspan="{{ day_headers|length|add:1 }}">Total</td>
-                                        <td class="ot-total-col">{{ summary_total_hours_label }}</td>
-                                        <td class="ot-total-col">{{ summary_total_permission_hours }}</td>
-                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_paid_ot_hours }}</td>
-                                        <td class="ot-total-col"></td>
-                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_amount }}</td>
-                                        <td class="ot-total-col ot-highlight-col">{{ summary_total_el_days|floatformat:"-1" }}</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                        {% else %}
-                            <p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p>
-                        {% endif %}
-                    </div>
                 </div>
 
                 <div class="edit-overlay" id="editOverlay">
@@ -882,15 +807,10 @@
             });
         });
 
-        // Both month grids on this page (the editable OT View and the
-        // read-only Full Monthly View, which only lists employees with
-        // real OT that month — see _ot_only_rows in views.py) share this:
-        // swap shift-flagged/suggested cells to show In/Out time instead
-        // of worked hours, and wire up department collapse. Runs once on
-        // load; both tables are already in the DOM even while hidden.
-        // #otViewGrid's collapse is excluded here — it also needs to hide
-        // employees with no OT shift at all, so it gets its own combined
-        // handler below instead of this plain toggle.
+        // #otViewGrid: swap shift-flagged/suggested cells to show In/Out
+        // time instead of worked hours. Department collapse for this grid
+        // is handled by its own combined handler below (it also needs to
+        // hide employees with no OT shift at all).
         (function () {
             function toHHMM(value) {
                 var parts = (value || '').split(':');
@@ -905,26 +825,6 @@
             document.querySelectorAll('table.month td.editable-cell.gs-show-time:not([class*="shift-flag-"])').forEach(function (cell) {
                 cell.textContent = formatInOut(cell);
                 cell.style.whiteSpace = 'pre-line';
-            });
-
-            function employeeRowsOf(deptRow) {
-                var rows = [];
-                var sib = deptRow.nextElementSibling;
-                while (sib && !sib.classList.contains('dept')) {
-                    rows.push(sib);
-                    sib = sib.nextElementSibling;
-                }
-                return rows;
-            }
-            document.querySelectorAll('table.month:not(#otViewGrid) tr.dept').forEach(function (deptRow) {
-                var employees = employeeRowsOf(deptRow);
-                deptRow.querySelector('td.label').addEventListener('click', function () {
-                    var collapsed = deptRow.classList.toggle('collapsed');
-                    deptRow.querySelector('.toggle-icon').textContent = collapsed ? '▸' : '▾';
-                    employees.forEach(function (row) {
-                        row.style.display = collapsed ? 'none' : '';
-                    });
-                });
             });
         })();
 
@@ -1007,58 +907,112 @@
                     updateEditClearGuard();
                 }
             });
+            // Shared by the click (open the popup for review) and
+            // dblclick (apply and submit immediately) handlers below —
+            // populates every field the form needs from the cell's own
+            // data, but doesn't itself open the overlay or submit.
+            function fillEditFormFromCell(cell) {
+                document.getElementById('editEmpCode').value = cell.dataset.emp;
+                document.getElementById('editDate').value = cell.dataset.date;
+                document.getElementById('editEmpLabel').textContent = cell.dataset.emp;
+                document.getElementById('editDateLabel').textContent = cell.dataset.date;
+                editTimeInEl.value = cell.dataset.in || '';
+                editTimeOutEl.value = cell.dataset.out || '';
+                editHadPunchOriginally = !!(cell.dataset.in || cell.dataset.out) && !cell.dataset.editedTime;
+                updateEditClearGuard();
+                // Only pre-select the Status dropdown when the day is
+                // already on one of the statuses nothing auto-derives
+                // (recompute_from_punch only ever produces P/HD/A) —
+                // otherwise leave it on "Auto" so editing just the
+                // punch times keeps recomputing status as it always
+                // has, instead of accidentally freezing it. H/PH/CO
+                // are the exception: on a day the company-wide
+                // calendar already marks that way (special-H/PH/CO —
+                // see apply_special_days), that's just the calendar
+                // overlay showing through the cell, not something
+                // actually stored on this record — pre-selecting it
+                // and saving unchanged (e.g. just fixing the shift
+                // code to confirm OT) would freeze the overlay into
+                // the real status, silently turning a real "Present"
+                // day into a literal "Holiday" one and breaking
+                // anything that reads status directly without the
+                // overlay (e.g. Mark Attendance's own month grid).
+                // Leaving it on Auto there instead lets the real
+                // P/HD/A status come back from the punch times, same
+                // as any other edit.
+                var forcedStatuses = ['PH', 'CO', 'PL', 'WO', 'H', 'EL', 'PM'];
+                var currentStatus = cell.dataset.status || '';
+                var isCalendarSpecial = ['H', 'PH', 'CO'].indexOf(currentStatus) !== -1
+                    && cell.classList.contains('special-' + currentStatus);
+                document.getElementById('editStatus').value =
+                    (forcedStatuses.indexOf(currentStatus) !== -1 && !isCalendarSpecial) ? currentStatus : '';
+                var isStaff = cell.dataset.staff === '1';
+                var shiftValue = cell.dataset.shift || '';
+                document.querySelectorAll('#editShiftGroup input[type=radio]').forEach(function (r) {
+                    r.checked = (r.value === shiftValue);
+                    r.disabled = isStaff;
+                });
+                document.getElementById('editStaffNote').style.display = isStaff ? 'block' : 'none';
+                // Carry the clicked cell's identity through the save's
+                // redirect (as a URL fragment, since it's a plain
+                // POST-redirect-GET) so the page can scroll back to it
+                // and flash it once the reload lands.
+                editNextInput.value = editNextBase
+                    + '#cell=' + encodeURIComponent(cell.dataset.emp) + '::' + encodeURIComponent(cell.dataset.date);
+                return isStaff;
+            }
             grid.querySelectorAll('td.editable-cell').forEach(function (cell) {
+                // A dblclick is preceded by two real click events firing
+                // first (that's how the browser detects it as a double-
+                // click at all) — so opening the popup immediately on
+                // click would already have happened before dblclick's
+                // handler below ever runs. Delaying the popup-open by a
+                // short window, and cancelling that if a second click
+                // (i.e. a dblclick) arrives in time, is what makes plain
+                // single clicks and double-clicks actually behave
+                // differently instead of a double-click always doing
+                // both (open the popup, then also submit).
+                var clickTimer = null;
                 cell.addEventListener('click', function () {
                     if (isOtLocked || !cell.dataset.emp || !cell.dataset.date) return;
-                    document.getElementById('editEmpCode').value = cell.dataset.emp;
-                    document.getElementById('editDate').value = cell.dataset.date;
-                    document.getElementById('editEmpLabel').textContent = cell.dataset.emp;
-                    document.getElementById('editDateLabel').textContent = cell.dataset.date;
-                    editTimeInEl.value = cell.dataset.in || '';
-                    editTimeOutEl.value = cell.dataset.out || '';
-                    editHadPunchOriginally = !!(cell.dataset.in || cell.dataset.out) && !cell.dataset.editedTime;
-                    updateEditClearGuard();
-                    // Only pre-select the Status dropdown when the day is
-                    // already on one of the statuses nothing auto-derives
-                    // (recompute_from_punch only ever produces P/HD/A) —
-                    // otherwise leave it on "Auto" so editing just the
-                    // punch times keeps recomputing status as it always
-                    // has, instead of accidentally freezing it. H/PH/CO
-                    // are the exception: on a day the company-wide
-                    // calendar already marks that way (special-H/PH/CO —
-                    // see apply_special_days), that's just the calendar
-                    // overlay showing through the cell, not something
-                    // actually stored on this record — pre-selecting it
-                    // and saving unchanged (e.g. just fixing the shift
-                    // code to confirm OT) would freeze the overlay into
-                    // the real status, silently turning a real "Present"
-                    // day into a literal "Holiday" one and breaking
-                    // anything that reads status directly without the
-                    // overlay (e.g. Mark Attendance's own month grid).
-                    // Leaving it on Auto there instead lets the real
-                    // P/HD/A status come back from the punch times, same
-                    // as any other edit.
-                    var forcedStatuses = ['PH', 'CO', 'PL', 'WO', 'H', 'EL', 'PM'];
-                    var currentStatus = cell.dataset.status || '';
-                    var isCalendarSpecial = ['H', 'PH', 'CO'].indexOf(currentStatus) !== -1
-                        && cell.classList.contains('special-' + currentStatus);
-                    document.getElementById('editStatus').value =
-                        (forcedStatuses.indexOf(currentStatus) !== -1 && !isCalendarSpecial) ? currentStatus : '';
-                    var isStaff = cell.dataset.staff === '1';
-                    var shiftValue = cell.dataset.shift || '';
+                    if (clickTimer) clearTimeout(clickTimer);
+                    clickTimer = setTimeout(function () {
+                        clickTimer = null;
+                        fillEditFormFromCell(cell);
+                        editOverlay.classList.add('open');
+                        document.body.classList.add('modal-open');
+                    }, 250);
+                });
+                // Double-click applies the shift the cell is already
+                // suggesting (the gs-suggest-* hint — see suggest_shift_
+                // code: a worked Holiday/Paid Holiday/Comp Off suggests
+                // Full-OT, a late clock-out suggests E-OT, etc.) straight
+                // away, without opening the popup for review — a quick
+                // "yes, that's right" for the common case of confirming
+                // an obviously-correct suggestion. Staff and cells with
+                // no suggestion do nothing (same as clicking Save on the
+                // popup with no shift selected would be a no-op for
+                // Staff, and there's nothing to apply with no suggestion).
+                cell.addEventListener('dblclick', function () {
+                    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+                    if (isOtLocked || !cell.dataset.emp || !cell.dataset.date) return;
+                    var suggested = cell.dataset.suggestedShift || '';
+                    if (!suggested || cell.dataset.staff === '1') {
+                        // Nothing to auto-apply — fall back to opening
+                        // the popup right away (the debounce above just
+                        // cancelled the single click's own delayed open,
+                        // so without this a double-click here would
+                        // otherwise do nothing at all).
+                        fillEditFormFromCell(cell);
+                        editOverlay.classList.add('open');
+                        document.body.classList.add('modal-open');
+                        return;
+                    }
+                    fillEditFormFromCell(cell);
                     document.querySelectorAll('#editShiftGroup input[type=radio]').forEach(function (r) {
-                        r.checked = (r.value === shiftValue);
-                        r.disabled = isStaff;
+                        r.checked = (r.value === suggested);
                     });
-                    document.getElementById('editStaffNote').style.display = isStaff ? 'block' : 'none';
-                    // Carry the clicked cell's identity through the save's
-                    // redirect (as a URL fragment, since it's a plain
-                    // POST-redirect-GET) so the page can scroll back to it
-                    // and flash it once the reload lands.
-                    editNextInput.value = editNextBase
-                        + '#cell=' + encodeURIComponent(cell.dataset.emp) + '::' + encodeURIComponent(cell.dataset.date);
-                    editOverlay.classList.add('open');
-                    document.body.classList.add('modal-open');
+                    document.getElementById('editForm').submit();
                 });
             });
             document.getElementById('editCancel').addEventListener('click', function () {
@@ -1181,21 +1135,21 @@
                     '.tab-panel[data-panel="summary"]', '.tab-panel[data-panel="summary"] table.simple',
                     'OT Monthly Summary — ' + monthLabel, 'ot-summary.png', 2
                 ).then(function (summaryResult) {
-                    statusEl.textContent = 'Sending full monthly view…';
+                    statusEl.textContent = 'Sending OT view…';
                     // Lower scale for the wide day x employee grid — at
                     // scale:2 a full month's columns produces a multi-MB
                     // PNG that's slow to capture and upload; 1.5 keeps it
                     // legible while cutting both well below what was
                     // timing out.
                     return captureAndSend(
-                        '.tab-panel[data-panel="grid"]', '.tab-panel[data-panel="grid"] table.month',
-                        'OT Full Monthly View — ' + monthLabel, 'ot-full-monthly.png', 1.5
+                        '.tab-panel[data-panel="otview"]', '#otViewGrid',
+                        'OT View — ' + monthLabel, 'ot-view.png', 1.5
                     ).then(function (gridResult) {
                         btn.disabled = false;
                         var ok = summaryResult.ok && gridResult.ok;
                         statusEl.textContent =
                             'Summary: ' + (summaryResult.ok ? 'sent' : 'failed (' + (summaryResult.error || 'error') + ')') +
-                            ' — Full View: ' + (gridResult.ok ? 'sent' : 'failed (' + (gridResult.error || 'error') + ')');
+                            ' — OT View: ' + (gridResult.ok ? 'sent' : 'failed (' + (gridResult.error || 'error') + ')');
                         statusEl.className = 'report-status ' + (ok ? 'success' : 'error');
                     });
                 });

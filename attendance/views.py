@@ -64,6 +64,22 @@ def _parse_month_date(date_param: str | None, default: date_cls) -> date_cls:
         return default
 
 
+def _latest_data_month_default() -> date_cls:
+    """The latest (year, month) with any attendance data at all — the
+    "no date given" default for the Dashboard and (see Salary's own use
+    of this) the Salary page, instead of today's calendar month. Matters
+    once a new month has started but nothing's been uploaded for it
+    yet: without this, those pages would default to an empty page for
+    the new month rather than opening on the last real one. Falls back
+    to today's month only if there's no attendance data uploaded at
+    all, ever (a brand new install)."""
+    daily_all = _load_daily_data()
+    if daily_all.empty:
+        return date_cls.today().replace(day=1)
+    month_keys = sorted({(ts.year, ts.month) for ts in daily_all["date"]})
+    return date_cls(*month_keys[-1], 1)
+
+
 @login_required
 def home_view(request):
     """Landing page — the app's root URL. Just a branded splash with links
@@ -620,6 +636,7 @@ def _build_month_grid(
                 # to actually show up in this grid.
                 "gs_show_time": (
                     not is_dept and shift not in metrics.OT_SHIFT_CODES and bool(time_in) and bool(time_out)
+                    and pd.notna(row[d]) and row[d] >= 8.7
                     and (
                         staff_map.get(key, False)
                         or bool(suggested_shift)
@@ -772,7 +789,9 @@ def _restrict_to_ot_cells(table_rows: list) -> list:
             elif unconfirmed_special:
                 cell["gs_show_time"] = True
             else:
-                cell["gs_show_time"] = not cell["shift_flag"]
+                cell["gs_show_time"] = not cell["shift_flag"] and (
+                    cell["is_staff"] or (float(cell["value"] or 0) >= 8.7)
+                )
                 cell["suggested_shift"] = ""
     return table_rows
 
@@ -1771,6 +1790,15 @@ _SALARY_TAB_KEYS = [
     ("fixed_payments", "Fixed Payments", "fixed_payment_rows"),
 ]
 
+# The actual client-side tab keys — salary.html's data-tab/data-panel
+# attributes and the <form>'s tab="..." field — including "summary" (not
+# an Excel-exportable tab, so absent from _SALARY_TAB_KEYS above) and
+# "helpers" (plural, unlike that list's "helper"). Used to validate the
+# ?tab= query param that decides which tab a page load opens on.
+_SALARY_CLIENT_TAB_KEYS = {
+    "summary", "company", "helpers", "staff", "contractors", "operators", "fixed_payments",
+}
+
 # tab_key -> MonthLock.view constant — each Salary tab locks/unlocks
 # independently (e.g. Company Workers can be finalized while Operators is
 # still being entered), same PIN-gated mechanism as the Attendance
@@ -2213,7 +2241,7 @@ def salary_view(request):
     is one upsert-by-(employee, year, month) per row, same bulk shape as
     mark_attendance_view's day-view save — one tab's table = one POST."""
     date_param = request.GET.get("date") or request.POST.get("date")
-    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    current = _parse_month_date(date_param, _latest_data_month_default())
     year, month = current.year, current.month
 
     if request.method == "POST":
@@ -2221,7 +2249,7 @@ def salary_view(request):
         lock_view = _SALARY_LOCK_VIEWS.get(tab)
         if lock_view and MonthLock.objects.filter(year=year, month=month, view=lock_view).exists():
             _error(request, "This tab is locked for this month — unlock it first to make changes.")
-            return redirect(f"{request.path}?date={current.isoformat()}#tab={tab}")
+            return redirect(f"{request.path}?date={current.isoformat()}&tab={tab}")
 
         editable_fields = _SALARY_TAB_EDITABLE_FIELDS.get(tab, set())
         employee_ids = request.POST.getlist("employee_id")
@@ -2259,9 +2287,19 @@ def salary_view(request):
             "Salary adjustments saved: tab=%s %s-%s saved=%s by user=%s",
             tab, year, month, saved, request.user,
         )
-        return redirect(f"{request.path}?date={current.isoformat()}#tab={tab}")
+        return redirect(f"{request.path}?date={current.isoformat()}&tab={tab}")
 
     context = _salary_context(current)
+    # Which tab a page load should open on — a plain query param (not the
+    # old #tab= hash fragment) so a specific tab is a real, shareable,
+    # bookmarkable URL rather than something only client-side JS could
+    # restore after a save redirect. Falls back to Summary for a missing
+    # or unrecognized value, same as the tab buttons' own client-side key
+    # set (salary.html's data-tab attributes — "helpers" plural, not
+    # _SALARY_TAB_KEYS' "helper" singular, which is a separate namespace
+    # used only by the Excel tab-picker).
+    requested_tab = request.GET.get("tab", "")
+    context["initial_tab"] = requested_tab if requested_tab in _SALARY_CLIENT_TAB_KEYS else "summary"
     return render(request, "attendance/salary.html", context)
 
 
@@ -2528,7 +2566,7 @@ def salary_download_view(request):
     import openpyxl
 
     date_param = request.GET.get("date")
-    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    current = _parse_month_date(date_param, _latest_data_month_default())
     context = _salary_context(current)
     month_label = f"{context['month_name']} {context['year']}"
 
@@ -2652,7 +2690,7 @@ def salary_bank_download_view(request):
     import openpyxl
 
     date_param = request.GET.get("date")
-    current = _parse_month_date(date_param, date_cls.today().replace(day=1))
+    current = _parse_month_date(date_param, _latest_data_month_default())
     context = _salary_context(current)
 
     selected_keys = set(request.GET.getlist("tabs")) or {key for key, _, _ in _SALARY_TAB_KEYS}
@@ -3275,6 +3313,18 @@ def _ot_details_context(date_param: str | None) -> dict:
     if daily.empty:
         return {"empty": True, "summary_rows": [], **month_nav}
 
+    # Contractors are otherwise unfiltered here (see _build_month_grid's
+    # own department-agnostic employee list), but they're paid a flat day
+    # rate, not by hours — OT tracking isn't relevant to them by default.
+    # Only one explicitly marked subcategory="OT" (an exception paid for
+    # actual overtime on top of their day rate) shows up on this page;
+    # every other Contractor is excluded.
+    is_contractor = daily["department"].str.lower() == "contractor"
+    is_ot_marked = daily["subcategory"].fillna("").str.lower() == "ot"
+    daily = daily[~is_contractor | is_ot_marked]
+    if daily.empty:
+        return {"empty": True, "summary_rows": [], **month_nav}
+
     special_days, downgraded_special_days, skip_special_days = _special_days_and_downgrades()
     daily = metrics.apply_special_days(daily, special_days, downgraded_special_days, skip_special_days)
     emp_rate_map = dict(Employee.objects.values_list("code", "ot_rate_per_hour"))
@@ -3415,10 +3465,13 @@ def _ot_details_context(date_param: str | None) -> dict:
 @login_required
 def ot_details_view(request):
     """OT page — see _ot_details_context for the actual computation.
-    Renders as three tabs: OT View (the editable day x employee grid,
-    moved here from the Attendance dashboard), Monthly Summary (grouped
-    by department), and Full Monthly View (the read-only day x employee
-    grid), scoped to one calendar month with prev/next nav."""
+    Renders as two tabs: OT View (the editable day x employee grid, moved
+    here from the Attendance dashboard) and Monthly Summary (grouped by
+    department), scoped to one calendar month with prev/next nav. The
+    former read-only Full Monthly View tab was dropped as a straight
+    duplicate of OT View (same grid, same department-collapse-to-OT-only
+    behavior) — its data (table_rows/total_cols) still feeds the "OT Full
+    Monthly View" Excel sheet, which is unaffected."""
     context = _ot_details_context(request.GET.get("date"))
     return render(request, "attendance/ot_details.html", context)
 
