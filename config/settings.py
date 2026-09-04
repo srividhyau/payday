@@ -73,19 +73,13 @@ TELEGRAM_TOPIC_ID_SALARY = os.environ.get('TELEGRAM_TOPIC_ID_SALARY', '')
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.rediffmailpro.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')  # e.g. hrd@mvc.org.in
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'hrd@mvc.org.in')  # e.g. hrd@mvc.org.in
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'True') == 'True'
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False') == 'True'
 DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_FROM', EMAIL_HOST_USER)
-# Fixed distribution list for the "Email" report button — plain
-# addresses, not a secret, so edit this list directly rather than
-# needing an env var (EMAIL_RECIPIENTS env var, comma-separated, still
-# works too and takes priority if set).
-_email_recipients_env = os.environ.get('EMAIL_RECIPIENTS', '')
-EMAIL_RECIPIENTS = [addr.strip() for addr in _email_recipients_env.split(',') if addr.strip()] or [
-    # "accounts@mvc.org.in",
-]
+
+EMAIL_RECIPIENTS = ['srividhyau@gmail.com','hrd@mvc.org.in','mvic@mvindustrial.in',"smv@mvc.org.in","mvdesignsexports@gmail.com"]
 
 
 # Quick-start development settings - unsuitable for production

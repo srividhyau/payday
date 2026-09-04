@@ -477,7 +477,7 @@
                         <label><input type="checkbox" class="email-tab" value="fixed_payments" data-label="Fixed Payments" checked> Fixed Payments</label>
                         <hr class="picker-sep">
                         <label class="email-field">Subject<input type="text" id="emailSalarySubject" value="Salary — {{ month_name|escapejs }} {{ year|escapejs }}"></label>
-                        <label class="email-field">Message<textarea id="emailSalaryBody" rows="3" placeholder="Optional message"></textarea></label>
+                        <label class="email-field">Message<textarea id="emailSalaryBody" rows="7" placeholder="Optional message"></textarea></label>
                         <button type="button" id="sendSalaryEmailBtn">Send Email</button>
                         <span id="sendSalaryEmailStatus" class="report-status"></span>
                     </div>
@@ -1196,6 +1196,35 @@
             var btn = document.getElementById('sendSalaryEmailBtn');
             if (!btn) return;
             var statusEl = document.getElementById('sendSalaryEmailStatus');
+            var bodyEl = document.getElementById('emailSalaryBody');
+            var lastAutoBody = '';
+
+            function selectedTabList() {
+                var labels = Array.prototype.slice.call(document.querySelectorAll('.email-tab:checked'))
+                    .map(function (cb) { return cb.dataset.label; });
+                if (!labels.length) return '';
+                if (labels.length === 1) return labels[0];
+                return labels.slice(0, -1).join(', ') + ' and ' + labels[labels.length - 1];
+            }
+
+            // Keeps the compose box pre-filled with a message naming
+            // whichever tabs are checked, so the sender usually doesn't
+            // need to type one — but never overwrites text the sender
+            // has typed themselves (only refreshes while the field still
+            // holds the last auto-generated wording).
+            function refreshDefaultBody() {
+                if (!bodyEl || (bodyEl.value !== lastAutoBody && bodyEl.value !== '')) return;
+                var list = selectedTabList();
+                lastAutoBody = list
+                    ? 'Automated Message ---\nPlease find the ' + list + ' report attached.\n\nRegards,\nHR Department\nMV (Garments Division)'
+                    : '';
+                bodyEl.value = lastAutoBody;
+            }
+
+            document.querySelectorAll('.email-tab').forEach(function (cb) {
+                cb.addEventListener('change', refreshDefaultBody);
+            });
+            refreshDefaultBody();
 
             function getCookie(name) {
                 var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
