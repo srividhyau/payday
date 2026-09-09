@@ -86,9 +86,15 @@ WorkingDirectory=${PROJECT_DIR}
 # by hand on the VPS (e.g. "nano ${PROJECT_DIR}/.env", KEY=value per line).
 # The leading "-" means systemd won't fail to start if it's missing yet.
 EnvironmentFile=-${PROJECT_DIR}/.env
+# Default gunicorn worker timeout (30s) is too short for the WhatsApp/
+# Telegram/Email report views — they make blocking outbound calls to
+# Meta/Telegram's APIs (media upload + send, sequentially, up to ~65s
+# worst case) inside the request itself; a worker killed mid-call shows
+# up to the browser as a 502 Bad Gateway, not a clean error.
 ExecStart=${PROJECT_DIR}/venv/bin/gunicorn \\
           --workers ${GUNICORN_WORKERS} \\
           --bind 127.0.0.1:${GUNICORN_PORT} \\
+          --timeout 90 \\
           ${DJANGO_WSGI_MODULE}
 
 Restart=always
