@@ -45,4 +45,7 @@ urlpatterns = [
         "admin-panel/whatsapp-setup/callback/", views.whatsapp_embedded_signup_callback_view,
         name="whatsapp_embedded_signup_callback",
     ),
+    # Public — Meta calls this directly, not a logged-in app user (see
+    # whatsapp_webhook_view). Deliberately outside admin-panel/.
+    path("whatsapp-webhook/", views.whatsapp_webhook_view, name="whatsapp_webhook"),
 ]

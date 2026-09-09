@@ -24,6 +24,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_time
+from django.views.decorators.csrf import csrf_exempt
 
 from src import metrics, payroll
 from src import parser as attendance_parser
@@ -4108,3 +4109,40 @@ def whatsapp_embedded_signup_callback_view(request):
         "phone_number_id": phone_number_id,
         "waba_id": waba_id,
     })
+
+
+@csrf_exempt
+def whatsapp_webhook_view(request):
+    """WhatsApp Cloud API webhook — Meta calls this directly (not a
+    logged-in app user, hence no @login_required and no CSRF token, so
+    this view is exempted instead), both to verify the endpoint (GET,
+    echoing back hub.challenge once hub.verify_token matches
+    settings.WHATSAPP_WEBHOOK_VERIFY_TOKEN) and to deliver real events
+    (POST) — message status callbacks (sent/delivered/read/failed, each
+    with a real error code on failure) and incoming messages. Every POST
+    body is logged verbatim at INFO level (see settings.LOGGING ->
+    logs/payday.log) — deliberately not parsed/filtered yet, since the
+    immediate goal is just seeing what Meta actually sends for a message
+    that the /messages API accepted but that never arrived (see
+    _whatsapp_send_image) before building any real handling."""
+    if request.method == "GET":
+        mode = request.GET.get("hub.mode")
+        token = request.GET.get("hub.verify_token")
+        challenge = request.GET.get("hub.challenge", "")
+        if mode == "subscribe" and token and settings.WHATSAPP_WEBHOOK_VERIFY_TOKEN and (
+            token == settings.WHATSAPP_WEBHOOK_VERIFY_TOKEN
+        ):
+            logger.info("WhatsApp webhook verification succeeded.")
+            return HttpResponse(challenge, content_type="text/plain")
+        logger.warning("WhatsApp webhook verification failed: mode=%s token_matched=%s", mode, token == settings.WHATSAPP_WEBHOOK_VERIFY_TOKEN)
+        return HttpResponse(status=403)
+
+    if request.method == "POST":
+        raw_body = request.body.decode("utf-8", "replace")
+        logger.info("WhatsApp webhook event: %s", raw_body)
+        # Meta expects a fast 200 regardless of what the payload contains —
+        # it retries deliveries that don't get one, which would just pile
+        # up duplicate log lines for the same event, not fix anything.
+        return JsonResponse({"status": "ok"})
+
+    return HttpResponse(status=405)

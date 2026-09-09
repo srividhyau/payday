@@ -89,6 +89,17 @@ WHATSAPP_APP_ID = os.environ.get('WHATSAPP_APP_ID', '')
 WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
 WHATSAPP_CONFIG_ID = os.environ.get('WHATSAPP_CONFIG_ID', '')
 
+# Webhook — Meta calls this URL both to verify it owns the endpoint (a GET
+# with a hub.challenge to echo back, gated on this shared secret matching)
+# and to deliver actual events (message status callbacks, incoming
+# messages) as POSTs — see whatsapp_webhook_view in attendance/views.py.
+# This is the only way to see *why* a send actually failed/succeeded;
+# the /messages API response alone only confirms Meta accepted the
+# request, not that it was delivered. Pick any random string for this —
+# it just has to match what's entered in the Meta App Dashboard's
+# WhatsApp > Configuration > Webhook screen.
+WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.environ.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', '')
+
 # Outgoing email — the Salary page's "Email" button (see
 # send_email_report_view in attendance/views.py) sends a screenshot
 # report over SMTP. Host/port here default to Rediffmail Pro's own
