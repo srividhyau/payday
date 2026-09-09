@@ -1789,6 +1789,7 @@ _SALARY_TAB_KEYS = [
     ("staff", "Staff", "staff_rows"),
     ("contractors", "Contractors", "contractor_rows"),
     ("operators", "Operators", "operator_rows"),
+    ("ironing_bartrack", "Ironing & Bartrack", "ironing_bartrack_rows"),
     ("fixed_payments", "Fixed Payments", "fixed_payment_rows"),
 ]
 
@@ -1798,7 +1799,7 @@ _SALARY_TAB_KEYS = [
 # "helpers" (plural, unlike that list's "helper"). Used to validate the
 # ?tab= query param that decides which tab a page load opens on.
 _SALARY_CLIENT_TAB_KEYS = {
-    "summary", "company", "helpers", "staff", "contractors", "operators", "fixed_payments",
+    "summary", "company", "helpers", "staff", "contractors", "operators", "ironing_bartrack", "fixed_payments",
 }
 
 # tab_key -> MonthLock.view constant — each Salary tab locks/unlocks
@@ -1816,6 +1817,7 @@ _SALARY_LOCK_VIEWS = {
     "staff": MonthLock.VIEW_SALARY_STAFF,
     "contractors": MonthLock.VIEW_SALARY_CONTRACTORS,
     "operators": MonthLock.VIEW_SALARY_OPERATORS,
+    "ironing_bartrack": MonthLock.VIEW_SALARY_IRONING_BARTRACK,
     "fixed_payments": MonthLock.VIEW_SALARY_FIXED_PAYMENTS,
 }
 
@@ -1834,6 +1836,7 @@ _SALARY_TAB_EDITABLE_FIELDS = {
     "staff": {"adjust_days", "deductions", "additions", "hold"},
     "contractors": {"adjust_days", "deductions", "additions", "hold"},
     "operators": {"manual_amount", "deductions", "additions", "hold", "notes"},
+    "ironing_bartrack": {"manual_amount", "deductions", "additions", "hold", "notes"},
     "fixed_payments": {"manual_amount", "deductions", "additions", "hold", "notes"},
 }
 
@@ -2018,6 +2021,13 @@ def _salary_context(current: date_cls) -> dict:
                 # ordinary Operator, who never appears in that map.
                 already_paid = (already_paid_map or {}).get(emp.id, Decimal(0))
                 calc = payroll.compute_operator_pay(manual_amount, deductions, additions, already_paid)
+            elif kind == "ironing_bartrack":
+                # Paid the same manual/piece-rate way as Operators (see
+                # compute_operator_pay) — no attendance proration, no PF/
+                # ESI — but no Company Workers overlap to subtract, unlike
+                # Operators' already_paid, since nobody here also appears
+                # on that tab.
+                calc = payroll.compute_operator_pay(manual_amount, deductions, additions, Decimal(0))
             elif kind == "fixed_payments":
                 # A recurring flat amount set once on the Employee record
                 # (Basic Salary — reused the same way Contractors reuse it
@@ -2102,7 +2112,7 @@ def _salary_context(current: date_cls) -> dict:
             totals["hra"] = sum((r["employee"].hra for r in rows), Decimal(0))
         elif kind in ("helper", "staff", "contractors"):
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
-        elif kind == "operators":
+        elif kind in ("operators", "ironing_bartrack"):
             totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
         elif kind == "fixed_payments":
             # Both figures apply here — the basic_salary-derived flat
@@ -2183,6 +2193,18 @@ def _salary_context(current: date_cls) -> dict:
     )
     context["operator_rows"] = operator_rows
     context["operator_totals"] = sum_rows(operator_rows, "operators")
+    # Ironing & Bartrack — its own tab, routed by department (like
+    # Contractors/Fixed Payments) rather than category, but paid the same
+    # manual/piece-rate way as Operators (see build_rows's
+    # "ironing_bartrack" branch) — no Company Workers overlap to worry
+    # about, so no already_paid_map needed here.
+    ironing_bartrack_rows = build_rows(
+        Employee.objects.filter(department__name__iexact="Ironing & Bartrack")
+        .active_during(month_start, month_end).order_by("name"),
+        "ironing_bartrack",
+    )
+    context["ironing_bartrack_rows"] = ironing_bartrack_rows
+    context["ironing_bartrack_totals"] = sum_rows(ironing_bartrack_rows, "ironing_bartrack")
     # Fixed Payments — recurring flat payments to specific individuals
     # (e.g. rent) that ride along on the Salary page for convenience but
     # aren't tied to attendance at all. The flat amount comes straight
@@ -2210,6 +2232,7 @@ def _salary_context(current: date_cls) -> dict:
         ("Staff", "staff_rows", "staff_totals"),
         ("Contractors", "contractor_rows", "contractor_totals"),
         ("Operators", "operator_rows", "operator_totals"),
+        ("Ironing & Bartrack", "ironing_bartrack_rows", "ironing_bartrack_totals"),
         ("Fixed Payments", "fixed_payment_rows", "fixed_payment_totals"),
     ]:
         totals = context[totals_key]
@@ -2229,6 +2252,7 @@ def _salary_context(current: date_cls) -> dict:
         for tab_label, rows_key in [
             ("Company Workers", "company_rows"), ("Helpers", "helper_rows"), ("Staff", "staff_rows"),
             ("Contractors", "contractor_rows"), ("Operators", "operator_rows"),
+            ("Ironing & Bartrack", "ironing_bartrack_rows"),
             ("Fixed Payments", "fixed_payment_rows"),
         ]
         for r in context[rows_key]
@@ -2584,6 +2608,9 @@ def salary_download_view(request):
             )
         ),
         "operators": lambda: _salary_operator_sheet_rows(context["operator_rows"], context["operator_totals"]),
+        "ironing_bartrack": lambda: (
+            _salary_operator_sheet_rows(context["ironing_bartrack_rows"], context["ironing_bartrack_totals"])
+        ),
         "fixed_payments": lambda: (
             _salary_fixed_payment_sheet_rows(context["fixed_payment_rows"], context["fixed_payment_totals"])
         ),

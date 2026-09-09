@@ -304,6 +304,9 @@
                 <button type="button" class="tab-btn{% if initial_tab == "operators" %} active{% endif %}" data-tab="operators">Operators
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_operators" data-label="Operators" data-action="{% if lock_status.operators %}unlock{% else %}lock{% endif %}">{% if lock_status.operators %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button>
+                <button type="button" class="tab-btn{% if initial_tab == "ironing_bartrack" %} active{% endif %}" data-tab="ironing_bartrack">Ironing &amp; Bartrack
+                    {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_ironing_bartrack" data-label="Ironing & Bartrack" data-action="{% if lock_status.ironing_bartrack %}unlock{% else %}lock{% endif %}">{% if lock_status.ironing_bartrack %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
+                </button>
                 <button type="button" class="tab-btn{% if initial_tab == "fixed_payments" %} active{% endif %}" data-tab="fixed_payments">Fixed Payments
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_fixed_payments" data-label="Fixed Payments" data-action="{% if lock_status.fixed_payments %}unlock{% else %}lock{% endif %}">{% if lock_status.fixed_payments %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button>
@@ -320,6 +323,7 @@
                         <label><input type="checkbox" name="tabs" value="staff" checked> Staff</label>
                         <label><input type="checkbox" name="tabs" value="contractors" checked> Contractors</label>
                         <label><input type="checkbox" name="tabs" value="operators" checked> Operators</label>
+                        <label><input type="checkbox" name="tabs" value="ironing_bartrack" checked> Ironing & Bartrack</label>
                         <label><input type="checkbox" name="tabs" value="fixed_payments" checked> Fixed Payments</label>
                         <button type="submit">Download</button>
                     </form>
@@ -336,6 +340,7 @@
                         <label><input type="checkbox" name="tabs" value="staff" checked> Staff</label>
                         <label><input type="checkbox" name="tabs" value="contractors" checked> Contractors</label>
                         <label><input type="checkbox" name="tabs" value="operators" checked> Operators</label>
+                        <label><input type="checkbox" name="tabs" value="ironing_bartrack" checked> Ironing & Bartrack</label>
                         <label><input type="checkbox" name="tabs" value="fixed_payments" checked> Fixed Payments</label>
                         <hr class="picker-sep">
                         <label class="email-field">Cheque No<input type="text" name="cheque_no" required></label>
@@ -356,6 +361,7 @@
                         <label><input type="checkbox" class="telegram-tab" value="staff" data-label="Staff" checked> Staff</label>
                         <label><input type="checkbox" class="telegram-tab" value="contractors" data-label="Contractors" checked> Contractors</label>
                         <label><input type="checkbox" class="telegram-tab" value="operators" data-label="Operators" checked> Operators</label>
+                        <label><input type="checkbox" class="telegram-tab" value="ironing_bartrack" data-label="Ironing & Bartrack" checked> Ironing & Bartrack</label>
                         <label><input type="checkbox" class="telegram-tab" value="fixed_payments" data-label="Fixed Payments" checked> Fixed Payments</label>
                         <button type="button" id="sendSalaryTelegramBtn">Send</button>
                         <span id="sendSalaryTelegramStatus" class="report-status"></span>
@@ -373,6 +379,7 @@
                         <label><input type="checkbox" class="email-tab" value="staff" data-label="Staff" checked> Staff</label>
                         <label><input type="checkbox" class="email-tab" value="contractors" data-label="Contractors" checked> Contractors</label>
                         <label><input type="checkbox" class="email-tab" value="operators" data-label="Operators" checked> Operators</label>
+                        <label><input type="checkbox" class="email-tab" value="ironing_bartrack" data-label="Ironing & Bartrack" checked> Ironing & Bartrack</label>
                         <label><input type="checkbox" class="email-tab" value="fixed_payments" data-label="Fixed Payments" checked> Fixed Payments</label>
                         <hr class="picker-sep">
                         <label class="email-field">Subject<input type="text" id="emailSalarySubject" value="Salary — {{ month_name|escapejs }} {{ year|escapejs }}"></label>
@@ -862,6 +869,68 @@
                 </form>
                 {% else %}
                     <p class="empty-state">No employees with category "Operator" active this month.</p>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-panel="ironing_bartrack"{% if initial_tab != "ironing_bartrack" %} style="display:none;"{% endif %}>
+                {% if ironing_bartrack_rows %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                    <input type="hidden" name="tab" value="ironing_bartrack">
+                    {% if lock_status.ironing_bartrack %}<p class="lock-banner">🔒 Ironing & Bartrack is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
+                    <fieldset class="salary-fieldset" {% if lock_status.ironing_bartrack or is_salary_viewer %}disabled{% endif %}>
+                    <div class="table-wrap fit-content">
+                        <table class="simple fit-content">
+                            <thead>
+                                <tr>
+                                    <th>Code</th><th>Employee</th>
+                                    <th class="num grp-attendance sum-cell">Earned Days</th>
+                                    <th class="num grp-attendance">Paid Holiday</th>
+                                    <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
+                                    <th class="num grp-fixed">Manual Amount</th>
+                                    <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
+                                    <th>Hold</th><th>Notes</th><th class="net grp-highlight">NET</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in ironing_bartrack_rows %}
+                                <tr>
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <td>{{ row.employee.code }}</td>
+                                    <td>{{ row.employee.name }}</td>
+                                    <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
+                                    <td class="num grp-attendance">{{ row.paid_holiday }}</td>
+                                    <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
+                                    <td class="num grp-fixed value-cell"><input class="adj-input" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
+                                    <td class="num grp-deduction-emp value-cell"><input class="adj-input" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
+                                    <td class="num"><input class="adj-input" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
+                                    <td><input type="checkbox" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
+                                    <td><input class="adj-input" type="text" name="notes_{{ row.employee.id }}" value="{{ row.notes }}"></td>
+                                    <td class="net grp-highlight">{{ row.calc.net }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2">Total</td>
+                                    <td class="num">{{ ironing_bartrack_totals.earned_days }}</td>
+                                    <td class="num">{{ ironing_bartrack_totals.paid_holiday }}</td>
+                                    <td class="num personal-leave-cell">{{ ironing_bartrack_totals.personal_leave }}</td>
+                                    <td class="num">{{ ironing_bartrack_totals.manual_amount }}</td>
+                                    <td class="num">{{ ironing_bartrack_totals.deductions }}</td>
+                                    <td class="num">{{ ironing_bartrack_totals.additions }}</td>
+                                    <td></td><td></td>
+                                    <td class="net">{{ ironing_bartrack_totals.calc.net }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="save-bar"><button type="submit">Save Ironing &amp; Bartrack</button></div>
+                    </fieldset>
+                </form>
+                {% else %}
+                    <p class="empty-state">No employees in the Ironing &amp; Bartrack department active this month.</p>
                 {% endif %}
             </div>
 

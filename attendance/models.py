@@ -281,7 +281,7 @@ class MonthLock(models.Model):
     """Marks one calendar month's attendance/payroll as frozen for one of
     several editable views — the Attendance dashboard's All and Missed
     Punch views, the OT page's OT View tab, and each of the Salary page's
-    five tabs — each locked/unlocked independently, even though several
+    six tabs — each locked/unlocked independently, even though several
     of them share the same underlying data, so e.g. OT View can stay
     locked after payroll while Missed Punch remains open for corrections,
     or Company Workers salary can be finalized while Operators is still
@@ -298,6 +298,7 @@ class MonthLock(models.Model):
     VIEW_SALARY_STAFF = "salary_staff"
     VIEW_SALARY_CONTRACTORS = "salary_contractors"
     VIEW_SALARY_OPERATORS = "salary_operators"
+    VIEW_SALARY_IRONING_BARTRACK = "salary_ironing_bartrack"
     VIEW_SALARY_FIXED_PAYMENTS = "salary_fixed_payments"
     VIEW_CHOICES = [
         (VIEW_ALL, "All"),
@@ -308,6 +309,7 @@ class MonthLock(models.Model):
         (VIEW_SALARY_STAFF, "Salary — Staff"),
         (VIEW_SALARY_CONTRACTORS, "Salary — Contractors"),
         (VIEW_SALARY_OPERATORS, "Salary — Operators"),
+        (VIEW_SALARY_IRONING_BARTRACK, "Salary — Ironing & Bartrack"),
         (VIEW_SALARY_FIXED_PAYMENTS, "Salary — Fixed Payments"),
     ]
 
