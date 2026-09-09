@@ -2656,19 +2656,25 @@ def _write_salary_bank_sheet(ws, rows: list) -> None:
     title above it (unlike this app's other downloads), matching the
     July template's bank sheets exactly since this file gets uploaded
     straight to the bank, not read by a person. Skips employees on Hold
-    and employees missing Account No/IFSC Code (see
-    _row_missing_bank_details — those are flagged on the Salary page
-    itself instead, via _salary_context's missing_bank_details)."""
+    (nothing being paid out this month). Employees missing Account No/
+    IFSC Code (see _row_missing_bank_details) are still included — with
+    whatever fields they do have — rather than silently dropped, but
+    their whole row is colored red so whoever uploads this to the bank
+    notices it needs fixing before that transfer can actually go out."""
     from openpyxl.styles import Font
 
     ws.append(_SALARY_BANK_SHEET_HEADER)
     for cell in ws[1]:
         cell.font = Font(bold=True)
 
+    red_font = Font(color="FFCC0000")
     for r in rows:
-        if _row_missing_bank_details(r) or r["hold"]:
+        if r["hold"]:
             continue
         ws.append(_salary_bank_row(r["employee"], r["calc"]["net"]))
+        if _row_missing_bank_details(r):
+            for cell in ws[ws.max_row]:
+                cell.font = red_font
 
     ws.column_dimensions["A"].width = 22
     for col in ("C", "E", "G", "I", "K", "M", "O", "Q", "S", "U", "W"):
@@ -2684,11 +2690,12 @@ def salary_bank_download_view(request):
     tabs=helper&... from the page's tab-picker, or every tab if none were
     given), same column layout as the July template's Bank Sheet tabs
     (see _write_salary_bank_sheet). Employees on Hold are left out of the
-    file (nothing being paid out this month) — but if anyone else in a
-    selected tab is missing bank details, the whole download is refused
-    instead of silently going out short one person's transfer; fix the
-    missing Employee record(s) (also listed on the Salary page itself,
-    see missing_bank_details in _salary_context) and try again."""
+    file (nothing being paid out this month). Anyone else missing bank
+    details doesn't block the download — they're still included, in red
+    (see _write_salary_bank_sheet), so the file can go out today with
+    that one row visibly needing a fix rather than holding up everyone
+    else's transfer; missing_bank_details in _salary_context still flags
+    the same records on the Salary page itself."""
     import openpyxl
 
     date_param = request.GET.get("date")
@@ -2699,17 +2706,6 @@ def salary_bank_download_view(request):
     selected = [(label, rows_key) for key, label, rows_key in _SALARY_TAB_KEYS if key in selected_keys]
     if not selected:
         _error(request, "Select at least one tab to download the Bank Excel for.")
-        return redirect(f"{reverse('salary')}?date={current.isoformat()}")
-
-    selected_labels = {label for label, _ in selected}
-    missing = [m for m in context["missing_bank_details"] if m["tab_label"] in selected_labels]
-    if missing:
-        names = ", ".join(f"{m['emp_code']} {m['emp_name']} ({m['tab_label']})" for m in missing)
-        _error(
-            request,
-            f"Bank Excel not downloaded — missing bank details for: {names}. "
-            "Add their Account No/IFSC Code first.",
-        )
         return redirect(f"{reverse('salary')}?date={current.isoformat()}")
 
     wb = openpyxl.Workbook()
