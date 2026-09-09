@@ -1,102 +1,15 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payday — Device Records</title>
-    <style>
-        :root {
-            --bg: #f8fafc;
-            --surface: #ffffff;
-            --border: #e6e7eb;
-            --text: #1a1a1a;
-            --text-muted: #6b7280;
-            --navy: #002f66;
-            --navy-deep: #0f172a;
-            --yellow: #fde047;
-            --accent: var(--navy);
-            --radius: 12px;
-            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
-        }
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-            margin: 0;
-            background: var(--bg);
-            color: var(--text);
-            -webkit-font-smoothing: antialiased;
-        }
-        .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+        <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+<style>
+                                .page { width: 100%; padding: 1.5rem 2rem 3rem; }
 
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.85rem 2rem;
-            background: var(--yellow);
-            border-bottom: 1px solid rgba(0,47,102,0.15);
-            position: sticky;
-            top: 0;
-            z-index: 30;
-        }
-        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
-        .topbar nav { display: flex; gap: 0.35rem; }
-        .topbar nav a {
-            color: var(--navy);
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 0.4rem 0.85rem;
-            border-radius: 999px;
-            transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav a:hover, .topbar nav a.current { background: var(--navy); color: var(--yellow); }
-        .topbar nav button {
-            color: var(--navy); background: none; border: none; cursor: pointer;
-            font-size: 0.85rem; font-weight: 600; font-family: inherit;
-            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
-        .topbar nav details.nav-dropdown { position: relative; }
-        .topbar nav details.nav-dropdown summary {
-            list-style: none;
-            cursor: pointer;
-            color: var(--navy);
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 0.4rem 0.85rem;
-            border-radius: 999px;
-            transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
-        .topbar nav details.nav-dropdown summary:hover,
-        .topbar nav details.nav-dropdown[open] summary,
-        .topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
-        .topbar nav .nav-dropdown-menu {
-            position: absolute;
-            top: calc(100% + 6px);
-            right: 0;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            box-shadow: var(--shadow);
-            padding: 0.35rem;
-            min-width: 170px;
-            z-index: 50;
-        }
-        .topbar nav .nav-dropdown-menu a {
-            display: block;
-            padding: 0.5rem 0.7rem;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--navy);
-            text-decoration: none;
-        }
-        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
-        .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
-
-        h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
-        h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+                h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .dept-summary summary { cursor: pointer; list-style: none; }
         .dept-summary summary::-webkit-details-marker { display: none; }
         .dept-summary summary h2 { display: inline-block; margin: 0 0 0.9rem; }
@@ -107,24 +20,7 @@
         .caption a { color: var(--navy); text-decoration: none; font-weight: 600; }
         .caption a:hover { text-decoration: underline; }
 
-        .empty-state {
-            background: var(--surface);
-            border: 1px dashed var(--border);
-            border-radius: var(--radius);
-            padding: 2.5rem;
-            text-align: center;
-            color: var(--text-muted);
-        }
-
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 1.35rem 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
+        
         .kpis { display: flex; gap: 1rem; margin-top: 1rem; }
         .kpi {
             border: 1px solid var(--border);
@@ -137,9 +33,7 @@
         .kpi .value { font-size: 1.5rem; font-weight: 700; color: var(--accent); margin-top: 0.15rem; }
         .kpi.kpi-alert .value { color: #d32f2f; }
 
-        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-        table.simple { border-collapse: collapse; width: 100%; }
-        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
+                        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
@@ -499,10 +393,6 @@
         table.month.locked th.editable-header:hover { filter: none; }
         table.month th .dow { display: block; font-size: 0.65rem; font-weight: 400; color: #888; line-height: 1; margin-bottom: 0.25rem; }
 
-        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.85rem; max-width: 500px; }
-        .msg.success { background: #e6f4ea; color: #1e7e34; }
-        .msg.error { background: #fdecea; color: #b3261e; }
-
         .month-nav { display: flex; align-items: center; gap: 0.9rem; margin: 0 0 1.25rem; }
         .month-nav .nav-arrow {
             color: var(--navy);
@@ -535,13 +425,7 @@
         /* Click-to-edit popup for a single day cell — fixes a missed punch
            and/or sets the shift code. One shared modal reused for every
            cell (rather than a form per cell) so the grid doesn't bloat. */
-        .edit-overlay {
-            position: fixed; inset: 0; background: rgba(17,17,20,0.45);
-            backdrop-filter: blur(2px);
-            display: none; align-items: center; justify-content: center; z-index: 1000;
-        }
-        .edit-overlay.open { display: flex; }
-        /* The Month Attendance grid's hover tooltip must not show through
+                        /* The Month Attendance grid's hover tooltip must not show through
            the popup while it's open — it sits behind the overlay, but its
            ::after content still has its own z-index, so suppress it
            explicitly rather than relying on stacking order alone. */

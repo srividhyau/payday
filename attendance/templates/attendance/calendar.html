@@ -1,112 +1,17 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payday — Holiday Calendar</title>
-    <style>
-        :root {
-            --bg: #f8fafc;
-            --surface: #ffffff;
-            --border: #e6e7eb;
-            --text: #1a1a1a;
-            --text-muted: #6b7280;
-            --navy: #002f66;
-            --navy-deep: #0f172a;
-            --yellow: #fde047;
-            --radius: 12px;
-            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
-        }
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-            margin: 0;
-            background: var(--bg);
-            color: var(--text);
-            -webkit-font-smoothing: antialiased;
-        }
-        .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+        <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+<style>
+                                .page { width: 100%; padding: 1.5rem 2rem 3rem; }
 
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.85rem 2rem;
-            background: var(--yellow);
-            border-bottom: 1px solid rgba(0,47,102,0.15);
-            position: sticky;
-            top: 0;
-            z-index: 30;
-        }
-        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
-        .topbar nav { display: flex; gap: 0.35rem; }
-        .topbar nav a {
-            color: var(--navy);
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 0.4rem 0.85rem;
-            border-radius: 999px;
-            transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav a:hover, .topbar nav a.current { background: var(--navy); color: var(--yellow); }
-        .topbar nav button {
-            color: var(--navy); background: none; border: none; cursor: pointer;
-            font-size: 0.85rem; font-weight: 600; font-family: inherit;
-            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
-        .topbar nav details.nav-dropdown { position: relative; }
-        .topbar nav details.nav-dropdown summary {
-            list-style: none;
-            cursor: pointer;
-            color: var(--navy);
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 0.4rem 0.85rem;
-            border-radius: 999px;
-            transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
-        .topbar nav details.nav-dropdown summary:hover,
-        .topbar nav details.nav-dropdown[open] summary,
-        .topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
-        .topbar nav .nav-dropdown-menu {
-            position: absolute;
-            top: calc(100% + 6px);
-            right: 0;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            box-shadow: var(--shadow);
-            padding: 0.35rem;
-            min-width: 170px;
-            z-index: 50;
-        }
-        .topbar nav .nav-dropdown-menu a {
-            display: block;
-            padding: 0.5rem 0.7rem;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--navy);
-            text-decoration: none;
-        }
-        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
-        .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
-
-        h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; color: var(--navy); }
-        h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+                h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 700px; }
         .caption:last-child { margin-bottom: 0; }
-
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 1.35rem 1.5rem;
-            margin-bottom: 1.5rem;
-        }
 
         .month-nav { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.25rem; }
         .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; }
@@ -139,8 +44,7 @@
         }
         .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
 
-        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-        table.cal { border-collapse: collapse; width: 100%; table-layout: fixed; }
+                table.cal { border-collapse: collapse; width: 100%; table-layout: fixed; }
         table.cal th, table.cal td { border: 1px solid #666; padding: 0; text-align: left; vertical-align: top; }
         table.cal th { background: #fafbfc; color: var(--text-muted); padding: 0.5rem; text-align: center; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
         table.cal td { height: 80px; }
@@ -176,8 +80,7 @@
         table.cal td.has-early-closure { box-shadow: inset 0 0 0 2px #1565C0; }
 
         .table-wrap.simple-wrap { max-width: 420px; }
-        table.simple { border-collapse: collapse; width: 100%; }
-        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
+                table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }

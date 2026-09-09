@@ -5,84 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payday — Salary</title>
-    <style>
-        :root {
-            --bg: #f8fafc;
-            --surface: #ffffff;
-            --border: #e6e7eb;
-            --text: #1a1a1a;
-            --text-muted: #6b7280;
-            --navy: #002f66;
-            --navy-deep: #0f172a;
-            --yellow: #fde047;
-            --radius: 12px;
-            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
-        }
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-            margin: 0;
-            background: var(--bg);
-            color: var(--text);
-            -webkit-font-smoothing: antialiased;
-        }
-        .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+        <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+<style>
+                                .page { width: 100%; padding: 1.5rem 2rem 3rem; }
 
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.85rem 2rem;
-            background: var(--yellow);
-            border-bottom: 1px solid rgba(0,47,102,0.15);
-            position: sticky;
-            top: 0;
-            z-index: 30;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
-        .topbar nav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-        .topbar nav a {
-            color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600;
-            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav a:hover, .topbar nav a.current { background: var(--navy); color: var(--yellow); }
-        .topbar nav button {
-            color: var(--navy); background: none; border: none; cursor: pointer;
-            font-size: 0.85rem; font-weight: 600; font-family: inherit;
-            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
-        .topbar nav details.nav-dropdown { position: relative; }
-        .topbar nav details.nav-dropdown summary {
-            list-style: none; cursor: pointer; color: var(--navy); font-size: 0.85rem; font-weight: 600;
-            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
-        }
-        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
-        .topbar nav details.nav-dropdown summary:hover,
-        .topbar nav details.nav-dropdown[open] summary,
-        .topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
-        .topbar nav .nav-dropdown-menu {
-            position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface);
-            border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
-            padding: 0.35rem; min-width: 170px; z-index: 50;
-        }
-        .topbar nav .nav-dropdown-menu a { display: block; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: var(--navy); text-decoration: none; }
-        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
-        .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
+                        .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 760px; }
 
-        h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
-        .page-header-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-        .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 760px; }
-
-        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
-        .msg.success { background: #e6f4ea; color: #1e7e34; }
-        .msg.error { background: #fdecea; color: #b3261e; }
-        .msg.info { background: #e8f0fe; color: var(--navy); }
-
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.35rem 1.5rem; margin-bottom: 1.5rem; }
-
+        
         .month-nav { display: flex; align-items: center; gap: 0.9rem; }
         .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; color: var(--navy); }
         .month-nav a {
@@ -98,36 +27,11 @@
         .kpi .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.2rem; }
         .kpi .value { font-size: 1.1rem; font-weight: 700; color: var(--navy); }
 
-        .tab-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-        .tab-btn {
-            padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
-            color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); cursor: pointer; font-family: inherit;
-        }
-        .tab-btn.active { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
-        .icon-btn {
-            position: relative;
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
-            color: var(--text-muted); background: var(--bg); border: 1px solid var(--border);
-            cursor: pointer; text-decoration: none; font-family: inherit;
-            transition: background .15s ease, color .15s ease, border-color .15s ease;
-        }
-        .icon-btn:hover { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
-        .icon-btn svg { display: block; }
-        .icon-btn:disabled { opacity: 0.6; cursor: default; }
-        /* Custom tooltip instead of relying on the native title attribute
+                                                                /* Custom tooltip instead of relying on the native title attribute
            (inconsistent delay/visibility across browsers) — same
            always-on-hover ::after pattern used for the grid's day-cell
            tooltips elsewhere in this app. */
-        .icon-btn[data-tooltip]:hover::after {
-            content: attr(data-tooltip);
-            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
-            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
-            padding: 0.35rem 0.65rem; border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
-        }
-        .report-status { font-size: 0.8rem; color: var(--text-muted); }
+                .report-status { font-size: 0.8rem; color: var(--text-muted); }
         .report-status.error { color: #b3261e; }
         .report-status.success { color: #1e7e34; }
 
@@ -194,10 +98,8 @@
         }
         .tab-picker-menu hr.picker-sep { border: none; border-top: 1px solid var(--border); margin: 0.2rem 0; width: 100%; }
 
-        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem; }
-        .table-wrap.fit-content { display: inline-block; }
-        table.simple { border-collapse: collapse; width: 100%; }
-        table.simple.fit-content { width: auto; }
+                .table-wrap.fit-content { display: inline-block; }
+                table.simple.fit-content { width: auto; }
         table.simple tr.dept-row td {
             background: #FCE4D6;
             font-weight: 700;
@@ -303,8 +205,6 @@
         .save-bar button:hover { background: var(--navy-deep); }
         .save-bar button:disabled { background: var(--border); color: var(--text-muted); cursor: default; }
 
-        .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
-
         /* Per-tab lock (PIN-gated, same mechanism as the Attendance
            dashboard/OT page — see toggle_month_lock_view). The lock icon
            sits inside the tab button, so its click must not also trigger
@@ -329,12 +229,7 @@
 
         /* Lock PIN popup — same shared modal pattern as the Attendance
            dashboard/OT page's lock overlay. */
-        .edit-overlay {
-            position: fixed; inset: 0; background: rgba(17,17,20,0.45); backdrop-filter: blur(2px);
-            display: none; align-items: center; justify-content: center; z-index: 1000;
-        }
-        .edit-overlay.open { display: flex; }
-        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 300px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+                        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 300px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
         .edit-modal h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
         .edit-modal .edit-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.9rem; }
         .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
@@ -383,7 +278,7 @@
 
         {% if missing_bank_details %}
             <div class="msg error">
-                Missing bank details (blocks the Bank Excel download for that tab) —
+                Missing bank details (still included in the Bank Excel, flagged in red) —
                 {% for m in missing_bank_details %}{{ m.emp_code }} {{ m.emp_name }} ({{ m.tab_label }}){% if not forloop.last %}, {% endif %}{% endfor %}
             </div>
         {% endif %}

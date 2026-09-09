@@ -1,5 +1,9 @@
+{% load static %}
 <header class="topbar">
-    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% else %}{% url 'home' %}{% endif %}" class="brand">Payday</a>
+    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
+        <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
+        Payday
+    </a>
     <nav>
         {% if not is_salary_viewer and not is_employee_editor %}
         <details class="nav-dropdown">

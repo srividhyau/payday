@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -145,12 +146,7 @@
 <body>
     <nav class="top-nav">
         <a href="{% url 'home' %}" class="nav-brand">
-            <svg class="logo" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" fill="#002f66" />
-                <path d="M12 2a5 5 0 0 1 0 10 5 5 0 0 0 0 10 10 10 0 0 1 0-20z" fill="#fde047" />
-                <circle cx="12" cy="7" r="1.7" fill="#002f66" />
-                <circle cx="12" cy="17" r="1.7" fill="#fde047" />
-            </svg>
+            <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="logo">
             Payday
         </a>
         <span class="nav-spacer"></span>
