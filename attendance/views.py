@@ -16,18 +16,20 @@ import pandas as pd
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import Group, User
 from django.core.mail import EmailMessage
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_time
 
 from src import metrics, payroll
 from src import parser as attendance_parser
 
-from .forms import UploadForm
+from .forms import EmployeeForm, UploadForm
 from .importer import import_dataframe, import_file
+from .middleware import EMPLOYEE_EDIT_GROUP
 from .models import (
     AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmploymentPeriod,
     LeaveLedgerEntry, MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
@@ -3680,3 +3682,161 @@ def ot_details_download_view(request):
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
+
+
+def _require_superuser(request):
+    """Shared gate for the Roles page — superuser-only, since delegating
+    "who can grant access" to a role that only has *some* access would
+    let that role escalate itself. Same "redirect with an error message"
+    convention RoleRestrictionMiddleware uses for its own access denial.
+    Returns a redirect if the user isn't a superuser, else None (caller
+    proceeds)."""
+    if not request.user.is_superuser:
+        messages.error(request, "Admin access required.")
+        return redirect("home")
+    return None
+
+
+def _require_employee_edit_access(request):
+    """Shared gate for the Employee Details pages — superuser or a member
+    of EMPLOYEE_EDIT_GROUP. RoleRestrictionMiddleware already stops a
+    Employee Edit member from reaching any *other* admin page (Roles
+    included), so this only needs to keep out everyone else. Returns a
+    redirect if access is denied, else None (caller proceeds)."""
+    user = request.user
+    if not (user.is_superuser or user.groups.filter(name=EMPLOYEE_EDIT_GROUP).exists()):
+        messages.error(request, "Admin access required.")
+        return redirect("home")
+    return None
+
+
+# Column key (used in the ?sort= query param and the template's sortable
+# headers) -> the ORM field it actually orders by. An allow-list rather
+# than passing ?sort= straight to order_by(), so the URL can't be used to
+# order by an arbitrary/unintended field.
+_EMPLOYEE_SORT_FIELDS = {
+    "code": "code", "name": "name", "department": "department__name",
+    "category": "category", "subcategory": "subcategory",
+    "company": "company", "designation": "designation",
+    "ot_rate_per_hour": "ot_rate_per_hour", "basic_salary": "basic_salary", "hra": "hra", "da": "da",
+    "pf_number": "pf_number", "esi_number": "esi_number",
+    "pf_enabled": "pf_enabled", "esi_enabled": "esi_enabled", "tds_enabled": "tds_enabled",
+    "account_name": "account_name", "bank_name": "bank_name", "account_no": "account_no",
+    "ifsc_code": "ifsc_code", "branch": "branch",
+}
+
+
+def _employee_list_context(request):
+    """Shared base context for employee_list_view and employee_form_view's
+    edit path (the latter re-renders the list, popup reopened, on a
+    validation error — see employee_form_view)."""
+    query = request.GET.get("q", "").strip()
+    sort_param = request.GET.get("sort")
+    sort = sort_param if sort_param in _EMPLOYEE_SORT_FIELDS else ""
+    direction = request.GET.get("dir", "asc")
+    if direction not in ("asc", "desc"):
+        direction = "asc"
+    tab = request.GET.get("tab", "active")
+    if tab not in ("active", "inactive"):
+        tab = "active"
+
+    # "Active" reuses the same is_active_on(today) rule the Salary/
+    # Attendance pages already use elsewhere (see EmployeeQuerySet.active_on
+    # and Employee.is_active_on) — an employee with no EmploymentPeriod
+    # rows at all counts as active (the pre-history-tracking default), one
+    # with a period covering today is active, everyone else (left and
+    # hasn't rejoined) is "Non-working".
+    active_ids = Employee.objects.active_on(date_cls.today()).values_list("pk", flat=True)
+    employees = Employee.objects.select_related("department").all()
+    employees = employees.filter(pk__in=active_ids) if tab == "active" else employees.exclude(pk__in=active_ids)
+    if query:
+        employees = employees.filter(
+            Q(code__icontains=query) | Q(name__icontains=query) | Q(designation__icontains=query)
+        )
+    if sort:
+        order_field = _EMPLOYEE_SORT_FIELDS[sort]
+        employees = employees.order_by(order_field if direction == "asc" else f"-{order_field}")
+    else:
+        # No column header clicked yet — group by Department, then
+        # Category, then Subcategory by default (Code as a stable
+        # tiebreaker within each group) rather than a flat Code sort.
+        employees = employees.order_by("department__name", "category", "subcategory", "code")
+    return {
+        "current": "employee_list", "employees": employees, "query": query,
+        "sort": sort, "dir": direction, "tab": tab,
+        "departments": Department.objects.all(),
+        "category_choices": Employee.CATEGORY_CHOICES, "subcategory_choices": Employee.SUBCATEGORY_CHOICES,
+    }
+
+
+@login_required
+def employee_list_view(request):
+    """Admin > Employee Details — browse/search every Employee record.
+    Editing happens in-page via a popup (see employee_list.html's
+    #editOverlay) rather than a separate page; "+ Add Employee" is the
+    one remaining link out, to employee_form_view. Open to superusers and
+    EMPLOYEE_EDIT_GROUP members — the latter get exactly this page and
+    nothing else in Admin (see RoleRestrictionMiddleware)."""
+    denied = _require_employee_edit_access(request)
+    if denied:
+        return denied
+    return render(request, "attendance/employee_list.html", _employee_list_context(request))
+
+
+@login_required
+def employee_form_view(request, pk=None):
+    """Handles both "add" (pk is None, GET renders employee_form.html — a
+    full page, since there's no existing row on the list to pop up next
+    to) and "edit" (pk set, submitted from the popup on employee_list.html
+    — a bare GET here just bounces back to the list, since the popup
+    *is* the edit UI now). On a validation error: create re-renders
+    employee_form.html as before; edit re-renders the list with the popup
+    reopened on the rejected submission, via edit_form/edit_instance."""
+    denied = _require_employee_edit_access(request)
+    if denied:
+        return denied
+    instance = get_object_or_404(Employee, pk=pk) if pk else None
+    if request.method == "POST":
+        form = EmployeeForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Saved {form.instance.code} - {form.instance.name}.")
+            return redirect("employee_list")
+        if instance:
+            context = _employee_list_context(request)
+            context["edit_form"] = form
+            context["edit_instance"] = instance
+            return render(request, "attendance/employee_list.html", context)
+    else:
+        if instance:
+            return redirect("employee_list")
+        form = EmployeeForm(instance=instance)
+    context = {"current": "employee_list", "form": form, "instance": instance}
+    return render(request, "attendance/employee_form.html", context)
+
+
+@login_required
+def role_assignment_view(request):
+    """Admin > Roles — a matrix of every Django auth Group ("Salary
+    Viewer", "Employee Edit", see attendance.middleware._ROLE_ACCESS)
+    against every User, letting an admin toggle group membership without
+    touching the Django admin or a shell. Deliberately generic over
+    "every Group" rather than hardcoding specific roles, so a future
+    group (added the same way, via migration) shows up here for free."""
+    denied = _require_superuser(request)
+    if denied:
+        return denied
+    if request.method == "POST":
+        user = get_object_or_404(User, pk=request.POST.get("user_id"))
+        group = get_object_or_404(Group, pk=request.POST.get("group_id"))
+        if user.groups.filter(pk=group.pk).exists():
+            user.groups.remove(group)
+            messages.success(request, f"Removed {user.username} from {group.name}.")
+        else:
+            user.groups.add(group)
+            messages.success(request, f"Added {user.username} to {group.name}.")
+        return redirect("role_assignment")
+    users = User.objects.filter(is_superuser=False).order_by("username").prefetch_related("groups")
+    groups = Group.objects.order_by("name")
+    context = {"current": "role_assignment", "users": users, "groups": groups}
+    return render(request, "attendance/role_assignment.html", context)

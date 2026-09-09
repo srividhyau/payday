@@ -1,0 +1,496 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — Employee Details</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.85rem 2rem; background: var(--yellow); border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky; top: 0; z-index: 30; flex-wrap: wrap; gap: 0.5rem;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .topbar nav a {
+            color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav a:hover, .topbar nav a.current { background: var(--navy); color: var(--yellow); }
+        .topbar nav button {
+            color: var(--navy); background: none; border: none; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; font-family: inherit;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav details.nav-dropdown { position: relative; }
+        .topbar nav details.nav-dropdown summary {
+            list-style: none; cursor: pointer; color: var(--navy); font-size: 0.85rem; font-weight: 600;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+        .topbar nav details.nav-dropdown summary:hover,
+        .topbar nav details.nav-dropdown[open] summary,
+        .topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
+        .topbar nav .nav-dropdown-menu {
+            position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+            padding: 0.35rem; min-width: 170px; z-index: 50;
+        }
+        .topbar nav .nav-dropdown-menu a { display: block; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: var(--navy); text-decoration: none; }
+        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
+        .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
+
+        h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
+        .page-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
+        .msg.success { background: #e6f4ea; color: #1e7e34; }
+        .msg.error { background: #fdecea; color: #b3261e; }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.35rem 1.5rem; margin-bottom: 1.5rem; }
+
+        .tab-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+        .tab-btn {
+            padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+            text-decoration: none; color: var(--text-muted); background: var(--bg);
+            border: 1px solid var(--border); cursor: pointer; font-family: inherit;
+        }
+        .tab-btn.active { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+
+        .action-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .post-btn {
+            background: var(--navy); color: var(--yellow); font-weight: 700; border: none;
+            padding: 0.55rem 1.1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; text-decoration: none;
+            display: inline-block;
+        }
+        .post-btn:hover { background: var(--navy-deep); }
+        .search-input {
+            padding: 0.5rem 0.8rem; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 0.85rem; font-family: inherit; min-width: 240px;
+        }
+        .search-input:focus { outline: none; border-color: var(--navy); }
+
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+        table.simple { border-collapse: collapse; width: 100%; }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple tbody tr:last-child td { border-bottom: none; }
+        table.simple tbody tr:hover td { background: #fafbff; }
+        .edit-link { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy); padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+        .edit-link:hover { background: var(--bg); }
+        table.simple th a.sort-link { color: var(--text-muted); text-decoration: none; }
+        table.simple th a.sort-link:hover { color: var(--navy); }
+        table.simple th a.sort-link.active { color: var(--navy); }
+        .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+
+        /* Edit popup — same overlay/modal pattern used on EL & Comp-Off,
+           just with the full employee form inside instead of three
+           fields, since there's no separate edit page for this anymore. */
+        .edit-overlay {
+            position: fixed; inset: 0; background: rgba(17,17,20,0.45); backdrop-filter: blur(2px);
+            display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1.5rem;
+        }
+        .edit-overlay.open { display: flex; }
+        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+        .edit-modal h3 { margin: 0 0 1rem; font-size: 1.05rem; color: var(--navy); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem 1.1rem; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .form-grid label { display: block; font-size: 0.8rem; color: #444; font-weight: 600; margin-bottom: 0.3rem; }
+        .form-grid input[type="text"], .form-grid input[type="number"], .form-grid select {
+            width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #ccc; border-radius: 8px;
+            font-size: 0.9rem; font-family: inherit; box-sizing: border-box; transition: border-color .15s ease;
+        }
+        .form-grid input:focus, .form-grid select:focus { outline: none; border-color: var(--navy); }
+        .form-grid .checkbox-field { display: flex; align-items: center; gap: 0.5rem; margin-top: 1.6rem; }
+        .form-grid .checkbox-field input { width: auto; }
+        .form-grid .checkbox-field label { margin: 0; }
+        .field-error { color: #b3261e; font-size: 0.75rem; margin-top: 0.25rem; }
+        .section-label { grid-column: 1 / -1; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-top: 0.6rem; border-top: 1px solid var(--border); padding-top: 0.9rem; }
+        .section-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+        .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.4rem; }
+        .edit-actions button { padding: 0.5rem 1.1rem; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 0.85rem; }
+        .edit-actions button:hover { background: var(--bg); }
+        .edit-actions button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 700; }
+        .edit-actions button[type="submit"]:hover { background: var(--navy-deep); }
+    </style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="employee_list" %}
+
+    <div class="page">
+        <div class="page-header-row">
+            <h1>Employee Details</h1>
+            <a href="{% url 'employee_create' %}" class="post-btn">+ Add Employee</a>
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <div class="tab-row">
+            <a class="tab-btn{% if tab == "active" %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}&tab=active">Active</a>
+            <a class="tab-btn{% if tab == "inactive" %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}&tab=inactive">Non-working</a>
+        </div>
+
+        <div class="action-row">
+            <form method="get" style="display:flex; gap:0.5rem;">
+                <input type="text" name="q" class="search-input" placeholder="Search code, name, or designation" value="{{ query }}">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="dir" value="{{ dir }}">
+                <input type="hidden" name="tab" value="{{ tab }}">
+                <button type="submit" class="post-btn">Search</button>
+            </form>
+        </div>
+
+        <div class="card">
+            {% if employees %}
+            <div class="table-wrap">
+                <table class="simple">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th><a class="sort-link{% if sort == "code" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=code&dir={% if sort == "code" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Code{% if sort == "code" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "name" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=name&dir={% if sort == "name" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Name{% if sort == "name" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "department" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=department&dir={% if sort == "department" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Department{% if sort == "department" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "category" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=category&dir={% if sort == "category" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Category{% if sort == "category" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "subcategory" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=subcategory&dir={% if sort == "subcategory" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Subcategory{% if sort == "subcategory" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "company" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=company&dir={% if sort == "company" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Company{% if sort == "company" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "designation" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=designation&dir={% if sort == "designation" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Designation{% if sort == "designation" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "ot_rate_per_hour" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=ot_rate_per_hour&dir={% if sort == "ot_rate_per_hour" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">OT Rate/hr{% if sort == "ot_rate_per_hour" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "basic_salary" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=basic_salary&dir={% if sort == "basic_salary" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Basic Salary{% if sort == "basic_salary" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "hra" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=hra&dir={% if sort == "hra" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">HRA{% if sort == "hra" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "da" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=da&dir={% if sort == "da" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">DA{% if sort == "da" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "pf_number" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=pf_number&dir={% if sort == "pf_number" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">PF Number{% if sort == "pf_number" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "esi_number" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=esi_number&dir={% if sort == "esi_number" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">ESI Number{% if sort == "esi_number" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "pf_enabled" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=pf_enabled&dir={% if sort == "pf_enabled" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">PF{% if sort == "pf_enabled" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "esi_enabled" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=esi_enabled&dir={% if sort == "esi_enabled" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">ESI{% if sort == "esi_enabled" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "tds_enabled" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=tds_enabled&dir={% if sort == "tds_enabled" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">TDS{% if sort == "tds_enabled" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "account_name" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=account_name&dir={% if sort == "account_name" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Account Name{% if sort == "account_name" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "bank_name" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=bank_name&dir={% if sort == "bank_name" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Bank Name{% if sort == "bank_name" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "account_no" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=account_no&dir={% if sort == "account_no" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Account No.{% if sort == "account_no" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "ifsc_code" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=ifsc_code&dir={% if sort == "ifsc_code" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">IFSC{% if sort == "ifsc_code" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "branch" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=branch&dir={% if sort == "branch" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Branch{% if sort == "branch" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in employees %}
+                        <tr>
+                            <td>
+                                <button type="button" class="edit-link"
+                                    data-pk="{{ emp.pk }}"
+                                    data-code="{{ emp.code }}"
+                                    data-name="{{ emp.name }}"
+                                    data-department="{{ emp.department_id|default:"" }}"
+                                    data-company="{{ emp.company }}"
+                                    data-category="{{ emp.category }}"
+                                    data-subcategory="{{ emp.subcategory }}"
+                                    data-designation="{{ emp.designation }}"
+                                    data-ot-rate="{{ emp.ot_rate_per_hour }}"
+                                    data-basic-salary="{{ emp.basic_salary }}"
+                                    data-hra="{{ emp.hra }}"
+                                    data-da="{{ emp.da }}"
+                                    data-pf-number="{{ emp.pf_number }}"
+                                    data-esi-number="{{ emp.esi_number }}"
+                                    data-pf-enabled="{{ emp.pf_enabled|yesno:'1,0' }}"
+                                    data-esi-enabled="{{ emp.esi_enabled|yesno:'1,0' }}"
+                                    data-tds-enabled="{{ emp.tds_enabled|yesno:'1,0' }}"
+                                    data-account-name="{{ emp.account_name }}"
+                                    data-bank-name="{{ emp.bank_name }}"
+                                    data-account-no="{{ emp.account_no }}"
+                                    data-ifsc-code="{{ emp.ifsc_code }}"
+                                    data-branch="{{ emp.branch }}"
+                                >Edit</button>
+                            </td>
+                            <td>{{ emp.code }}</td>
+                            <td>{{ emp.name }}</td>
+                            <td>{{ emp.department.name|default:"—" }}</td>
+                            <td>{{ emp.category|default:"—" }}</td>
+                            <td>{{ emp.subcategory|default:"—" }}</td>
+                            <td>{{ emp.company|default:"—" }}</td>
+                            <td>{{ emp.designation|default:"—" }}</td>
+                            <td>{{ emp.ot_rate_per_hour }}</td>
+                            <td>{{ emp.basic_salary }}</td>
+                            <td>{{ emp.hra }}</td>
+                            <td>{{ emp.da }}</td>
+                            <td>{{ emp.pf_number|default:"—" }}</td>
+                            <td>{{ emp.esi_number|default:"—" }}</td>
+                            <td><input type="checkbox" disabled {% if emp.pf_enabled %}checked{% endif %}></td>
+                            <td><input type="checkbox" disabled {% if emp.esi_enabled %}checked{% endif %}></td>
+                            <td><input type="checkbox" disabled {% if emp.tds_enabled %}checked{% endif %}></td>
+                            <td>{{ emp.account_name|default:"—" }}</td>
+                            <td>{{ emp.bank_name|default:"—" }}</td>
+                            <td>{{ emp.account_no|default:"—" }}</td>
+                            <td>{{ emp.ifsc_code|default:"—" }}</td>
+                            <td>{{ emp.branch|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="empty-state">{% if query %}No employees match "{{ query }}".{% else %}No employees yet.{% endif %}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="edit-overlay" id="editOverlay">
+        <div class="edit-modal">
+            <h3 id="editModalTitle">Edit employee</h3>
+            <form method="post" id="editForm" data-url-template="{% url 'employee_edit' 999999 %}">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div class="section-label">Identity</div>
+                    <div>
+                        <label for="editCode">Code</label>
+                        <input type="text" name="code" id="editCode">
+                        <div class="field-error" id="editCodeError"></div>
+                    </div>
+                    <div>
+                        <label for="editName">Name</label>
+                        <input type="text" name="name" id="editName">
+                        <div class="field-error" id="editNameError"></div>
+                    </div>
+                    <div>
+                        <label for="editDepartment">Department</label>
+                        <select name="department" id="editDepartment">
+                            <option value="">---------</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.pk }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editDesignation">Designation</label>
+                        <input type="text" name="designation" id="editDesignation">
+                    </div>
+                    <div>
+                        <label for="editCompany">Company</label>
+                        <input type="text" name="company" id="editCompany">
+                    </div>
+                    <div></div>
+                    <div>
+                        <label for="editCategory">Category</label>
+                        <select name="category" id="editCategory">
+                            <option value="">---------</option>
+                            {% for value, label in category_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editSubcategory">Subcategory</label>
+                        <select name="subcategory" id="editSubcategory">
+                            <option value="">---------</option>
+                            {% for value, label in subcategory_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="section-label">Pay</div>
+                    <div>
+                        <label for="editBasicSalary">Basic salary</label>
+                        <input type="number" step="0.01" name="basic_salary" id="editBasicSalary">
+                    </div>
+                    <div>
+                        <label for="editOtRate">OT rate / hour</label>
+                        <input type="number" step="0.01" name="ot_rate_per_hour" id="editOtRate">
+                    </div>
+                    <div>
+                        <label for="editHra">HRA</label>
+                        <input type="number" step="0.01" name="hra" id="editHra">
+                    </div>
+                    <div>
+                        <label for="editDa">DA</label>
+                        <input type="number" step="0.01" name="da" id="editDa">
+                    </div>
+                    <div>
+                        <label for="editPfNumber">PF number</label>
+                        <input type="text" name="pf_number" id="editPfNumber">
+                    </div>
+                    <div>
+                        <label for="editEsiNumber">ESI number</label>
+                        <input type="text" name="esi_number" id="editEsiNumber">
+                    </div>
+                    <div class="checkbox-field"><input type="checkbox" name="pf_enabled" id="editPfEnabled"><label for="editPfEnabled">PF enabled</label></div>
+                    <div class="checkbox-field"><input type="checkbox" name="esi_enabled" id="editEsiEnabled"><label for="editEsiEnabled">ESI enabled</label></div>
+                    <div class="checkbox-field"><input type="checkbox" name="tds_enabled" id="editTdsEnabled"><label for="editTdsEnabled">TDS enabled</label></div>
+
+                    <div class="section-label">Bank details</div>
+                    <div>
+                        <label for="editAccountName">Account name</label>
+                        <input type="text" name="account_name" id="editAccountName">
+                    </div>
+                    <div>
+                        <label for="editBankName">Bank name</label>
+                        <input type="text" name="bank_name" id="editBankName">
+                    </div>
+                    <div>
+                        <label for="editAccountNo">Account number</label>
+                        <input type="text" name="account_no" id="editAccountNo">
+                    </div>
+                    <div>
+                        <label for="editIfscCode">IFSC code</label>
+                        <input type="text" name="ifsc_code" id="editIfscCode">
+                    </div>
+                    <div>
+                        <label for="editBranch">Branch</label>
+                        <input type="text" name="branch" id="editBranch">
+                    </div>
+                </div>
+                <div class="edit-actions">
+                    <button type="button" id="editCancel">Cancel</button>
+                    <button type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var overlay = document.getElementById('editOverlay');
+            var form = document.getElementById('editForm');
+
+            function setField(id, value) {
+                var el = document.getElementById(id);
+                if (el) el.value = (value === null || value === undefined) ? '' : value;
+            }
+            function setChecked(id, checked) {
+                var el = document.getElementById(id);
+                if (el) el.checked = !!checked;
+            }
+            function setError(id, message) {
+                var el = document.getElementById(id + 'Error');
+                if (el) el.textContent = message || '';
+            }
+
+            window.openEditModal = function (data) {
+                form.action = form.dataset.urlTemplate.replace('999999', data.pk);
+                document.getElementById('editModalTitle').textContent = data.code ? ('Edit ' + data.code) : 'Edit employee';
+                setField('editCode', data.code);
+                setField('editName', data.name);
+                setField('editDepartment', data.department);
+                setField('editCompany', data.company);
+                setField('editCategory', data.category);
+                setField('editSubcategory', data.subcategory);
+                setField('editDesignation', data.designation);
+                setField('editOtRate', data.ot_rate_per_hour);
+                setField('editBasicSalary', data.basic_salary);
+                setField('editHra', data.hra);
+                setField('editDa', data.da);
+                setField('editPfNumber', data.pf_number);
+                setField('editEsiNumber', data.esi_number);
+                setChecked('editPfEnabled', data.pf_enabled);
+                setChecked('editEsiEnabled', data.esi_enabled);
+                setChecked('editTdsEnabled', data.tds_enabled);
+                setField('editAccountName', data.account_name);
+                setField('editBankName', data.bank_name);
+                setField('editAccountNo', data.account_no);
+                setField('editIfscCode', data.ifsc_code);
+                setField('editBranch', data.branch);
+                ['editCode', 'editName', 'editDepartment', 'editCategory', 'editSubcategory',
+                    'editOtRate', 'editBasicSalary', 'editHra', 'editDa'].forEach(function (id) {
+                    setError(id, (data.errors && data.errors[id]) || '');
+                });
+                overlay.classList.add('open');
+            };
+
+            document.querySelectorAll('.edit-link').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    openEditModal({
+                        pk: btn.dataset.pk,
+                        code: btn.dataset.code,
+                        name: btn.dataset.name,
+                        department: btn.dataset.department,
+                        company: btn.dataset.company,
+                        category: btn.dataset.category,
+                        subcategory: btn.dataset.subcategory,
+                        designation: btn.dataset.designation,
+                        ot_rate_per_hour: btn.dataset.otRate,
+                        basic_salary: btn.dataset.basicSalary,
+                        hra: btn.dataset.hra,
+                        da: btn.dataset.da,
+                        pf_number: btn.dataset.pfNumber,
+                        esi_number: btn.dataset.esiNumber,
+                        pf_enabled: btn.dataset.pfEnabled === '1',
+                        esi_enabled: btn.dataset.esiEnabled === '1',
+                        tds_enabled: btn.dataset.tdsEnabled === '1',
+                        account_name: btn.dataset.accountName,
+                        bank_name: btn.dataset.bankName,
+                        account_no: btn.dataset.accountNo,
+                        ifsc_code: btn.dataset.ifscCode,
+                        branch: btn.dataset.branch,
+                    });
+                });
+            });
+            document.getElementById('editCancel').addEventListener('click', function () {
+                overlay.classList.remove('open');
+            });
+        })();
+    </script>
+    {% if edit_instance %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            openEditModal({
+                pk: '{{ edit_instance.pk }}',
+                code: '{{ edit_form.code.value|default:""|escapejs }}',
+                name: '{{ edit_form.name.value|default:""|escapejs }}',
+                department: '{{ edit_form.department.value|default:""|escapejs }}',
+                company: '{{ edit_form.company.value|default:""|escapejs }}',
+                category: '{{ edit_form.category.value|default:""|escapejs }}',
+                subcategory: '{{ edit_form.subcategory.value|default:""|escapejs }}',
+                designation: '{{ edit_form.designation.value|default:""|escapejs }}',
+                ot_rate_per_hour: '{{ edit_form.ot_rate_per_hour.value|default:""|escapejs }}',
+                basic_salary: '{{ edit_form.basic_salary.value|default:""|escapejs }}',
+                hra: '{{ edit_form.hra.value|default:""|escapejs }}',
+                da: '{{ edit_form.da.value|default:""|escapejs }}',
+                pf_number: '{{ edit_form.pf_number.value|default:""|escapejs }}',
+                esi_number: '{{ edit_form.esi_number.value|default:""|escapejs }}',
+                pf_enabled: {{ edit_form.pf_enabled.value|yesno:"true,false" }},
+                esi_enabled: {{ edit_form.esi_enabled.value|yesno:"true,false" }},
+                tds_enabled: {{ edit_form.tds_enabled.value|yesno:"true,false" }},
+                account_name: '{{ edit_form.account_name.value|default:""|escapejs }}',
+                bank_name: '{{ edit_form.bank_name.value|default:""|escapejs }}',
+                account_no: '{{ edit_form.account_no.value|default:""|escapejs }}',
+                ifsc_code: '{{ edit_form.ifsc_code.value|default:""|escapejs }}',
+                branch: '{{ edit_form.branch.value|default:""|escapejs }}',
+                errors: {
+                    editCode: '{{ edit_form.code.errors.0|default:""|escapejs }}',
+                    editName: '{{ edit_form.name.errors.0|default:""|escapejs }}',
+                    editDepartment: '{{ edit_form.department.errors.0|default:""|escapejs }}',
+                    editCategory: '{{ edit_form.category.errors.0|default:""|escapejs }}',
+                    editSubcategory: '{{ edit_form.subcategory.errors.0|default:""|escapejs }}',
+                    editOtRate: '{{ edit_form.ot_rate_per_hour.errors.0|default:""|escapejs }}',
+                    editBasicSalary: '{{ edit_form.basic_salary.errors.0|default:""|escapejs }}',
+                    editHra: '{{ edit_form.hra.errors.0|default:""|escapejs }}',
+                    editDa: '{{ edit_form.da.errors.0|default:""|escapejs }}'
+                }
+            });
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

@@ -116,7 +116,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'attendance.middleware.SalaryViewerRestrictionMiddleware',
+    'attendance.middleware.RoleRestrictionMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 

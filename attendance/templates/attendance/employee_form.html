@@ -1,0 +1,202 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — {% if instance %}Edit{% else %}Add{% endif %} Employee</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e6e7eb;
+            --text: #1a1a1a;
+            --text-muted: #6b7280;
+            --navy: #002f66;
+            --navy-deep: #0f172a;
+            --yellow: #fde047;
+            --radius: 12px;
+            --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page { width: 100%; max-width: 720px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.85rem 2rem; background: var(--yellow); border-bottom: 1px solid rgba(0,47,102,0.15);
+            position: sticky; top: 0; z-index: 30; flex-wrap: wrap; gap: 0.5rem;
+        }
+        .topbar .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
+        .topbar nav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .topbar nav a {
+            color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav a:hover, .topbar nav a.current { background: var(--navy); color: var(--yellow); }
+        .topbar nav button {
+            color: var(--navy); background: none; border: none; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600; font-family: inherit;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
+        .topbar nav details.nav-dropdown { position: relative; }
+        .topbar nav details.nav-dropdown summary {
+            list-style: none; cursor: pointer; color: var(--navy); font-size: 0.85rem; font-weight: 600;
+            padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+        }
+        .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+        .topbar nav details.nav-dropdown summary:hover,
+        .topbar nav details.nav-dropdown[open] summary,
+        .topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
+        .topbar nav .nav-dropdown-menu {
+            position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+            padding: 0.35rem; min-width: 170px; z-index: 50;
+        }
+        .topbar nav .nav-dropdown-menu a { display: block; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: var(--navy); text-decoration: none; }
+        .topbar nav .nav-dropdown-menu a:hover { background: var(--bg); }
+        .topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
+
+        h1 { font-size: 1.35rem; margin: 0 0 1.25rem; letter-spacing: -0.01em; color: var(--navy); }
+
+        .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
+        .msg.success { background: #e6f4ea; color: #1e7e34; }
+        .msg.error { background: #fdecea; color: #b3261e; }
+
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.35rem 1.5rem; margin-bottom: 1.5rem; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem 1.1rem; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .form-grid label { display: block; font-size: 0.8rem; color: #444; font-weight: 600; margin-bottom: 0.3rem; }
+        .form-grid input[type="text"], .form-grid input[type="number"], .form-grid select {
+            width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #ccc; border-radius: 8px;
+            font-size: 0.9rem; font-family: inherit; box-sizing: border-box; transition: border-color .15s ease;
+        }
+        .form-grid input:focus, .form-grid select:focus { outline: none; border-color: var(--navy); }
+        .form-grid .checkbox-field { display: flex; align-items: center; gap: 0.5rem; margin-top: 1.6rem; }
+        .form-grid .checkbox-field input { width: auto; }
+        .form-grid .checkbox-field label { margin: 0; }
+        .field-error { color: #b3261e; font-size: 0.75rem; margin-top: 0.25rem; }
+        .section-label { grid-column: 1 / -1; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-top: 0.6rem; border-top: 1px solid var(--border); padding-top: 0.9rem; }
+        .section-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+
+        .form-actions { display: flex; gap: 0.6rem; margin-top: 1.4rem; }
+        .save-btn { background: var(--navy); color: var(--yellow); font-weight: 700; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+        .save-btn:hover { background: var(--navy-deep); }
+        .cancel-link { color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600; align-self: center; }
+        .cancel-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="employee_list" %}
+
+    <div class="page">
+        <h1>{% if instance %}Edit {{ instance.code }} — {{ instance.name }}{% else %}Add Employee{% endif %}</h1>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <form method="post" class="card">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="section-label">Identity</div>
+                <div>
+                    <label for="{{ form.code.id_for_label }}">Code</label>
+                    {{ form.code }}
+                    {% if form.code.errors %}<div class="field-error">{{ form.code.errors.0 }}</div>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.name.id_for_label }}">Name</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<div class="field-error">{{ form.name.errors.0 }}</div>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.department.id_for_label }}">Department</label>
+                    {{ form.department }}
+                </div>
+                <div>
+                    <label for="{{ form.designation.id_for_label }}">Designation</label>
+                    {{ form.designation }}
+                </div>
+                <div>
+                    <label for="{{ form.company.id_for_label }}">Company</label>
+                    {{ form.company }}
+                </div>
+                <div></div>
+                <div>
+                    <label for="{{ form.category.id_for_label }}">Category</label>
+                    {{ form.category }}
+                </div>
+                <div>
+                    <label for="{{ form.subcategory.id_for_label }}">Subcategory</label>
+                    {{ form.subcategory }}
+                </div>
+
+                <div class="section-label">Pay</div>
+                <div>
+                    <label for="{{ form.basic_salary.id_for_label }}">Basic salary</label>
+                    {{ form.basic_salary }}
+                </div>
+                <div>
+                    <label for="{{ form.ot_rate_per_hour.id_for_label }}">OT rate / hour</label>
+                    {{ form.ot_rate_per_hour }}
+                </div>
+                <div>
+                    <label for="{{ form.hra.id_for_label }}">HRA</label>
+                    {{ form.hra }}
+                </div>
+                <div>
+                    <label for="{{ form.da.id_for_label }}">DA</label>
+                    {{ form.da }}
+                </div>
+                <div>
+                    <label for="{{ form.pf_number.id_for_label }}">PF number</label>
+                    {{ form.pf_number }}
+                </div>
+                <div>
+                    <label for="{{ form.esi_number.id_for_label }}">ESI number</label>
+                    {{ form.esi_number }}
+                </div>
+                <div class="checkbox-field">{{ form.pf_enabled }}<label for="{{ form.pf_enabled.id_for_label }}">PF enabled</label></div>
+                <div class="checkbox-field">{{ form.esi_enabled }}<label for="{{ form.esi_enabled.id_for_label }}">ESI enabled</label></div>
+                <div class="checkbox-field">{{ form.tds_enabled }}<label for="{{ form.tds_enabled.id_for_label }}">TDS enabled</label></div>
+
+                <div class="section-label">Bank details</div>
+                <div>
+                    <label for="{{ form.account_name.id_for_label }}">Account name</label>
+                    {{ form.account_name }}
+                </div>
+                <div>
+                    <label for="{{ form.bank_name.id_for_label }}">Bank name</label>
+                    {{ form.bank_name }}
+                </div>
+                <div>
+                    <label for="{{ form.account_no.id_for_label }}">Account number</label>
+                    {{ form.account_no }}
+                </div>
+                <div>
+                    <label for="{{ form.ifsc_code.id_for_label }}">IFSC code</label>
+                    {{ form.ifsc_code }}
+                </div>
+                <div>
+                    <label for="{{ form.branch.id_for_label }}">Branch</label>
+                    {{ form.branch }}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="save-btn">{% if instance %}Save changes{% else %}Add employee{% endif %}</button>
+                <a href="{% url 'employee_list' %}" class="cancel-link">Cancel</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 <header class="topbar">
-    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% else %}{% url 'home' %}{% endif %}" class="brand">Payday</a>
+    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% else %}{% url 'home' %}{% endif %}" class="brand">Payday</a>
     <nav>
-        {% if not is_salary_viewer %}
+        {% if not is_salary_viewer and not is_employee_editor %}
         <details class="nav-dropdown">
             <summary{% if current == "mark_attendance" or current == "dashboard" or current == "upload" or current == "calendar" %} class="current"{% endif %}>Attendance</summary>
             <div class="nav-dropdown-menu">
@@ -12,6 +12,7 @@
             </div>
         </details>
         {% endif %}
+        {% if is_salary_viewer or not is_employee_editor %}
         <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
         <details class="nav-dropdown">
             <summary{% if current == "cash_withdrawal" or current == "cash_register" %} class="current"{% endif %}>Cash</summary>
@@ -20,12 +21,24 @@
                 <a href="{% url 'cash_register' %}"{% if current == "cash_register" %} class="current"{% endif %}>Cash Register</a>
             </div>
         </details>
-        {% if not is_salary_viewer %}
+        {% endif %}
+        {% if not is_salary_viewer and not is_employee_editor %}
         <details class="nav-dropdown">
             <summary{% if current == "ot_details" or current == "leave_ledger" %} class="current"{% endif %}>OT</summary>
             <div class="nav-dropdown-menu">
                 <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
                 <a href="{% url 'leave_ledger' %}"{% if current == "leave_ledger" %} class="current"{% endif %}>EL &amp; Comp-Off</a>
+            </div>
+        </details>
+        {% endif %}
+        {% if user.is_superuser or is_employee_editor %}
+        <details class="nav-dropdown">
+            <summary{% if current == "employee_list" or current == "role_assignment" %} class="current"{% endif %}>Admin</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'employee_list' %}"{% if current == "employee_list" %} class="current"{% endif %}>Employee Details</a>
+                {% if user.is_superuser %}
+                <a href="{% url 'role_assignment' %}"{% if current == "role_assignment" %} class="current"{% endif %}>Roles</a>
+                {% endif %}
             </div>
         </details>
         {% endif %}

@@ -34,4 +34,9 @@ urlpatterns = [
     path("cash-register/", views.cash_register_view, name="cash_register"),
     path("cash-register/download/", views.cash_register_download_view, name="cash_register_download"),
     path("leave-ledger/", views.leave_ledger_view, name="leave_ledger"),
+
+    path("admin-panel/employees/", views.employee_list_view, name="employee_list"),
+    path("admin-panel/employees/new/", views.employee_form_view, name="employee_create"),
+    path("admin-panel/employees/<int:pk>/edit/", views.employee_form_view, name="employee_edit"),
+    path("admin-panel/roles/", views.role_assignment_view, name="role_assignment"),
 ]
