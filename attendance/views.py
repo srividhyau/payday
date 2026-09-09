@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import date as date_cls
@@ -1342,6 +1343,83 @@ def _telegram_send_photo(photo_bytes: bytes, filename: str, caption: str = "", t
         return False, str(exc)
 
 
+def _whatsapp_send_image(image_bytes: bytes, filename: str, caption: str = "") -> tuple[bool, str]:
+    """Forwards one image to every settings.WHATSAPP_RECIPIENTS number via
+    the Meta WhatsApp Business Cloud API — uploads the image once (getting
+    back a media id), then posts one /messages call per recipient
+    referencing that id, mirroring _telegram_send_photo's best-effort
+    (ok, error) contract. Unlike Telegram, the Cloud API only delivers a
+    free-form image to a number within 24h of that number's own last
+    message to the business account — an "outside the allowed window"
+    error here is that platform rule, not a bug."""
+    token = settings.WHATSAPP_ACCESS_TOKEN
+    phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
+    recipients = settings.WHATSAPP_RECIPIENTS
+    if not token or not phone_number_id or not recipients:
+        return False, "WhatsApp isn't configured (missing access token/phone number id/recipients)."
+
+    api_base = f"https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}/{phone_number_id}"
+    boundary = uuid.uuid4().hex
+    body = bytearray()
+    for name, value in (("messaging_product", "whatsapp"), ("type", "image/png")):
+        body += (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'
+        ).encode("utf-8")
+    body += (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f"Content-Type: image/png\r\n\r\n"
+    ).encode("utf-8")
+    body += image_bytes
+    body += f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+    upload_req = urllib.request.Request(
+        f"{api_base}/media",
+        data=bytes(body),
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(upload_req, timeout=45) as resp:
+            media_id = json.loads(resp.read().decode("utf-8"))["id"]
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")
+        logger.warning("WhatsApp media upload failed: %s", detail)
+        return False, detail
+    except Exception as exc:  # noqa: BLE001 - mirrors _telegram_send_photo's catch-all
+        logger.exception("WhatsApp media upload failed unexpectedly: %s", exc)
+        return False, str(exc)
+
+    errors = []
+    for recipient in recipients:
+        payload = json.dumps({
+            "messaging_product": "whatsapp",
+            "to": recipient,
+            "type": "image",
+            "image": {"id": media_id, "caption": caption[:1024]},
+        }).encode("utf-8")
+        send_req = urllib.request.Request(
+            f"{api_base}/messages",
+            data=payload,
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+        )
+        try:
+            urllib.request.urlopen(send_req, timeout=20)
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", "replace")
+            logger.warning("WhatsApp send to %s failed: %s", recipient, detail)
+            errors.append(f"{recipient}: {detail}")
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("WhatsApp send to %s failed unexpectedly: %s", recipient, exc)
+            errors.append(f"{recipient}: {exc}")
+
+    if errors:
+        return False, "; ".join(errors)
+    logger.info("WhatsApp image sent to %s.", recipients)
+    return True, ""
+
+
 def _pick_department(request, departments):
     """Shared default-department resolution for the Mark Attendance flow —
     the explicit request param wins, else "Operators" (this flow's main
@@ -1670,6 +1748,30 @@ def send_telegram_report_view(request):
         return JsonResponse({"ok": False, "error": "Unexpected server error."}, status=500)
     if not ok:
         return JsonResponse({"ok": False, "error": error or "Telegram send failed."}, status=502)
+    return JsonResponse({"ok": True})
+
+
+@login_required
+def send_whatsapp_report_view(request):
+    """Receives a screenshot (captured client-side via html2canvas, same
+    convention as send_telegram_report_view) and forwards it to every
+    settings.WHATSAPP_RECIPIENTS number via _whatsapp_send_image. Its own
+    dedicated endpoint/button rather than piggybacking on the Telegram one,
+    so a WhatsApp send has its own visible status in the UI instead of
+    silently riding along with Telegram's."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required."}, status=405)
+    image = request.FILES.get("image")
+    if not image:
+        return JsonResponse({"ok": False, "error": "No image provided."}, status=400)
+    caption = request.POST.get("caption", "").strip()
+    try:
+        ok, error = _whatsapp_send_image(image.read(), image.name or "report.png", caption)
+    except Exception:
+        logger.exception("send_whatsapp_report_view failed unexpectedly.")
+        return JsonResponse({"ok": False, "error": "Unexpected server error."}, status=500)
+    if not ok:
+        return JsonResponse({"ok": False, "error": error or "WhatsApp send failed."}, status=502)
     return JsonResponse({"ok": True})
 
 
@@ -3919,3 +4021,90 @@ def role_assignment_view(request):
     groups = Group.objects.order_by("name")
     context = {"current": "role_assignment", "users": users, "groups": groups}
     return render(request, "attendance/role_assignment.html", context)
+
+
+@login_required
+def whatsapp_setup_view(request):
+    """Admin > WhatsApp Setup — runs Meta's official WhatsApp Embedded
+    Signup JS flow (the "Connect WhatsApp" button) so an admin can
+    (re)connect the business's own WhatsApp number from inside this app,
+    instead of the Business Manager UI. Superuser-only, since a
+    successful run hands back a live access token. The page itself is
+    just the button/JS; the actual code-for-token exchange happens
+    server-side in whatsapp_embedded_signup_callback_view below."""
+    denied = _require_superuser(request)
+    if denied:
+        return denied
+    context = {
+        "current": "whatsapp_setup",
+        "whatsapp_app_id": settings.WHATSAPP_APP_ID,
+        "whatsapp_config_id": settings.WHATSAPP_CONFIG_ID,
+        "whatsapp_api_version": settings.WHATSAPP_API_VERSION,
+    }
+    return render(request, "attendance/whatsapp_setup.html", context)
+
+
+@login_required
+def whatsapp_embedded_signup_callback_view(request):
+    """Receives the {code, phone_number_id, waba_id} the Embedded Signup
+    JS flow posts back (see whatsapp_setup.html) and exchanges that code
+    for an access token server-side — the code is only valid for ~30
+    seconds and the exchange needs WHATSAPP_APP_SECRET, which must never
+    reach the browser, so this can't happen client-side. Returns the
+    token/IDs as JSON for the page to display; deliberately does NOT
+    write them into .env itself (this process's own environment can't
+    affect a separately-running gunicorn worker, and .env is meant to be
+    hand-edited — see config/settings.py's loader) — the admin copies
+    them across and restarts the service, same as every other credential
+    in this app."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required."}, status=405)
+    if not request.user.is_superuser:
+        return JsonResponse({"ok": False, "error": "Admin access required."}, status=403)
+    if not settings.WHATSAPP_APP_ID or not settings.WHATSAPP_APP_SECRET:
+        return JsonResponse({
+            "ok": False,
+            "error": "WHATSAPP_APP_ID/WHATSAPP_APP_SECRET aren't configured in .env on this server.",
+        }, status=400)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({"ok": False, "error": "Invalid request body."}, status=400)
+    code = body.get("code", "").strip()
+    phone_number_id = body.get("phone_number_id", "").strip()
+    waba_id = body.get("waba_id", "").strip()
+    if not code:
+        return JsonResponse({"ok": False, "error": "No signup code received from Meta."}, status=400)
+
+    token_url = f"https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}/oauth/access_token"
+    params = urllib.parse.urlencode({
+        "client_id": settings.WHATSAPP_APP_ID,
+        "client_secret": settings.WHATSAPP_APP_SECRET,
+        "code": code,
+    })
+    try:
+        with urllib.request.urlopen(f"{token_url}?{params}", timeout=20) as resp:
+            token_data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")
+        logger.warning("WhatsApp Embedded Signup token exchange failed: %s", detail)
+        return JsonResponse({"ok": False, "error": f"Token exchange failed: {detail}"}, status=502)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("WhatsApp Embedded Signup token exchange failed unexpectedly: %s", exc)
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+
+    access_token = token_data.get("access_token", "")
+    if not access_token:
+        return JsonResponse({"ok": False, "error": f"No access_token in response: {token_data}"}, status=502)
+
+    logger.info(
+        "WhatsApp Embedded Signup completed by user=%s: phone_number_id=%s waba_id=%s",
+        request.user, phone_number_id, waba_id,
+    )
+    return JsonResponse({
+        "ok": True,
+        "access_token": access_token,
+        "phone_number_id": phone_number_id,
+        "waba_id": waba_id,
+    })

@@ -21,6 +21,7 @@ urlpatterns = [
     path("toggle-month-lock/", views.toggle_month_lock_view, name="toggle_month_lock"),
     path("mark-attendance/send-telegram-report/", views.send_telegram_report_view, name="send_telegram_report"),
     path("send-email-report/", views.send_email_report_view, name="send_email_report"),
+    path("send-whatsapp-report/", views.send_whatsapp_report_view, name="send_whatsapp_report"),
     path(
         "mark-attendance/send-day-report/", views.send_day_attendance_report_view,
         name="send_day_attendance_report",
@@ -39,4 +40,9 @@ urlpatterns = [
     path("admin-panel/employees/new/", views.employee_form_view, name="employee_create"),
     path("admin-panel/employees/<int:pk>/edit/", views.employee_form_view, name="employee_edit"),
     path("admin-panel/roles/", views.role_assignment_view, name="role_assignment"),
+    path("admin-panel/whatsapp-setup/", views.whatsapp_setup_view, name="whatsapp_setup"),
+    path(
+        "admin-panel/whatsapp-setup/callback/", views.whatsapp_embedded_signup_callback_view,
+        name="whatsapp_embedded_signup_callback",
+    ),
 ]

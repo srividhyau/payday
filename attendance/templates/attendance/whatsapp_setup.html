@@ -1,0 +1,193 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — WhatsApp Setup</title>
+    <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+    <style>
+        .page { width: 100%; max-width: 720px; margin: 0; padding: 1.5rem 2rem 3rem; }
+        .caption { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1.25rem; line-height: 1.5; }
+        .connect-btn {
+            background: #25D366; color: #fff; font-weight: 700; border: none;
+            padding: 0.7rem 1.4rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+        }
+        .connect-btn:hover { background: #1ebe5a; }
+        .connect-btn:disabled { opacity: 0.6; cursor: default; }
+        .result-field { margin-top: 1rem; }
+        .result-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.3rem; }
+        .result-field input {
+            width: 100%; padding: 0.55rem 0.7rem; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 0.85rem; font-family: ui-monospace, monospace; box-sizing: border-box; background: #fafbfc;
+        }
+        .env-block {
+            margin-top: 1.25rem; background: var(--navy-deep); color: #e2e8f0; border-radius: 8px;
+            padding: 1rem 1.2rem; font-family: ui-monospace, monospace; font-size: 0.8rem; white-space: pre-wrap;
+            word-break: break-all; line-height: 1.6;
+        }
+        .warn-note { background: #fff3cd; color: #8a6300; border-radius: 8px; padding: 0.7rem 0.95rem; font-size: 0.85rem; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="whatsapp_setup" %}
+
+    <div class="page">
+        <h1>WhatsApp Setup</h1>
+        <p class="caption">
+            Connects (or reconnects) the business's own WhatsApp number via Meta's official Embedded
+            Signup flow — the same thing Business Manager's UI does, run from inside this app instead.
+            Nothing is saved automatically: after this finishes, copy the values below into <code>.env</code>
+            on the server and restart the service.
+        </p>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        {% if not whatsapp_app_id or not whatsapp_config_id %}
+            <div class="msg error">
+                WHATSAPP_APP_ID / WHATSAPP_CONFIG_ID aren't set in .env — add those first, then reload this page.
+            </div>
+        {% else %}
+        <div class="card">
+            <button type="button" id="connectBtn" class="connect-btn">Connect WhatsApp Business</button>
+            <span id="connectStatus" class="report-status"></span>
+
+            <div id="resultBlock" hidden>
+                <div class="warn-note">
+                    ⚠️ The access token below is a live credential — copy it straight into <code>.env</code>,
+                    don't paste it anywhere else (chat, docs, etc.), and treat this page's tab as sensitive
+                    until you close it.
+                </div>
+                <div class="result-field">
+                    <label>WHATSAPP_ACCESS_TOKEN</label>
+                    <input type="text" id="resultToken" readonly>
+                </div>
+                <div class="result-field">
+                    <label>WHATSAPP_PHONE_NUMBER_ID</label>
+                    <input type="text" id="resultPhoneId" readonly>
+                </div>
+                <div class="result-field">
+                    <label>WABA ID (for reference — not a .env value)</label>
+                    <input type="text" id="resultWabaId" readonly>
+                </div>
+                <div class="env-block" id="envBlock"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if whatsapp_app_id and whatsapp_config_id %}
+    <script>
+        window.fbAsyncInit = function () {
+            FB.init({
+                appId: '{{ whatsapp_app_id|escapejs }}',
+                autoLogAppEvents: true,
+                xfbml: true,
+                version: '{{ whatsapp_api_version|escapejs }}',
+            });
+        };
+        (function (d, s, id) {
+            var js, fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) return;
+            js = d.createElement(s); js.id = id;
+            js.src = 'https://connect.facebook.net/en_US/sdk.js';
+            fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'facebook-jssdk'));
+
+        function getCookie(name) {
+            var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return match ? match.pop() : '';
+        }
+
+        var connectBtn = document.getElementById('connectBtn');
+        var statusEl = document.getElementById('connectStatus');
+        var resultBlock = document.getElementById('resultBlock');
+        var pendingSignupData = null;
+
+        // Embedded Signup's own popup posts this window message when the
+        // flow finishes — separate from FB.login()'s callback, which only
+        // gives us the exchangeable code. We need both: phone_number_id/
+        // waba_id come from here, the code comes from the callback below.
+        window.addEventListener('message', function (event) {
+            if (!event.origin.endsWith('facebook.com')) return;
+            var data;
+            try {
+                data = JSON.parse(event.data);
+            } catch (e) {
+                return;
+            }
+            if (data.type !== 'WA_EMBEDDED_SIGNUP') return;
+            if (data.event === 'FINISH' || data.event === 'FINISH_ONLY_WABA' ||
+                data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+                pendingSignupData = data.data || {};
+            } else if (data.event === 'CANCEL' || data.event === 'ERROR') {
+                statusEl.textContent = 'Signup was cancelled or failed in the Meta popup.';
+                statusEl.className = 'report-status error';
+            }
+        });
+
+        function fbLoginCallback(response) {
+            if (!response.authResponse || !response.authResponse.code) {
+                connectBtn.disabled = false;
+                statusEl.textContent = 'No signup code received — the popup may have been closed early.';
+                statusEl.className = 'report-status error';
+                return;
+            }
+            statusEl.textContent = 'Exchanging code for an access token…';
+            fetch('{% url "whatsapp_embedded_signup_callback" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({
+                    code: response.authResponse.code,
+                    phone_number_id: (pendingSignupData && pendingSignupData.phone_number_id) || '',
+                    waba_id: (pendingSignupData && pendingSignupData.waba_id) || '',
+                }),
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (result) {
+                    connectBtn.disabled = false;
+                    if (!result.ok) {
+                        statusEl.textContent = result.error || 'Token exchange failed.';
+                        statusEl.className = 'report-status error';
+                        return;
+                    }
+                    statusEl.textContent = 'Connected — copy the values below into .env.';
+                    statusEl.className = 'report-status success';
+                    document.getElementById('resultToken').value = result.access_token;
+                    document.getElementById('resultPhoneId').value = result.phone_number_id;
+                    document.getElementById('resultWabaId').value = result.waba_id;
+                    document.getElementById('envBlock').textContent =
+                        'WHATSAPP_ACCESS_TOKEN=' + result.access_token + '\n' +
+                        'WHATSAPP_PHONE_NUMBER_ID=' + result.phone_number_id;
+                    resultBlock.hidden = false;
+                })
+                .catch(function () {
+                    connectBtn.disabled = false;
+                    statusEl.textContent = 'Failed to reach the server.';
+                    statusEl.className = 'report-status error';
+                });
+        }
+
+        connectBtn.addEventListener('click', function () {
+            if (typeof FB === 'undefined') {
+                statusEl.textContent = 'Meta\'s SDK hasn\'t loaded yet — wait a moment and try again.';
+                statusEl.className = 'report-status error';
+                return;
+            }
+            connectBtn.disabled = true;
+            statusEl.className = 'report-status';
+            statusEl.textContent = 'Opening Meta\'s signup popup…';
+            pendingSignupData = null;
+            FB.login(fbLoginCallback, {
+                config_id: '{{ whatsapp_config_id|escapejs }}',
+                response_type: 'code',
+                override_default_response_type: true,
+                extras: { setup: {} },
+            });
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

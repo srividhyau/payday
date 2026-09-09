@@ -64,6 +64,31 @@ TELEGRAM_TOPIC_ID_OT_CASH = os.environ.get('TELEGRAM_TOPIC_ID_OT_CASH', '')
 # _TELEGRAM_PHOTO_TOPICS in attendance/views.py).
 TELEGRAM_TOPIC_ID_SALARY = os.environ.get('TELEGRAM_TOPIC_ID_SALARY', '')
 
+# WhatsApp Business Cloud API (Meta) — every "Send to Telegram" click also
+# best-effort forwards the same image to these numbers, see
+# _whatsapp_send_image in attendance/views.py. Cloud API only delivers a
+# free-form image to a number within 24h of that number last messaging the
+# business account, so recipients need to text the business number once a
+# day to keep receiving these. No-op (silently skipped) if unconfigured.
+WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v21.0')
+WHATSAPP_ACCESS_TOKEN = os.environ.get('WHATSAPP_ACCESS_TOKEN', '')
+WHATSAPP_PHONE_NUMBER_ID = os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
+# Comma-separated E.164 numbers without the leading "+", e.g. "9198XXXXXXXX".
+WHATSAPP_RECIPIENTS = ['919071426633']
+
+# WhatsApp Embedded Signup (Meta's official onboarding JS flow) — lets an
+# admin connect/reconnect the business's own WhatsApp number from inside
+# this app (Admin > WhatsApp Setup) instead of the Business Manager UI.
+# App ID is public (used in the frontend JS); App Secret is not — it's
+# only ever used server-side, to exchange Embedded Signup's short-lived
+# code for an access token (see whatsapp_embedded_signup_view in
+# attendance/views.py). Config ID identifies the Facebook-Login-for-
+# Business configuration (created in the Meta App Dashboard) that
+# actually runs the WhatsApp signup flow.
+WHATSAPP_APP_ID = os.environ.get('WHATSAPP_APP_ID', '')
+WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
+WHATSAPP_CONFIG_ID = os.environ.get('WHATSAPP_CONFIG_ID', '')
+
 # Outgoing email — the Salary page's "Email" button (see
 # send_email_report_view in attendance/views.py) sends a screenshot
 # report over SMTP. Host/port here default to Rediffmail Pro's own

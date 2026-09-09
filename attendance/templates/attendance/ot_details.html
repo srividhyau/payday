@@ -381,6 +381,10 @@
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                         </button>
                         <span id="sendOtTelegramStatus" class="report-status"></span>
+                        <button type="button" class="icon-btn" id="sendOtWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
+                        </button>
+                        <span id="sendOtWhatsappStatus" class="report-status"></span>
                     </div>
 
                     <div class="tab-panel" data-panel="otview">
@@ -998,6 +1002,79 @@
                     // PNG that's slow to capture and upload; 1.5 keeps it
                     // legible while cutting both well below what was
                     // timing out.
+                    return captureAndSend(
+                        '.tab-panel[data-panel="otview"]', '#otViewGrid',
+                        'OT View — ' + monthLabel, 'ot-view.png', 1.5
+                    ).then(function (gridResult) {
+                        btn.disabled = false;
+                        var ok = summaryResult.ok && gridResult.ok;
+                        statusEl.textContent =
+                            'Summary: ' + (summaryResult.ok ? 'sent' : 'failed (' + (summaryResult.error || 'error') + ')') +
+                            ' — OT View: ' + (gridResult.ok ? 'sent' : 'failed (' + (gridResult.error || 'error') + ')');
+                        statusEl.className = 'report-status ' + (ok ? 'success' : 'error');
+                    });
+                });
+            });
+        })();
+
+        // "Send to WhatsApp" — same two-screenshot capture as "Send to
+        // Telegram" above, posted to the dedicated WhatsApp endpoint
+        // instead (see send_whatsapp_report_view) so its status is shown
+        // separately rather than riding along with Telegram's.
+        (function () {
+            var btn = document.getElementById('sendOtWhatsappBtn');
+            if (!btn) return;
+            var statusEl = document.getElementById('sendOtWhatsappStatus');
+
+            function getCookie(name) {
+                var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return match ? match.pop() : '';
+            }
+
+            function captureAndSend(panelSelector, tableSelector, caption, filename, scale) {
+                var panel = document.querySelector(panelSelector);
+                var table = document.querySelector(tableSelector);
+                if (!panel || !table) return Promise.resolve({ ok: false, error: 'Nothing to capture.' });
+                var wasHidden = panel.style.display === 'none';
+                if (wasHidden) panel.style.display = '';
+                return html2canvas(table, { backgroundColor: '#ffffff', scale: scale })
+                    .then(function (canvas) {
+                        if (wasHidden) panel.style.display = 'none';
+                        return new Promise(function (resolve) {
+                            canvas.toBlob(function (blob) {
+                                var formData = new FormData();
+                                formData.append('image', blob, filename);
+                                formData.append('caption', caption);
+                                fetch('{% url "send_whatsapp_report" %}', {
+                                    method: 'POST',
+                                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                                    body: formData,
+                                })
+                                    .then(function (r) { return r.json(); })
+                                    .then(resolve)
+                                    .catch(function () {
+                                        resolve({ ok: false, error: 'Failed to reach the server.' });
+                                    });
+                            }, 'image/png');
+                        });
+                    })
+                    .catch(function (err) {
+                        if (wasHidden) panel.style.display = 'none';
+                        return { ok: false, error: 'Failed to capture the table: ' + ((err && err.message) || String(err)) };
+                    });
+            }
+
+            btn.addEventListener('click', function () {
+                var monthLabel = '{{ month_name|escapejs }} {{ year|escapejs }}';
+                btn.disabled = true;
+                statusEl.className = 'report-status';
+                statusEl.textContent = 'Sending summary…';
+
+                captureAndSend(
+                    '.tab-panel[data-panel="summary"]', '.tab-panel[data-panel="summary"] table.simple',
+                    'OT Monthly Summary — ' + monthLabel, 'ot-summary.png', 2
+                ).then(function (summaryResult) {
+                    statusEl.textContent = 'Sending OT view…';
                     return captureAndSend(
                         '.tab-panel[data-panel="otview"]', '#otViewGrid',
                         'OT View — ' + monthLabel, 'ot-view.png', 1.5
