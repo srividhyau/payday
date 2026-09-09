@@ -2620,47 +2620,61 @@ def salary_download_view(request):
     return response
 
 
-# Company name printed into every bank sheet's REMITTER'S NAME column
-# (see _salary_bank_row) — the account number next to it is deliberately
-# left blank in every row, same as the July template; finance fills that
-# in centrally when uploading to the bank's own portal.
+# Company details printed into the Bank Sheet / NEFT tabs — verified
+# against an actual bank-accepted submission ("July 2026 bank sheet
+# final"). REMITTER'S ACCOUNT is deliberately left blank on every row of
+# the "bank sheet" tab itself (same as that reference); it only appears
+# once, for real, on the NEFT tab's debit-authorization row.
 _SALARY_BANK_REMITTER_NAME = "MV INDUSTRIAL CORPORATION"
+_SALARY_BANK_REMITTER_ACCOUNT = "512020010021302"
+_SALARY_NEFT_INSTRUMENT_TYPE = 31
 
-# Column layout lifted directly from the July template's per-department
-# Bank Sheet tabs (Workers_Bank_Sheet, Helpers_Bank_Sheet, Op_Bank_Sheet,
-# etc.) — a blank spacer right after EMP NAME, then a literal "~" spacer
-# between every other column pair, and two columns (10, 2) that are
-# fixed constants in every row, including the header. Replicated exactly,
-# typos in "BENFICIARY'S" included, since this file is meant to be
-# uploaded as-is to the bank's NEFT bulk-transfer portal, which expects
-# that exact shape.
+# Column layout verified against that same reference file, position for
+# position — a literal "~" spacer between every real column, and two
+# columns (10, 2) that are fixed constants in every row, including the
+# header. Replicated exactly, typos included ("BENFICIARY'S", "AMOUNT
+# 0F TRANSFER "), since this file is meant to be uploaded as-is to the
+# bank's NEFT bulk-transfer portal, which expects that exact shape —
+# notably, no employee-name or other extra leading column.
 _SALARY_BANK_SHEET_HEADER = [
-    "EMP NAME", None, "TRANSFER TYPE", "~", "REMITTER'S ACCOUNT", "~", "REMITTER'S NAME", "~",
-    "IFSC CODE", "~", "ACCOUNT NO", "~", 10, "~", "AMOUNT OF TRANSFER", "~",
+    "TRANSFER TYPE", "~", "REMITTER'S ACCOUNT", "~", "REMITTER'S NAME", "~",
+    "IFSC CODE", "~", "ACCOUNT NO", "~", 10, "~", "AMOUNT 0F TRANSFER ", "~",
     "BENEFICIARY'S NAME", "~", "BENFICIARY'S BRANCH NAME", "~", 2, "~", "BENFICIARY'S BANK NAME",
+]
+
+# The debit side — one summary row (not one per employee) authorizing
+# the bank to pull the total payout amount from the company's own
+# account. Cheque No / Date of Cheque change every payroll run, so
+# those come from whoever triggers the download (see
+# salary_bank_download_view) rather than being hardcoded like the rest.
+_SALARY_NEFT_SHEET_HEADER = [
+    "REMITTER'S ACCOUNT", "~", "INSTRUMENT TYPE", "~", "DATE OF CHEQUE", "~", " CHEQUE NO", "~",
+    " CHEQUE AMONT", "~", "REMITTER'S NAME", "~", "SALARYCREDIT", "~", 1, "~",
 ]
 
 
 def _salary_bank_row(emp: Employee, amount) -> list:
-    """One data row for a Bank Sheet — see _SALARY_BANK_SHEET_HEADER for
+    """One data row for the Bank Sheet — see _SALARY_BANK_SHEET_HEADER for
     the column layout this must line up with position-for-position."""
     return [
-        emp.name, None, "NEFT", "~", None, "~", _SALARY_BANK_REMITTER_NAME, "~",
+        "NEFT", "~", None, "~", _SALARY_BANK_REMITTER_NAME, "~",
         emp.ifsc_code, "~", emp.account_no, "~", 10, "~", float(amount), "~",
         emp.account_name or emp.name, "~", emp.branch, "~", 2, "~", emp.bank_name,
     ]
 
 
-def _write_salary_bank_sheet(ws, rows: list) -> None:
-    """Fills in one tab's Bank Sheet — header starts at row 1 with no
-    title above it (unlike this app's other downloads), matching the
-    July template's bank sheets exactly since this file gets uploaded
-    straight to the bank, not read by a person. Skips employees on Hold
-    (nothing being paid out this month). Employees missing Account No/
-    IFSC Code (see _row_missing_bank_details) are still included — with
-    whatever fields they do have — rather than silently dropped, but
-    their whole row is colored red so whoever uploads this to the bank
-    notices it needs fixing before that transfer can actually go out."""
+def _write_salary_bank_sheet(ws, rows: list) -> float:
+    """Fills in the combined Bank Sheet — every selected tab's rows
+    together in one sheet (not one per tab), matching how this file
+    actually gets uploaded to the bank. Header starts at row 1 with no
+    title above it (unlike this app's other downloads). Skips employees
+    on Hold (nothing being paid out this month). Employees missing
+    Account No/IFSC Code (see _row_missing_bank_details) are still
+    included — with whatever fields they do have — rather than silently
+    dropped, but their whole row is colored red so whoever uploads this
+    to the bank notices it needs fixing before that transfer can
+    actually go out. Returns the total transferred, for the NEFT tab's
+    debit-authorization row (see _write_salary_neft_sheet)."""
     from openpyxl.styles import Font
 
     ws.append(_SALARY_BANK_SHEET_HEADER)
@@ -2668,34 +2682,63 @@ def _write_salary_bank_sheet(ws, rows: list) -> None:
         cell.font = Font(bold=True)
 
     red_font = Font(color="FFCC0000")
+    total = 0.0
     for r in rows:
         if r["hold"]:
             continue
-        ws.append(_salary_bank_row(r["employee"], r["calc"]["net"]))
+        amount = r["calc"]["net"]
+        ws.append(_salary_bank_row(r["employee"], amount))
+        total += float(amount)
         if _row_missing_bank_details(r):
             for cell in ws[ws.max_row]:
                 cell.font = red_font
 
-    ws.column_dimensions["A"].width = 22
-    for col in ("C", "E", "G", "I", "K", "M", "O", "Q", "S", "U", "W"):
+    for col in ("A", "C", "E", "G", "I", "K", "M", "O", "Q", "S", "U"):
         ws.column_dimensions[col].width = 16
-    for col in ("B", "D", "F", "H", "J", "L", "N", "P", "R", "T", "V"):
+    for col in ("B", "D", "F", "H", "J", "L", "N", "P", "R", "T"):
+        ws.column_dimensions[col].width = 3
+    return total
+
+
+def _write_salary_neft_sheet(ws, cheque_no: str, cheque_date: date_cls, total: float) -> None:
+    """Fills in the NEFT tab — a single debit-authorization row (not
+    per-employee) telling the bank to pull `total` from the company's
+    own account via the given cheque, matching the reference file's
+    "bank sheet" + "NEFT" two-tab shape exactly."""
+    from openpyxl.styles import Font
+
+    ws.append(_SALARY_NEFT_SHEET_HEADER)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    ws.append([
+        _SALARY_BANK_REMITTER_ACCOUNT, "~", _SALARY_NEFT_INSTRUMENT_TYPE, "~",
+        int(cheque_date.strftime("%d%m%Y")), "~", cheque_no, "~",
+        round(total), "~", _SALARY_BANK_REMITTER_NAME, "~", "SALARYCREDIT", "~", 1, "~",
+    ])
+    for col in ("A", "C", "E", "G", "I", "K", "M"):
+        ws.column_dimensions[col].width = 18
+    for col in ("B", "D", "F", "H", "J", "L", "N"):
         ws.column_dimensions[col].width = 3
 
 
 @login_required
 def salary_bank_download_view(request):
     """Downloads one month's Salary page as a NEFT bulk-transfer .xlsx —
-    one sheet per selected tab (see _SALARY_TAB_KEYS; ?tabs=company&
-    tabs=helper&... from the page's tab-picker, or every tab if none were
-    given), same column layout as the July template's Bank Sheet tabs
-    (see _write_salary_bank_sheet). Employees on Hold are left out of the
-    file (nothing being paid out this month). Anyone else missing bank
+    one combined "bank sheet" tab covering every selected tab's rows
+    together (see _SALARY_TAB_KEYS; ?tabs=company&tabs=helper&... from
+    the page's tab-picker, or every tab if none were given) plus a
+    "NEFT" tab authorizing the debit for the total, matching an actual
+    bank-accepted submission ("July 2026 bank sheet final") tab-for-tab
+    and column-for-column. Employees on Hold are left out of the file
+    (nothing being paid out this month). Anyone else missing bank
     details doesn't block the download — they're still included, in red
     (see _write_salary_bank_sheet), so the file can go out today with
     that one row visibly needing a fix rather than holding up everyone
     else's transfer; missing_bank_details in _salary_context still flags
-    the same records on the Salary page itself."""
+    the same records on the Salary page itself. Cheque No and Date of
+    Cheque change every payroll run, so those come from the download
+    form itself (?cheque_no=...&cheque_date=YYYY-MM-DD) rather than
+    being hardcoded."""
     import openpyxl
 
     date_param = request.GET.get("date")
@@ -2703,19 +2746,32 @@ def salary_bank_download_view(request):
     context = _salary_context(current)
 
     selected_keys = set(request.GET.getlist("tabs")) or {key for key, _, _ in _SALARY_TAB_KEYS}
-    selected = [(label, rows_key) for key, label, rows_key in _SALARY_TAB_KEYS if key in selected_keys]
+    selected = [rows_key for key, _, rows_key in _SALARY_TAB_KEYS if key in selected_keys]
     if not selected:
         _error(request, "Select at least one tab to download the Bank Excel for.")
         return redirect(f"{reverse('salary')}?date={current.isoformat()}")
 
+    cheque_no = request.GET.get("cheque_no", "").strip()
+    cheque_date_param = request.GET.get("cheque_date", "").strip()
+    cheque_date = None
+    if cheque_date_param:
+        try:
+            cheque_date = date_cls.fromisoformat(cheque_date_param)
+        except ValueError:
+            cheque_date = None
+    if not cheque_no or not cheque_date:
+        _error(request, "Enter the Cheque No and Date of Cheque for this transfer before downloading.")
+        return redirect(f"{reverse('salary')}?date={current.isoformat()}")
+
+    rows = [r for rows_key in selected for r in context[rows_key]]
+
     wb = openpyxl.Workbook()
-    first = True
-    for label, rows_key in selected:
-        ws = wb.active if first else wb.create_sheet(label)
-        if first:
-            ws.title = label
-            first = False
-        _write_salary_bank_sheet(ws, context[rows_key])
+    bank_ws = wb.active
+    bank_ws.title = "bank sheet"
+    total = _write_salary_bank_sheet(bank_ws, rows)
+
+    neft_ws = wb.create_sheet("NEFT")
+    _write_salary_neft_sheet(neft_ws, cheque_no, cheque_date, total)
 
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

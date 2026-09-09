@@ -92,6 +92,7 @@
             font-size: 0.8rem; color: var(--text-muted); font-weight: 600;
         }
         .tab-picker-menu .email-field input[type="text"],
+        .tab-picker-menu .email-field input[type="date"],
         .tab-picker-menu .email-field textarea {
             width: 100%; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px;
             font-size: 0.85rem; box-sizing: border-box; font-family: inherit; color: var(--text); font-weight: 400; resize: vertical;
@@ -336,6 +337,9 @@
                         <label><input type="checkbox" name="tabs" value="contractors" checked> Contractors</label>
                         <label><input type="checkbox" name="tabs" value="operators" checked> Operators</label>
                         <label><input type="checkbox" name="tabs" value="fixed_payments" checked> Fixed Payments</label>
+                        <hr class="picker-sep">
+                        <label class="email-field">Cheque No<input type="text" name="cheque_no" required></label>
+                        <label class="email-field">Date of Cheque<input type="date" name="cheque_date" required></label>
                         <button type="submit">Download</button>
                     </form>
                 </details>
