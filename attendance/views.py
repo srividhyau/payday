@@ -1349,10 +1349,13 @@ def _whatsapp_send_image(image_bytes: bytes, filename: str, caption: str = "") -
     the Meta WhatsApp Business Cloud API — uploads the image once (getting
     back a media id), then posts one /messages call per recipient
     referencing that id, mirroring _telegram_send_photo's best-effort
-    (ok, error) contract. Unlike Telegram, the Cloud API only delivers a
-    free-form image to a number within 24h of that number's own last
-    message to the business account — an "outside the allowed window"
-    error here is that platform rule, not a bug."""
+    (ok, error) contract. Sends a free-form image message by default —
+    only deliverable within 24h of the recipient's last message to the
+    business account — because the currently-approved WHATSAPP_TEMPLATE_NAME
+    template has no image header component to carry the screenshot (Meta
+    rejects a header parameter on it with #132018). Once a template with an
+    approved image header exists, flip WHATSAPP_USE_TEMPLATE on to send via
+    that template instead, which has no 24h-window restriction."""
     token = settings.WHATSAPP_ACCESS_TOKEN
     phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
     recipients = settings.WHATSAPP_RECIPIENTS
@@ -1394,12 +1397,20 @@ def _whatsapp_send_image(image_bytes: bytes, filename: str, caption: str = "") -
 
     errors = []
     for recipient in recipients:
-        payload = json.dumps({
-            "messaging_product": "whatsapp",
-            "to": recipient,
-            "type": "image",
-            "image": {"id": media_id, "caption": caption[:1024]},
-        }).encode("utf-8")
+        if settings.WHATSAPP_USE_TEMPLATE:
+            message = {
+                "type": "template",
+                "template": {
+                    "name": settings.WHATSAPP_TEMPLATE_NAME,
+                    "language": {"code": settings.WHATSAPP_TEMPLATE_LANGUAGE},
+                    "components": [
+                        {"type": "header", "parameters": [{"type": "image", "image": {"id": media_id}}]},
+                    ],
+                },
+            }
+        else:
+            message = {"type": "image", "image": {"id": media_id, "caption": caption[:1024]}}
+        payload = json.dumps({"messaging_product": "whatsapp", "to": recipient, **message}).encode("utf-8")
         send_req = urllib.request.Request(
             f"{api_base}/messages",
             data=payload,
