@@ -79,9 +79,9 @@ class MonthLockAdmin(admin.ModelAdmin):
 @admin.register(SalaryAdjustment)
 class SalaryAdjustmentAdmin(admin.ModelAdmin):
     list_display = (
-        "employee", "year", "month", "adjust_days", "deductions", "additions", "manual_amount", "hold",
+        "employee", "year", "month", "tab", "adjust_days", "deductions", "additions", "manual_amount", "hold",
     )
-    list_filter = ("year", "month", "hold", "employee__department", "employee__subcategory")
+    list_filter = ("year", "month", "tab", "hold", "employee__department", "employee__subcategory")
     search_fields = ("employee__code", "employee__name")
 
 

@@ -251,19 +251,30 @@ class AttendanceRecord(models.Model):
 
 
 class SalaryAdjustment(models.Model):
-    """One employee's monthly payroll adjustments — HR's input to the
-    Salary page (see src/payroll.py for how these combine with attendance
-    and Employee.basic_salary/hra/da into a final NET). adjust_days lets HR
-    add/subtract paid days on top of what attendance shows (e.g. an
-    approved Comp Off used); deductions/additions are flat amounts.
-    manual_amount is only meaningful for Operators, whose pay is
-    piece-rate/production-based and isn't derivable from attendance at
-    all — it's entered by hand each month, same as in the source
-    workbook."""
+    """One employee's monthly payroll adjustments for one Salary tab — HR's
+    input to the Salary page (see src/payroll.py for how these combine
+    with attendance and Employee.basic_salary/hra/da into a final NET).
+    adjust_days lets HR add/subtract paid days on top of what attendance
+    shows (e.g. an approved Comp Off used); deductions/additions are flat
+    amounts. manual_amount is only meaningful for Operators/Ironing &
+    Bartrack/Fixed Payments, whose pay is piece-rate/production-based and
+    isn't derivable from attendance at all — it's entered by hand each
+    month, same as in the source workbook.
+
+    tab (one of _SALARY_TAB_EDITABLE_FIELDS's keys in attendance/views.py,
+    e.g. "operators"/"ironing_bartrack") makes this one row per employee
+    per month PER TAB, not one shared row — an employee who legitimately
+    earns on two tabs in the same month (e.g. an Operator who also does
+    Ironing & Bartrack piece-rate work, via category="Bartrack") gets two
+    independent rows with their own manual_amount/notes/etc., rather than
+    one row whose fields collide across tabs. blank tab is legacy data
+    from before this field existed — see _salary_context's lookup, which
+    falls back to it when no tab-specific row exists yet."""
 
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="salary_adjustments")
     year = models.IntegerField()
     month = models.IntegerField()
+    tab = models.CharField(max_length=30, blank=True, default="")
 
     adjust_days = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -274,12 +285,14 @@ class SalaryAdjustment(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["employee", "year", "month"], name="unique_employee_salary_month"),
+            models.UniqueConstraint(
+                fields=["employee", "year", "month", "tab"], name="unique_employee_salary_month_tab"
+            ),
         ]
         ordering = ["employee__code"]
 
     def __str__(self):
-        return f"{self.employee.code} {self.year}-{self.month:02d}"
+        return f"{self.employee.code} {self.year}-{self.month:02d} ({self.tab or 'legacy'})"
 
 
 class MonthLock(models.Model):

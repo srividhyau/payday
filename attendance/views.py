@@ -2003,7 +2003,11 @@ def _salary_context(current: date_cls) -> dict:
     paid_holiday_count = special_day_counts.get(SpecialDay.PAID_HOLIDAY, 0)
     comp_off_count = special_day_counts.get(SpecialDay.COMP_OFF, 0)
 
-    adjustments = {a.employee_id: a for a in SalaryAdjustment.objects.filter(year=year, month=month)}
+    # Keyed by (employee, tab) — an employee on two tabs in the same month
+    # (e.g. an Operator who's also category="Bartrack") gets independent
+    # rows. Blank tab is legacy data from before this field existed —
+    # build_rows falls back to it below when no tab-specific row exists.
+    adjustments = {(a.employee_id, a.tab): a for a in SalaryAdjustment.objects.filter(year=year, month=month)}
 
     # Paid Days is now built from the same attendance-derived Work Days +
     # Paid Holiday figures the Dashboard/OT pages show (by emp_code),
@@ -2082,7 +2086,7 @@ def _salary_context(current: date_cls) -> dict:
     def build_rows(employees, kind, already_paid_map=None):
         rows = []
         for emp in employees:
-            adj = adjustments.get(emp.id)
+            adj = adjustments.get((emp.id, kind)) or adjustments.get((emp.id, ""))
             # "Paid Days" displays as Work Days alone; Paid Holiday shows
             # as its own column right after it (see build_rows below) —
             # pay itself needs the combined figure, so this is what
@@ -2138,16 +2142,12 @@ def _salary_context(current: date_cls) -> dict:
             elif kind == "ironing_bartrack":
                 # Paid the same manual/piece-rate way as Operators (see
                 # compute_operator_pay) — no attendance proration, no PF/
-                # ESI. An Operator with subcategory="Bartrack" also lands
-                # here (see operator_net_by_employee below) sharing the
-                # same manual_amount/notes row as their Operators row —
-                # the real payment stays on Operators, so that shared
-                # amount is subtracted right back out here, leaving this
-                # row's net at 0 (still fully visible for the record, just
-                # not double-counted in the Summary). Zero for everyone
-                # else here, who never appears in that map.
-                already_paid = (already_paid_map or {}).get(emp.id, Decimal(0))
-                calc = payroll.compute_operator_pay(manual_amount, deductions, additions, already_paid)
+                # ESI. An Operator with category="Bartrack" also lands
+                # here with their own independent SalaryAdjustment row
+                # (one per employee/month/tab — see the model), so this
+                # is always a real, standalone payment, never something
+                # to subtract back out.
+                calc = payroll.compute_operator_pay(manual_amount, deductions, additions, Decimal(0))
             elif kind == "fixed_payments":
                 # A recurring flat amount set once on the Employee record
                 # (Basic Salary — reused the same way Contractors reuse it
@@ -2318,18 +2318,19 @@ def _salary_context(current: date_cls) -> dict:
     # Payments), OR by category="Bartrack" for an Operator who also does
     # some Ironing & Bartrack piece-rate work without actually moving
     # departments (mirrors subcategory="Company" pulling an Operator
-    # onto the Company Workers tab above). That second group's NET gets
-    # zeroed out here via already_paid_map — see build_rows's
-    # "ironing_bartrack" branch — since their real payment stays on the
-    # Operators row above, sharing the same manual_amount/notes.
-    operator_net_by_employee = {r["employee"].id: r["calc"]["net"] for r in operator_rows}
+    # onto the Company Workers tab above). Paid as a real, independent
+    # amount here — SalaryAdjustment is one row per (employee, month,
+    # tab), so this doesn't share manual_amount/notes with their
+    # Operators row and needs no already_paid_map subtraction, unlike
+    # the Company Workers overlap above (a different, real attendance-
+    # based salary that genuinely does need subtracting out).
     ironing_bartrack_rows = build_rows(
         Employee.objects.filter(
             Q(department__name__iexact="Ironing & Bartrack")
             | Q(category__iexact="Bartrack")
         )
         .active_during(month_start, month_end).order_by("name"),
-        "ironing_bartrack", already_paid_map=operator_net_by_employee,
+        "ironing_bartrack",
     )
     context["ironing_bartrack_rows"] = ironing_bartrack_rows
     context["ironing_bartrack_totals"] = sum_rows(ironing_bartrack_rows, "ironing_bartrack")
@@ -2433,7 +2434,7 @@ def salary_view(request):
             if "notes" in editable_fields:
                 defaults["notes"] = request.POST.get(f"notes_{emp_id}", "").strip()
             SalaryAdjustment.objects.update_or_create(
-                employee=emp, year=year, month=month, defaults=defaults,
+                employee=emp, year=year, month=month, tab=tab, defaults=defaults,
             )
             saved += 1
         messages.success(request, f"Saved salary adjustments for {saved} employee(s) ({tab}).")
