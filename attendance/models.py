@@ -59,11 +59,13 @@ class Employee(models.Model):
     SUBCATEGORY_HELPER = "Helper"
     SUBCATEGORY_STAFF = "Staff"
     SUBCATEGORY_OT = "OT"
+    SUBCATEGORY_BARTRACK = "Bartrack"
     SUBCATEGORY_CHOICES = [
         (SUBCATEGORY_COMPANY, "Company"),
         (SUBCATEGORY_HELPER, "Helper"),
         (SUBCATEGORY_STAFF, "Staff"),
         (SUBCATEGORY_OT, "OT"),
+        (SUBCATEGORY_BARTRACK, "Bartrack"),
     ]
 
     code = models.CharField(max_length=30, unique=True)
@@ -84,7 +86,10 @@ class Employee(models.Model):
                    '"Company" also does salaried Company Worker days some of the '
                    'month (paid on both tabs, with the Company Worker pay '
                    'auto-subtracted from Operators pay), "OT" only does OT work '
-                   "and is hidden from the regular Attendance dashboard.",
+                   'and is hidden from the regular Attendance dashboard, '
+                   '"Bartrack" also does some Ironing & Bartrack piece-rate work '
+                   "(listed on that tab too, with its amount zeroed out there so "
+                   "it isn't double-counted — the real payment stays on Operators).",
     )
     department = models.ForeignKey(
         Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="employees"

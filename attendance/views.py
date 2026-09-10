@@ -2138,10 +2138,16 @@ def _salary_context(current: date_cls) -> dict:
             elif kind == "ironing_bartrack":
                 # Paid the same manual/piece-rate way as Operators (see
                 # compute_operator_pay) — no attendance proration, no PF/
-                # ESI — but no Company Workers overlap to subtract, unlike
-                # Operators' already_paid, since nobody here also appears
-                # on that tab.
-                calc = payroll.compute_operator_pay(manual_amount, deductions, additions, Decimal(0))
+                # ESI. An Operator with subcategory="Bartrack" also lands
+                # here (see operator_net_by_employee below) sharing the
+                # same manual_amount/notes row as their Operators row —
+                # the real payment stays on Operators, so that shared
+                # amount is subtracted right back out here, leaving this
+                # row's net at 0 (still fully visible for the record, just
+                # not double-counted in the Summary). Zero for everyone
+                # else here, who never appears in that map.
+                already_paid = (already_paid_map or {}).get(emp.id, Decimal(0))
+                calc = payroll.compute_operator_pay(manual_amount, deductions, additions, already_paid)
             elif kind == "fixed_payments":
                 # A recurring flat amount set once on the Employee record
                 # (Basic Salary — reused the same way Contractors reuse it
@@ -2307,15 +2313,23 @@ def _salary_context(current: date_cls) -> dict:
     )
     context["operator_rows"] = operator_rows
     context["operator_totals"] = sum_rows(operator_rows, "operators")
-    # Ironing & Bartrack — its own tab, routed by department (like
-    # Contractors/Fixed Payments) rather than category, but paid the same
-    # manual/piece-rate way as Operators (see build_rows's
-    # "ironing_bartrack" branch) — no Company Workers overlap to worry
-    # about, so no already_paid_map needed here.
+    # Ironing & Bartrack — routed by department (like Contractors/Fixed
+    # Payments), OR by category="Operator" + subcategory="Bartrack" for an
+    # Operator who also does some Ironing & Bartrack piece-rate work
+    # without actually moving departments (mirrors subcategory="Company"
+    # pulling an Operator onto the Company Workers tab above). That
+    # second group's NET gets zeroed out here via already_paid_map —
+    # see build_rows's "ironing_bartrack" branch — since their real
+    # payment stays on the Operators row above, sharing the same
+    # manual_amount/notes.
+    operator_net_by_employee = {r["employee"].id: r["calc"]["net"] for r in operator_rows}
     ironing_bartrack_rows = build_rows(
-        Employee.objects.filter(department__name__iexact="Ironing & Bartrack")
+        Employee.objects.filter(
+            Q(department__name__iexact="Ironing & Bartrack")
+            | (Q(category__iexact="Operator") & Q(subcategory__iexact="Bartrack"))
+        )
         .active_during(month_start, month_end).order_by("name"),
-        "ironing_bartrack",
+        "ironing_bartrack", already_paid_map=operator_net_by_employee,
     )
     context["ironing_bartrack_rows"] = ironing_bartrack_rows
     context["ironing_bartrack_totals"] = sum_rows(ironing_bartrack_rows, "ironing_bartrack")
