@@ -53,6 +53,7 @@
         <div class="card">
             <button type="button" id="connectBtn" class="connect-btn">Connect WhatsApp Business</button>
             <span id="connectStatus" class="report-status"></span>
+            <span id="signupVersionEl" class="report-status"></span>
 
             <div id="resultBlock" hidden>
                 <div class="warn-note">
@@ -103,6 +104,7 @@
 
         var connectBtn = document.getElementById('connectBtn');
         var statusEl = document.getElementById('connectStatus');
+        var versionEl = document.getElementById('signupVersionEl');
         var resultBlock = document.getElementById('resultBlock');
         var pendingSignupData = null;
 
@@ -110,6 +112,11 @@
         // flow finishes — separate from FB.login()'s callback, which only
         // gives us the exchangeable code. We need both: phone_number_id/
         // waba_id come from here, the code comes from the callback below.
+        // Meta also stamps a top-level "version" on every one of these
+        // messages (2/3, or absent on v4 — v4 dropped the field since the
+        // Configuration itself picks the flow now) — surfaced here so we
+        // can actually see which flow config_id is running, rather than
+        // just inferring it from the popup's UI.
         window.addEventListener('message', function (event) {
             if (!event.origin.endsWith('facebook.com')) return;
             var data;
@@ -119,6 +126,7 @@
                 return;
             }
             if (data.type !== 'WA_EMBEDDED_SIGNUP') return;
+            versionEl.textContent = 'Embedded Signup message version: ' + (data.version !== undefined ? data.version : '(none — likely v4)');
             if (data.event === 'FINISH' || data.event === 'FINISH_ONLY_WABA' ||
                 data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
                 pendingSignupData = data.data || {};
