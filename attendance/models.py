@@ -41,31 +41,35 @@ class EmployeeQuerySet(models.QuerySet):
 
 
 class Employee(models.Model):
-    # These two fields together decide Salary-page tab membership for
-    # everyone not routed by department (Contractors/Fixed Payments/House
-    # Keeping — see attendance/views.py's _salary_context): subcategory
-    # alone for Company/Helper/Staff, and category="Operator" + one of
-    # subcategory's Operator-only values for the Operators tab (blank
-    # subcategory = plain piece-rate Operator, "Company" = also does
-    # salaried Company Worker days some of the month, "OT" = OT-only,
-    # hidden from the regular Attendance dashboard). See attendance/
+    # Operators-tab membership is decided by *department* ("Operator" —
+    # see attendance/views.py's _salary_context, work_operator_map/
+    # ot_operator_map, and dashboard_view's OT-only exclusion, which all
+    # check department rather than category for exactly this reason),
+    # not by this category field. category/subcategory instead layer two
+    # independent extra flags on top of an Operator: category="Bartrack"
+    # additionally routes them onto the Ironing & Bartrack tab (that
+    # amount zeroed out there so it isn't double-counted — the real
+    # payment stays on Operators); subcategory is reserved for "OT"
+    # (only does OT work, hidden from the regular Attendance dashboard).
+    # subcategory alone (without category) also puts a non-Operator on
+    # the Company/Helper/Staff Salary tabs directly. See attendance/
     # views.py's _salary_context, _build_month_grid, and dashboard_view
     # for exactly how each value is used.
     CATEGORY_OPERATOR = "Operator"
+    CATEGORY_BARTRACK = "Bartrack"
     CATEGORY_CHOICES = [
         (CATEGORY_OPERATOR, "Operator"),
+        (CATEGORY_BARTRACK, "Bartrack"),
     ]
     SUBCATEGORY_COMPANY = "Company"
     SUBCATEGORY_HELPER = "Helper"
     SUBCATEGORY_STAFF = "Staff"
     SUBCATEGORY_OT = "OT"
-    SUBCATEGORY_BARTRACK = "Bartrack"
     SUBCATEGORY_CHOICES = [
         (SUBCATEGORY_COMPANY, "Company"),
         (SUBCATEGORY_HELPER, "Helper"),
         (SUBCATEGORY_STAFF, "Staff"),
         (SUBCATEGORY_OT, "OT"),
-        (SUBCATEGORY_BARTRACK, "Bartrack"),
     ]
 
     code = models.CharField(max_length=30, unique=True)
@@ -73,23 +77,19 @@ class Employee(models.Model):
     company = models.CharField(max_length=150, blank=True)
     category = models.CharField(
         max_length=100, blank=True, choices=CATEGORY_CHOICES,
-        help_text='Set to "Operator" for piece-rate Operators (see Subcategory '
-                   "for the Company/OT variants) — leave blank for everyone else, "
-                   "including Company Workers/Helpers/Staff (those are set via "
-                   "Subcategory instead) and Contractors/Fixed Payments (set via "
-                   "Department instead).",
+        help_text='Extra flag on top of Department="Operator" (which alone '
+                   'decides Operators-tab membership) — "Bartrack" additionally '
+                   "puts them on the Ironing & Bartrack tab too, paid once via "
+                   "Operators. Leave blank for everyone else, including Company "
+                   "Workers/Helpers/Staff (set via Subcategory instead) and "
+                   "Contractors/Fixed Payments (set via Department instead).",
     )
     subcategory = models.CharField(
         max_length=100, blank=True, choices=SUBCATEGORY_CHOICES,
         help_text='"Company"/"Helper"/"Staff" put a non-Operator on that Salary '
-                   'tab. Alongside category="Operator": blank is a plain Operator, '
-                   '"Company" also does salaried Company Worker days some of the '
-                   'month (paid on both tabs, with the Company Worker pay '
-                   'auto-subtracted from Operators pay), "OT" only does OT work '
-                   'and is hidden from the regular Attendance dashboard, '
-                   '"Bartrack" also does some Ironing & Bartrack piece-rate work '
-                   "(listed on that tab too, with its amount zeroed out there so "
-                   "it isn't double-counted — the real payment stays on Operators).",
+                   'tab. "OT" (meaningful only for an employee in the "Operator" '
+                   "department) means they only do OT work and is hidden from "
+                   "the regular Attendance dashboard.",
     )
     department = models.ForeignKey(
         Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="employees"

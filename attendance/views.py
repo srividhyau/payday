@@ -449,26 +449,26 @@ def _build_month_grid(
     staff_map = {
         (r.emp_code, r.date): r.subcategory == "Staff" for r in daily.itertuples(index=False)
     }
-    # An Operator who also does salaried Company Worker days (category=
-    # "Operator", subcategory="Company" — see _salary_context) often
-    # doesn't punch a device at all on plain Operator days; their whole
-    # row is flagged so the Dashboard can color it distinctly, since
-    # every cell in it will otherwise look like a blank/absent row
+    # An Operator (Employee.department="Operator") who also does salaried
+    # Company Worker days (subcategory="Company" — see _salary_context)
+    # often doesn't punch a device at all on plain Operator days; their
+    # whole row is flagged so the Dashboard can color it distinctly,
+    # since every cell in it will otherwise look like a blank/absent row
     # rather than "not tracked by hours at all".
     work_operator_map = {
         r.emp_code: (
-            (r.category or "").strip().lower() == "operator"
+            (r.department or "").strip().lower() == "operator"
             and (r.subcategory or "").strip().lower() == "company"
         )
         for r in daily.itertuples(index=False)
     }
-    # An Operator who only does OT work (category="Operator", subcategory
-    # ="OT" — see dashboard_view's exclusion) punches normally but is
-    # flagged so the OT Details grid (the only page that shows them) can
-    # color the row distinctly too.
+    # An Operator who only does OT work (department="Operator",
+    # subcategory="OT" — see dashboard_view's exclusion) punches normally
+    # but is flagged so the OT Details grid (the only page that shows
+    # them) can color the row distinctly too.
     ot_operator_map = {
         r.emp_code: (
-            (r.category or "").strip().lower() == "operator"
+            (r.department or "").strip().lower() == "operator"
             and (r.subcategory or "").strip().lower() == "ot"
         )
         for r in daily.itertuples(index=False)
@@ -858,14 +858,14 @@ def dashboard_view(request):
     visible_mask = _attendance_visible_mask(daily, settings.ATTENDANCE_VISIBLE_DEPARTMENTS)
     if visible_mask is not None:
         daily = daily[visible_mask]
-    # An Operator with subcategory="OT" (Employee.category/subcategory)
+    # An Operator (Employee.department="Operator") with subcategory="OT"
     # punches normally but only does OT work, not regular attendance —
     # they're tracked on the OT Details page (_ot_details_context,
-    # unfiltered by category) instead of cluttering this grid, which is
+    # unfiltered by department) instead of cluttering this grid, which is
     # for regular attendance.
     daily = daily[
         ~(
-            (daily["category"].fillna("").str.lower() == "operator")
+            (daily["department"].fillna("").str.lower() == "operator")
             & (daily["subcategory"].fillna("").str.lower() == "ot")
         )
     ]
@@ -2300,33 +2300,33 @@ def _salary_context(current: date_cls) -> dict:
     )
     context["contractor_rows"] = contractor_rows
     context["contractor_totals"] = sum_rows(contractor_rows, "contractors")
-    # Any Operator who also landed on the Company Workers tab above (via
-    # subcategory="Company") gets that NET looked up here by employee id
-    # so the Operators build below can subtract it — regardless of why
-    # they're on both tabs. Empty dict, and a no-op lookup, for anyone
-    # who's Operators-only.
+    # Operators tab — routed purely by Employee.department="Operator"
+    # (not category — see the Employee model). Any Operator who also
+    # landed on the Company Workers tab above (via subcategory="Company")
+    # gets that NET looked up here by employee id so the Operators build
+    # below can subtract it — regardless of why they're on both tabs.
+    # Empty dict, and a no-op lookup, for anyone who's Operators-only.
     company_net_by_employee = {r["employee"].id: r["calc"]["net"] for r in context["company_rows"]}
     operator_rows = build_rows(
-        Employee.objects.filter(category__iexact="Operator")
+        Employee.objects.filter(department__name__iexact="Operator")
         .active_during(month_start, month_end).order_by("name"),
         "operators", already_paid_map=company_net_by_employee,
     )
     context["operator_rows"] = operator_rows
     context["operator_totals"] = sum_rows(operator_rows, "operators")
     # Ironing & Bartrack — routed by department (like Contractors/Fixed
-    # Payments), OR by category="Operator" + subcategory="Bartrack" for an
-    # Operator who also does some Ironing & Bartrack piece-rate work
-    # without actually moving departments (mirrors subcategory="Company"
-    # pulling an Operator onto the Company Workers tab above). That
-    # second group's NET gets zeroed out here via already_paid_map —
-    # see build_rows's "ironing_bartrack" branch — since their real
-    # payment stays on the Operators row above, sharing the same
-    # manual_amount/notes.
+    # Payments), OR by category="Bartrack" for an Operator who also does
+    # some Ironing & Bartrack piece-rate work without actually moving
+    # departments (mirrors subcategory="Company" pulling an Operator
+    # onto the Company Workers tab above). That second group's NET gets
+    # zeroed out here via already_paid_map — see build_rows's
+    # "ironing_bartrack" branch — since their real payment stays on the
+    # Operators row above, sharing the same manual_amount/notes.
     operator_net_by_employee = {r["employee"].id: r["calc"]["net"] for r in operator_rows}
     ironing_bartrack_rows = build_rows(
         Employee.objects.filter(
             Q(department__name__iexact="Ironing & Bartrack")
-            | (Q(category__iexact="Operator") & Q(subcategory__iexact="Bartrack"))
+            | Q(category__iexact="Bartrack")
         )
         .active_during(month_start, month_end).order_by("name"),
         "ironing_bartrack", already_paid_map=operator_net_by_employee,

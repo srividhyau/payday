@@ -555,7 +555,7 @@
                                 {% for dept in company_dept_list %}
                                 <tr class="dept-row"><td colspan="26">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
+                                <tr{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>
@@ -663,7 +663,7 @@
                                 {% for dept in helper_dept_list %}
                                 <tr class="dept-row"><td colspan="13">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
+                                <tr{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -743,7 +743,7 @@
                                 {% for dept in staff_dept_list %}
                                 <tr class="dept-row"><td colspan="18">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
+                                <tr{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -826,7 +826,7 @@
                                 {% for dept in contractor_dept_list %}
                                 <tr class="dept-row"><td colspan="13">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
+                                <tr{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -895,7 +895,7 @@
                             </thead>
                             <tbody>
                                 {% for row in operator_rows %}
-                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
+                                <tr{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -1022,7 +1022,7 @@
                                 {% for dept in fixed_payment_dept_list %}
                                 <tr class="dept-row"><td colspan="9">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr{% if row.employee.category|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
+                                <tr{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} class="work-operator-row"{% endif %}>
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
