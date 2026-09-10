@@ -74,7 +74,7 @@ WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v21.0')
 WHATSAPP_ACCESS_TOKEN = os.environ.get('WHATSAPP_ACCESS_TOKEN', '')
 WHATSAPP_PHONE_NUMBER_ID = os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
 # Comma-separated E.164 numbers without the leading "+", e.g. "9198XXXXXXXX".
-WHATSAPP_RECIPIENTS = ['919071426633', '919840911975', '919655610975']
+WHATSAPP_RECIPIENTS = ['919071426633', '919840911975', '919655601975']
 
 # Template (WhatsApp Manager > Message Templates) meant to send the report
 # image outside the 24h free-form window, once one with an approved IMAGE
