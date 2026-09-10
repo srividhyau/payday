@@ -2146,8 +2146,11 @@ def _salary_context(current: date_cls) -> dict:
                 # here with their own independent SalaryAdjustment row
                 # (one per employee/month/tab — see the model), so this
                 # is always a real, standalone payment, never something
-                # to subtract back out.
-                calc = payroll.compute_operator_pay(manual_amount, deductions, additions, Decimal(0))
+                # to subtract back out. Unlike plain Operators, this tab
+                # does respect Employee.tds_enabled.
+                calc = payroll.compute_operator_pay(
+                    manual_amount, deductions, additions, Decimal(0), tds_enabled=emp.tds_enabled,
+                )
             elif kind == "fixed_payments":
                 # A recurring flat amount set once on the Employee record
                 # (Basic Salary — reused the same way Contractors reuse it
@@ -2165,6 +2168,15 @@ def _salary_context(current: date_cls) -> dict:
                 # since it's otherwise unused for Contractors).
                 calc = payroll.compute_daily_rate_pay(
                     emp.basic_salary, paid_days_for_calc, adjust_days, deductions, additions,
+                )
+            elif kind == "staff":
+                # Staff is the only prorated-pay tab where
+                # Employee.tds_enabled actually deducts anything — Helpers
+                # (the "else" branch below) never pass tds_enabled, so it's
+                # always a no-op there regardless of the flag.
+                calc = payroll.compute_prorated_pay(
+                    emp.basic_salary, paid_days_for_calc, working_days, adjust_days, deductions, additions,
+                    tds_enabled=emp.tds_enabled,
                 )
             else:
                 calc = payroll.compute_prorated_pay(

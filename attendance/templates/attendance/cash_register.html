@@ -145,12 +145,6 @@
             <a class="icon-btn" href="{% url 'cash_register_download' %}?date={{ current|date:'Y-m-d' }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
             </a>
-            {% if not is_salary_viewer %}
-            <button type="button" class="icon-btn" id="sendRegisterTelegramBtn" data-tooltip="Send screenshot to Telegram" aria-label="Send screenshot to Telegram">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
-            <span id="sendRegisterTelegramStatus" class="report-status"></span>
-            {% endif %}
         </div>
 
         <div class="card">

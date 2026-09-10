@@ -218,12 +218,6 @@
         <div class="view-toggle">
             <a href="#" class="active">Day view</a>
             <a href="{% url 'mark_attendance_month' %}{% if dept %}?department={{ dept.id }}{% endif %}">Month view</a>
-            {% if dept and rows %}
-                <span id="sendReportStatus" class="report-status"></span>
-                <button type="button" id="sendReportBtn" data-tooltip="Send screenshot to Telegram" aria-label="Send screenshot to Telegram">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </button>
-            {% endif %}
         </div>
 
         {% for message in messages %}
@@ -415,7 +409,7 @@
             return rotated;
         }
 
-        document.getElementById('sendReportBtn').addEventListener('click', function () {
+        document.getElementById('sendReportBtn')?.addEventListener('click', function () {
             var btn = document.getElementById('sendReportBtn');
             var statusEl = document.getElementById('sendReportStatus');
             var monthTable = document.getElementById('monthTable');

@@ -18,6 +18,11 @@ from decimal import Decimal
 # differs; this is the standard figure at time of writing, not fetched
 # from any live source.
 ESI_WAGE_CEILING = Decimal("21000")
+
+# Flat TDS rate applied for Employee.tds_enabled — no slab/bracket logic,
+# just 1% taken off whatever's left after every other deduction/addition
+# (i.e. computed last, on the final take-home figure, not on gross).
+TDS_RATE = Decimal("0.01")
 PF_RATE = Decimal("0.12")
 # PF Employer Contribution, empirically reverse-engineered (this workbook
 # doesn't use the standard 12%-of-Basic+DA split into EPF/EPS) — verified
@@ -102,16 +107,23 @@ def compute_company_worker_pay(
 def compute_prorated_pay(
     basic_salary: Decimal, paid_days: Decimal, working_days: int,
     adjust_days: Decimal = Decimal(0), deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
+    tds_enabled: bool = False,
 ) -> dict:
     """Helpers and Staff: a single fixed salary prorated by earned days
     over working days, plus flat deductions/additions. Verified against a
     real Helpers row: FIXED SALARY 11123, 6/27 paid days -> earned 2472
-    exactly."""
+    exactly.
+
+    tds_enabled (Staff only — Helpers never pass this) takes TDS_RATE off
+    whatever's left after adjust_days/deductions/additions, i.e. computed
+    last on the final take-home figure, not on earned_salary itself."""
     earned_days = paid_days + adjust_days
     ratio = (earned_days / working_days) if working_days else Decimal(0)
     earned_salary = basic_salary * ratio
-    net = earned_salary + additions - deductions
-    return {"earned_salary": round(earned_salary, 2), "net": round(net, 2)}
+    net_before_tds = earned_salary + additions - deductions
+    tds = round(net_before_tds * TDS_RATE, 2) if tds_enabled else Decimal(0)
+    net = net_before_tds - tds
+    return {"earned_salary": round(earned_salary, 2), "tds": tds, "net": round(net, 2)}
 
 
 def compute_daily_rate_pay(
@@ -130,7 +142,7 @@ def compute_daily_rate_pay(
 
 def compute_operator_pay(
     manual_amount: Decimal | None, deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
-    already_paid: Decimal = Decimal(0),
+    already_paid: Decimal = Decimal(0), tds_enabled: bool = False,
 ) -> dict:
     """Operators: pay is piece-rate/production-based, entered by hand each
     month (not derivable from attendance at all) — this just combines it
@@ -141,9 +153,16 @@ def compute_operator_pay(
     paid for that separately via the Company Workers tab (see
     _salary_context in attendance/views.py) — so it's subtracted here to
     avoid double-paying them for the same days. Zero (a no-op) for every
-    ordinary Operator."""
-    net = (manual_amount or Decimal(0)) + additions - deductions - already_paid
-    return {"net": round(net, 2), "already_paid": round(already_paid, 2)}
+    ordinary Operator.
+
+    tds_enabled (Ironing & Bartrack only — plain Operators never pass
+    this) takes TDS_RATE off whatever's left after already_paid/
+    deductions/additions, same "computed last" rule as
+    compute_prorated_pay's."""
+    net_before_tds = (manual_amount or Decimal(0)) + additions - deductions - already_paid
+    tds = round(net_before_tds * TDS_RATE, 2) if tds_enabled else Decimal(0)
+    net = net_before_tds - tds
+    return {"net": round(net, 2), "already_paid": round(already_paid, 2), "tds": tds}
 
 
 def compute_fixed_payment_pay(
