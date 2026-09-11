@@ -192,11 +192,16 @@
                 config_id: '{{ whatsapp_config_id|escapejs }}',
                 response_type: 'code',
                 override_default_response_type: true,
-                // featureType is what actually surfaces the "connect your
-                // existing WhatsApp Business app account" screen (Coexistence)
-                // — without it, Meta only offers a new/test number regardless
-                // of Configuration version or Tech Provider status.
-                extras: { setup: {}, featureType: 'whatsapp_business_app_onboarding' },
+                // version: "v4" is straight from this config_id's own
+                // Meta App Dashboard quickstart snippet — the actual
+                // baseline Meta expects for this Configuration, which our
+                // extras was missing entirely. featureType is layered on
+                // top of that base per Meta's separate Coexistence docs —
+                // it's what surfaces the "connect your existing WhatsApp
+                // Business app account" screen; without it, Meta only
+                // offers a new/test number regardless of Configuration
+                // version or Tech Provider status.
+                extras: { version: 'v4', featureType: 'whatsapp_business_app_onboarding' },
             });
         });
     </script>
