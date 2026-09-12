@@ -110,6 +110,10 @@
 
                 <div class="section-label">Bank details</div>
                 <div>
+                    <label for="{{ form.payment_method.id_for_label }}">Payment method</label>
+                    {{ form.payment_method }}
+                </div>
+                <div>
                     <label for="{{ form.account_name.id_for_label }}">Account name</label>
                     {{ form.account_name }}
                 </div>

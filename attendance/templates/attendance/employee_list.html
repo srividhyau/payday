@@ -129,6 +129,7 @@
                                     data-pf-enabled="{{ emp.pf_enabled|yesno:'1,0' }}"
                                     data-esi-enabled="{{ emp.esi_enabled|yesno:'1,0' }}"
                                     data-tds-enabled="{{ emp.tds_enabled|yesno:'1,0' }}"
+                                    data-payment-method="{{ emp.payment_method }}"
                                     data-account-name="{{ emp.account_name }}"
                                     data-bank-name="{{ emp.bank_name }}"
                                     data-account-no="{{ emp.account_no }}"
@@ -253,6 +254,13 @@
 
                     <div class="section-label">Bank details</div>
                     <div>
+                        <label for="editPaymentMethod">Payment method</label>
+                        <select name="payment_method" id="editPaymentMethod">
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="upi">UPI</option>
+                        </select>
+                    </div>
+                    <div>
                         <label for="editAccountName">Account name</label>
                         <input type="text" name="account_name" id="editAccountName">
                     </div>
@@ -317,6 +325,7 @@
                 setChecked('editPfEnabled', data.pf_enabled);
                 setChecked('editEsiEnabled', data.esi_enabled);
                 setChecked('editTdsEnabled', data.tds_enabled);
+                setField('editPaymentMethod', data.payment_method);
                 setField('editAccountName', data.account_name);
                 setField('editBankName', data.bank_name);
                 setField('editAccountNo', data.account_no);
@@ -349,6 +358,7 @@
                         pf_enabled: btn.dataset.pfEnabled === '1',
                         esi_enabled: btn.dataset.esiEnabled === '1',
                         tds_enabled: btn.dataset.tdsEnabled === '1',
+                        payment_method: btn.dataset.paymentMethod,
                         account_name: btn.dataset.accountName,
                         bank_name: btn.dataset.bankName,
                         account_no: btn.dataset.accountNo,
@@ -383,6 +393,7 @@
                 pf_enabled: {{ edit_form.pf_enabled.value|yesno:"true,false" }},
                 esi_enabled: {{ edit_form.esi_enabled.value|yesno:"true,false" }},
                 tds_enabled: {{ edit_form.tds_enabled.value|yesno:"true,false" }},
+                payment_method: '{{ edit_form.payment_method.value|default:""|escapejs }}',
                 account_name: '{{ edit_form.account_name.value|default:""|escapejs }}',
                 bank_name: '{{ edit_form.bank_name.value|default:""|escapejs }}',
                 account_no: '{{ edit_form.account_no.value|default:""|escapejs }}',

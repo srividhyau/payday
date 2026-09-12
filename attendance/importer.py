@@ -10,7 +10,7 @@ from django.db import transaction
 from src import metrics as attendance_metrics
 from src import parser as attendance_parser
 
-from .models import AttendanceRecord, Department, Employee, UploadBatch
+from .models import AttendanceRecord, Department, Employee, MonthLock, UploadBatch
 
 
 @transaction.atomic
@@ -35,6 +35,18 @@ def import_dataframe(daily_df, file_name: str = "") -> UploadBatch:
         period_start=daily_df["date"].min().date(),
         period_end=daily_df["date"].max().date(),
         row_count=len(daily_df),
+    )
+
+    # A month locked on the Attendance dashboard (All or Missed Punch —
+    # either one means attendance itself is meant to be frozen, same as
+    # edit_record_view's own _month_is_locked check) is skipped entirely
+    # here too — otherwise a re-import (e.g. a corrected export covering
+    # the same dates) could silently fill in a missed punch for a month
+    # that's supposed to be done, bypassing the one gate the manual edit
+    # path already respects.
+    locked_year_months = set(
+        MonthLock.objects.filter(view__in=[MonthLock.VIEW_ALL, MonthLock.VIEW_ISSUES])
+        .values_list("year", "month")
     )
 
     dept_cache: dict[str, Department] = {}
@@ -71,8 +83,12 @@ def import_dataframe(daily_df, file_name: str = "") -> UploadBatch:
                 ])
             emp_cache[row.emp_code] = emp
 
+        row_date = row.date.date()
+        if (row_date.year, row_date.month) in locked_year_months:
+            continue
+
         try:
-            record = AttendanceRecord.objects.get(employee=emp, date=row.date.date())
+            record = AttendanceRecord.objects.get(employee=emp, date=row_date)
             had_missed_punch = (
                 not attendance_metrics.clean_punch_time(record.time_in)
                 or not attendance_metrics.clean_punch_time(record.time_out)
@@ -90,7 +106,7 @@ def import_dataframe(daily_df, file_name: str = "") -> UploadBatch:
         except AttendanceRecord.DoesNotExist:
             AttendanceRecord.objects.create(
                 employee=emp,
-                date=row.date.date(),
+                date=row_date,
                 shift=row.shift,
                 time_in=row.time_in,
                 time_out=row.time_out,

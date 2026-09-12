@@ -37,12 +37,11 @@
         {% endif %}
         {% if user.is_superuser or is_employee_editor %}
         <details class="nav-dropdown">
-            <summary{% if current == "employee_list" or current == "role_assignment" or current == "whatsapp_setup" %} class="current"{% endif %}>Admin</summary>
+            <summary{% if current == "employee_list" or current == "role_assignment" %} class="current"{% endif %}>Admin</summary>
             <div class="nav-dropdown-menu">
                 <a href="{% url 'employee_list' %}"{% if current == "employee_list" %} class="current"{% endif %}>Employee Details</a>
                 {% if user.is_superuser %}
                 <a href="{% url 'role_assignment' %}"{% if current == "role_assignment" %} class="current"{% endif %}>Roles</a>
-                <a href="{% url 'whatsapp_setup' %}"{% if current == "whatsapp_setup" %} class="current"{% endif %}>WhatsApp Setup</a>
                 {% endif %}
             </div>
         </details>
@@ -53,3 +52,24 @@
         </form>
     </nav>
 </header>
+
+<script>
+    // Native <details> doesn't close its siblings on its own, so with
+    // several nav-dropdowns (Attendance/Cash/OT/Admin) a user could stack
+    // more than one open at once — same mutual-exclusivity + click-outside
+    // pattern as the Salary page's tab-pickers, scoped to .nav-dropdown
+    // instead since this partial is shared by every page's header.
+    document.querySelectorAll('.nav-dropdown').forEach(function (details) {
+        details.addEventListener('toggle', function () {
+            if (!details.open) return;
+            document.querySelectorAll('.nav-dropdown').forEach(function (other) {
+                if (other !== details) other.open = false;
+            });
+        });
+    });
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.nav-dropdown[open]').forEach(function (details) {
+            if (!details.contains(e.target)) details.open = false;
+        });
+    });
+</script>

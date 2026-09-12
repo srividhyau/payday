@@ -107,23 +107,30 @@ def compute_company_worker_pay(
 def compute_prorated_pay(
     basic_salary: Decimal, paid_days: Decimal, working_days: int,
     adjust_days: Decimal = Decimal(0), deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
-    tds_enabled: bool = False,
+    tds_enabled: bool = False, profession_tax: Decimal = Decimal(0),
 ) -> dict:
     """Helpers and Staff: a single fixed salary prorated by earned days
     over working days, plus flat deductions/additions. Verified against a
     real Helpers row: FIXED SALARY 11123, 6/27 paid days -> earned 2472
     exactly.
 
-    tds_enabled (Staff only — Helpers never pass this) takes TDS_RATE off
-    whatever's left after adjust_days/deductions/additions, i.e. computed
-    last on the final take-home figure, not on earned_salary itself."""
+    tds_enabled and profession_tax (Staff only — Helpers never pass
+    either) both come off whatever's left after adjust_days/deductions/
+    additions, i.e. computed last on the final take-home figure, not on
+    earned_salary itself. profession_tax (Employee.profession_tax, a flat
+    manually-set figure — no slab/bracket logic) is subtracted first, so
+    TDS's 1% applies to the figure *after* profession tax, same "computed
+    last" rule pushed one step further."""
     earned_days = paid_days + adjust_days
     ratio = (earned_days / working_days) if working_days else Decimal(0)
     earned_salary = basic_salary * ratio
-    net_before_tds = earned_salary + additions - deductions
+    net_before_tds = earned_salary + additions - deductions - profession_tax
     tds = round(net_before_tds * TDS_RATE, 2) if tds_enabled else Decimal(0)
     net = net_before_tds - tds
-    return {"earned_salary": round(earned_salary, 2), "tds": tds, "net": round(net, 2)}
+    return {
+        "earned_salary": round(earned_salary, 2), "profession_tax": profession_tax, "tds": tds,
+        "net": round(net, 2),
+    }
 
 
 def compute_daily_rate_pay(

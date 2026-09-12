@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 
 
@@ -117,17 +118,32 @@ class Employee(models.Model):
     # eligible by default, so those default True; TDS is the exception
     # rather than the rule, so it defaults False. PF/ESI here only gate
     # whether the deduction is computed at all — ESI still separately
-    # respects the statutory wage ceiling even when enabled. There's no
-    # automatic TDS amount (no slab/rate logic built) — enabling it is a
-    # record-keeping flag for HR; the actual figure is still entered via
-    # SalaryAdjustment.deductions, same as today.
+    # respects the statutory wage ceiling even when enabled. tds_enabled
+    # (Staff tab only — see payroll.compute_prorated_pay/TDS_RATE) takes a
+    # flat 1% off whatever's left after every other deduction/addition;
+    # there's no slab/bracket logic, just that one rate.
     pf_enabled = models.BooleanField(default=True)
     esi_enabled = models.BooleanField(default=True)
     tds_enabled = models.BooleanField(default=False)
 
     # Bank details for salary transfer — sourced from the monthly salary
     # workbook's department sheets (Op/I&B/Staff/Helpers/Company Workers),
-    # not from the eSSL attendance export.
+    # not from the eSSL attendance export. What counts as "complete"
+    # depends on payment_method: UPI only ever needs account_no (used as
+    # the UPI-linked account number, not a separate VPA field), while
+    # Bank Transfer needs every field below — see _row_missing_bank_details
+    # in attendance/views.py. UPI employees are also left out of the Bank
+    # Excel (NEFT/RTGS) download entirely, since that's a bank-transfer-
+    # specific sheet — see _write_salary_bank_sheet.
+    PAYMENT_METHOD_BANK_TRANSFER = "bank_transfer"
+    PAYMENT_METHOD_UPI = "upi"
+    PAYMENT_METHOD_CHOICES = [
+        (PAYMENT_METHOD_BANK_TRANSFER, "Bank Transfer"),
+        (PAYMENT_METHOD_UPI, "UPI"),
+    ]
+    payment_method = models.CharField(
+        max_length=20, choices=PAYMENT_METHOD_CHOICES, default=PAYMENT_METHOD_BANK_TRANSFER,
+    )
     account_name = models.CharField(max_length=150, blank=True)
     bank_name = models.CharField(max_length=150, blank=True)
     account_no = models.CharField(max_length=40, blank=True)
@@ -280,6 +296,11 @@ class SalaryAdjustment(models.Model):
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     additions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     manual_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Staff tab only (see _SALARY_TAB_EDITABLE_FIELDS/build_rows' "staff"
+    # branch) — entered fresh each month, same as deductions/additions,
+    # rather than a fixed per-employee rate, since it can genuinely vary
+    # month to month.
+    profession_tax = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     hold = models.BooleanField(default=False, help_text="Withhold this month's pay (still computed, not paid).")
     notes = models.CharField(max_length=255, blank=True)
 
@@ -293,6 +314,43 @@ class SalaryAdjustment(models.Model):
 
     def __str__(self):
         return f"{self.employee.code} {self.year}-{self.month:02d} ({self.tab or 'legacy'})"
+
+
+class PayrollSnapshot(models.Model):
+    """One employee's fully-computed Salary row, frozen at the moment a
+    Salary tab gets locked (see toggle_month_lock_view/_snapshot_salary_tab
+    in attendance/views.py) — because every Salary tab is normally computed
+    live from *current* Employee fields (basic_salary/hra/da/category/
+    subcategory/department/pf_enabled/esi_enabled/tds_enabled/bank
+    details) plus that month's attendance/SalaryAdjustment, a locked
+    month's displayed NET would otherwise still silently drift if any of
+    those change afterward (a raise, a department move, a PF toggle...).
+    row_data holds every row.* field build_rows produces (paid_days,
+    calc.net, etc., see _salary_context) except "employee" itself, which
+    isn't JSON-serializable; employee_data holds the specific Employee
+    fields the Salary templates read, as they were at freeze time. Once a
+    snapshot exists for a (employee, year, month, tab), _salary_context
+    serves it instead of recomputing live for that tab, for as long as
+    the tab stays locked. Re-locking (unlock then lock again) overwrites
+    it with whatever's showing at that later lock time."""
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="payroll_snapshots")
+    year = models.IntegerField()
+    month = models.IntegerField()
+    tab = models.CharField(max_length=30)
+
+    row_data = models.JSONField(encoder=DjangoJSONEncoder)
+    employee_data = models.JSONField(encoder=DjangoJSONEncoder)
+    created_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["employee", "year", "month", "tab"], name="unique_payroll_snapshot"),
+        ]
+        ordering = ["employee__code"]
+
+    def __str__(self):
+        return f"{self.employee.code} {self.year}-{self.month:02d} ({self.tab}) [frozen]"
 
 
 class MonthLock(models.Model):

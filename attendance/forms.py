@@ -17,5 +17,5 @@ class EmployeeForm(forms.ModelForm):
             "code", "name", "department", "company", "category", "subcategory", "designation",
             "ot_rate_per_hour", "basic_salary", "hra", "da", "pf_number", "esi_number",
             "pf_enabled", "esi_enabled", "tds_enabled",
-            "account_name", "bank_name", "account_no", "ifsc_code", "branch",
+            "payment_method", "account_name", "bank_name", "account_no", "ifsc_code", "branch",
         ]

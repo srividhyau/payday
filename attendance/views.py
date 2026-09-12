@@ -34,7 +34,7 @@ from .importer import import_dataframe, import_file
 from .middleware import EMPLOYEE_EDIT_GROUP
 from .models import (
     AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmploymentPeriod,
-    LeaveLedgerEntry, MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
+    LeaveLedgerEntry, MonthLock, PayrollSnapshot, SalaryAdjustment, SpecialDay, UploadBatch,
 )
 
 logger = logging.getLogger(__name__)
@@ -1225,6 +1225,16 @@ def toggle_month_lock_view(request):
     labels = []
     for view in views:
         if action == "lock":
+            # Snapshot with *live* data before the lock exists — taking it
+            # after would make _snapshot_salary_tab's own _salary_context
+            # call see this tab as already locked, so it'd hand back
+            # whatever a stale earlier snapshot already froze (complete
+            # with _FrozenEmployee stand-ins) instead of the current real
+            # rows, and re-"snapshotting" that blows up trying to save a
+            # stand-in as if it were a real Employee.
+            lock_key = _SALARY_VIEW_TO_LOCK_KEY.get(view)
+            if lock_key:
+                _snapshot_salary_tab(year, month, lock_key)
             MonthLock.objects.get_or_create(year=year, month=month, view=view)
         elif action == "unlock":
             MonthLock.objects.filter(year=year, month=month, view=view).delete()
@@ -1934,6 +1944,10 @@ _SALARY_LOCK_VIEWS = {
     "ironing_bartrack": MonthLock.VIEW_SALARY_IRONING_BARTRACK,
     "fixed_payments": MonthLock.VIEW_SALARY_FIXED_PAYMENTS,
 }
+# Reverse of the above — lets toggle_month_lock_view go from the
+# MonthLock.view value it just locked ("salary_helper") back to the
+# lock_status/_SALARY_TAB_KEYS key ("helpers") _snapshot_salary_tab needs.
+_SALARY_VIEW_TO_LOCK_KEY = {view: key for key, view in _SALARY_LOCK_VIEWS.items()}
 
 # tab_key -> which SalaryAdjustment fields that tab's own <form> actually
 # has inputs for (see salary.html) — salary_view's save only touches
@@ -1947,12 +1961,130 @@ _SALARY_LOCK_VIEWS = {
 _SALARY_TAB_EDITABLE_FIELDS = {
     "company": {"adjust_days", "deductions", "additions", "hold"},
     "helpers": {"adjust_days", "deductions", "additions", "hold"},
-    "staff": {"adjust_days", "deductions", "additions", "hold"},
+    "staff": {"adjust_days", "deductions", "additions", "hold", "profession_tax"},
     "contractors": {"adjust_days", "deductions", "additions", "hold"},
     "operators": {"manual_amount", "deductions", "additions", "hold", "notes"},
     "ironing_bartrack": {"manual_amount", "deductions", "additions", "hold", "notes"},
     "fixed_payments": {"manual_amount", "deductions", "additions", "hold", "notes"},
 }
+
+# The Helpers form's tab= field posts "helpers" (matching this dict and
+# _SALARY_LOCK_VIEWS above, both pre-dating SalaryAdjustment.tab), but
+# _salary_context's build_rows uses "helper" (singular) as that tab's own
+# internal kind/context-key — see _SALARY_SUBCATEGORY_TABS. Only the
+# SalaryAdjustment row itself needs the singular form (so build_rows's
+# (emp.id, kind) lookup actually finds what gets saved here); every other
+# use of the posted tab value is unaffected and stays plural.
+_SALARY_TAB_STORAGE_ALIASES = {"helpers": "helper"}
+
+# lock_status/_SALARY_LOCK_VIEWS key -> context["<x>_rows"]/["<x>_totals"]
+# prefix, for all seven Salary tabs — lets _salary_context's freeze-
+# override loop and _snapshot_salary_tab below walk every tab generically
+# instead of hardcoding each one. Deliberately its own dict rather than
+# reusing the existing _SALARY_TAB_KEYS above (a differently-shaped 3-tuple
+# list for the Download tab-picker, whose own first element is "helper"
+# singular — a *third* naming convention, distinct from both this one and
+# build_rows' kind string) — reusing that name here previously shadowed it
+# and broke salary_download_view/salary_bank_download_view outright.
+_SALARY_LOCK_KEY_TO_ROWS_PREFIX = {
+    "company": "company",
+    "helpers": "helper",
+    "staff": "staff",
+    "contractors": "contractor",
+    "operators": "operator",
+    "ironing_bartrack": "ironing_bartrack",
+    "fixed_payments": "fixed_payment",
+}
+
+
+class _FrozenDepartment:
+    """Stand-in for row.employee.department in a frozen row — the Salary
+    templates only ever read .name off it."""
+
+    def __init__(self, name):
+        self.name = name
+
+
+class _FrozenEmployee:
+    """Stand-in for row.employee in a frozen (PayrollSnapshot) row —
+    exposes exactly the attributes the Salary templates read off a real
+    Employee (see the row.employee.* grep this was built from), populated
+    from employee_data as it was at freeze time rather than the live DB
+    row, so editing the real Employee afterward can't change what a
+    locked month displays."""
+
+    def __init__(self, data: dict):
+        self.id = data["id"]
+        self.code = data["code"]
+        self.name = data["name"]
+        self.basic_salary = _restore_decimals(data["basic_salary"])
+        self.hra = _restore_decimals(data["hra"])
+        self.da = _restore_decimals(data["da"])
+        self.pf_enabled = data["pf_enabled"]
+        self.esi_enabled = data["esi_enabled"]
+        self.tds_enabled = data["tds_enabled"]
+        self.pf_number = data["pf_number"]
+        self.esi_number = data["esi_number"]
+        # .get() with a default (not data[...]) since payment_method was
+        # added after PayrollSnapshot existed — a snapshot frozen before
+        # then just predates it, so it falls back to the same default the
+        # Employee model itself uses.
+        self.payment_method = data.get("payment_method", Employee.PAYMENT_METHOD_BANK_TRANSFER)
+        self.account_name = data["account_name"]
+        self.bank_name = data["bank_name"]
+        self.account_no = data["account_no"]
+        self.ifsc_code = data["ifsc_code"]
+        self.branch = data["branch"]
+        self.subcategory = data["subcategory"]
+        self.category = data["category"]
+        self.department = _FrozenDepartment(data["department_name"])
+
+
+def _restore_decimals(value):
+    """Recursively turns every numeric-looking string back into a Decimal
+    — the inverse of storing a row dict (full of Decimal/None/bool values)
+    straight into a JSONField, which silently strings-ifies Decimals via
+    DjangoJSONEncoder on save but doesn't reverse that on load. Needed so
+    sum_rows can still do real arithmetic on a frozen tab's rows, not
+    string concatenation. A genuinely non-numeric string (notes, names)
+    just fails the Decimal() conversion and passes through unchanged."""
+    if isinstance(value, dict):
+        return {k: _restore_decimals(v) for k, v in value.items()}
+    if isinstance(value, str):
+        try:
+            return Decimal(value)
+        except InvalidOperation:
+            return value
+    return value
+
+
+def _snapshot_salary_tab(year: int, month: int, lock_key: str) -> None:
+    """Freezes one Salary tab's currently-computed rows into
+    PayrollSnapshot — called right after that tab gets locked (see
+    toggle_month_lock_view), so its NET/etc. stays exactly as it was at
+    lock time even if Employee fields or attendance change afterward.
+    Re-locking (unlock then lock again) overwrites the snapshot with
+    whatever's showing at that later lock time."""
+    kind = _SALARY_LOCK_KEY_TO_ROWS_PREFIX[lock_key]
+    context = _salary_context(date_cls(year, month, 1), use_snapshots=False)
+    for row in context.get(f"{kind}_rows", []):
+        emp = row["employee"]
+        employee_data = {
+            "id": emp.id, "code": emp.code, "name": emp.name,
+            "basic_salary": emp.basic_salary, "hra": emp.hra, "da": emp.da,
+            "pf_enabled": emp.pf_enabled, "esi_enabled": emp.esi_enabled, "tds_enabled": emp.tds_enabled,
+            "pf_number": emp.pf_number, "esi_number": emp.esi_number,
+            "payment_method": emp.payment_method, "account_name": emp.account_name,
+            "bank_name": emp.bank_name, "account_no": emp.account_no, "ifsc_code": emp.ifsc_code,
+            "branch": emp.branch,
+            "department_name": emp.department.name if emp.department else "",
+            "subcategory": emp.subcategory, "category": emp.category,
+        }
+        row_data = {k: v for k, v in row.items() if k != "employee"}
+        PayrollSnapshot.objects.update_or_create(
+            employee=emp, year=year, month=month, tab=kind,
+            defaults={"row_data": row_data, "employee_data": employee_data},
+        )
 
 
 def _salary_decimal(request, field: str, emp_id) -> Decimal:
@@ -1966,18 +2098,24 @@ def _salary_decimal(request, field: str, emp_id) -> Decimal:
 
 
 def _row_missing_bank_details(row: dict) -> bool:
-    """True if this employee can't go into the Bank Excel — either
-    they're on Hold (nothing being paid out this month, so it's not
-    actually missing anything) or their Employee record has no Account
-    No / IFSC Code on file yet. Shared by _salary_context (to flag it on
-    the page) and _write_salary_bank_sheet (to actually skip the row)."""
+    """True if this employee's payment details aren't complete enough for
+    a bank transfer — either they're on Hold (nothing being paid out this
+    month, so it's not actually missing anything), or, depending on
+    Employee.payment_method: UPI only ever needs Account No; Bank Transfer
+    needs every field (Account Name/Bank Name/Account No/IFSC/Branch).
+    Used by _salary_context to flag it on the page — UPI employees are
+    separately skipped outright from the Bank Excel by
+    _write_salary_bank_sheet, rather than flagged here, since that sheet
+    is bank-transfer-specific and a UPI row never belongs there at all."""
     if row["hold"]:
         return False
     emp = row["employee"]
-    return not emp.account_no or not emp.ifsc_code
+    if emp.payment_method == Employee.PAYMENT_METHOD_UPI:
+        return not emp.account_no
+    return not (emp.account_name and emp.bank_name and emp.account_no and emp.ifsc_code and emp.branch)
 
 
-def _salary_context(current: date_cls) -> dict:
+def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
     """Computes one month's Salary page context — five tabs (Company
     Workers/Helpers/Staff/Contractors/Operators), each a bulk-editable
     table of that month's payroll adjustments (Adjust Days/Deductions/
@@ -2124,6 +2262,7 @@ def _salary_context(current: date_cls) -> dict:
             deductions = adj.deductions if adj else Decimal(0)
             additions = adj.additions if adj else Decimal(0)
             manual_amount = adj.manual_amount if adj else None
+            profession_tax = adj.profession_tax if adj else Decimal(0)
             if kind == "company":
                 calc = payroll.compute_company_worker_pay(
                     emp.basic_salary, emp.hra, emp.da, paid_days_for_calc, working_days,
@@ -2171,12 +2310,13 @@ def _salary_context(current: date_cls) -> dict:
                 )
             elif kind == "staff":
                 # Staff is the only prorated-pay tab where
-                # Employee.tds_enabled actually deducts anything — Helpers
-                # (the "else" branch below) never pass tds_enabled, so it's
-                # always a no-op there regardless of the flag.
+                # Employee.tds_enabled/SalaryAdjustment.profession_tax
+                # actually deduct anything — Helpers (the "else" branch
+                # below) never pass either, so both are always a no-op
+                # there.
                 calc = payroll.compute_prorated_pay(
                     emp.basic_salary, paid_days_for_calc, working_days, adjust_days, deductions, additions,
-                    tds_enabled=emp.tds_enabled,
+                    tds_enabled=emp.tds_enabled, profession_tax=profession_tax,
                 )
             else:
                 calc = payroll.compute_prorated_pay(
@@ -2200,6 +2340,7 @@ def _salary_context(current: date_cls) -> dict:
                 "deductions": deductions,
                 "additions": additions,
                 "manual_amount": manual_amount,
+                "profession_tax": profession_tax,
                 "hold": hold,
                 "notes": adj.notes if adj else "",
                 "calc": calc,
@@ -2360,6 +2501,41 @@ def _salary_context(current: date_cls) -> dict:
     context["fixed_payment_rows"] = fixed_payment_rows
     context["fixed_payment_totals"] = sum_rows(fixed_payment_rows, "fixed_payments")
 
+    # Any tab that's locked AND has a PayrollSnapshot (see
+    # _snapshot_salary_tab/toggle_month_lock_view) shows those frozen rows
+    # instead of what was just computed live above — this is what keeps a
+    # locked month's NET from silently drifting if Employee.basic_salary/
+    # category/department/PF/ESI/TDS (or attendance) change afterward. A
+    # tab locked before this feature existed has no snapshot yet, so it
+    # just keeps showing the live figures until unlocked and re-locked.
+    #
+    # use_snapshots=False (only _snapshot_salary_tab passes this) skips
+    # all of this and always returns what was just computed live above —
+    # needed because _snapshot_salary_tab calls this function to get the
+    # rows it's about to freeze, and by the time a tab is being re-locked
+    # (or "Complete Month" reaches a tab some other action already locked)
+    # its MonthLock row already exists, so lock_status would otherwise be
+    # True here too — silently handing back the *previous* snapshot's
+    # already-frozen rows (real Employee swapped for a _FrozenEmployee
+    # stand-in) instead of fresh live ones, which then blows up trying to
+    # save a stand-in as if it were a real Employee.
+    for lock_key, kind in ({} if not use_snapshots else _SALARY_LOCK_KEY_TO_ROWS_PREFIX).items():
+        if not lock_status.get(lock_key):
+            continue
+        snapshots = list(
+            PayrollSnapshot.objects.filter(year=year, month=month, tab=kind).select_related("employee")
+        )
+        if not snapshots:
+            continue
+        frozen_rows = []
+        for snap in snapshots:
+            row = _restore_decimals(snap.row_data)
+            row["employee"] = _FrozenEmployee(snap.employee_data)
+            frozen_rows.append(row)
+        frozen_rows.sort(key=lambda r: r["employee"].name)
+        context[f"{kind}_rows"] = frozen_rows
+        context[f"{kind}_totals"] = sum_rows(frozen_rows, kind)
+
     # Summary tab — one row per salary group: headcount and NET total
     # (the one figure every group's rows carry in common — see
     # build_rows/sum_rows above — Gross/PF/ESI/Deductions/Additions vary
@@ -2432,6 +2608,8 @@ def salary_view(request):
                 defaults["deductions"] = _salary_decimal(request, "deductions", emp_id)
             if "additions" in editable_fields:
                 defaults["additions"] = _salary_decimal(request, "additions", emp_id)
+            if "profession_tax" in editable_fields:
+                defaults["profession_tax"] = _salary_decimal(request, "profession_tax", emp_id)
             if "manual_amount" in editable_fields:
                 manual_amount_raw = request.POST.get(f"manual_amount_{emp_id}", "").strip()
                 manual_amount = None
@@ -2446,7 +2624,8 @@ def salary_view(request):
             if "notes" in editable_fields:
                 defaults["notes"] = request.POST.get(f"notes_{emp_id}", "").strip()
             SalaryAdjustment.objects.update_or_create(
-                employee=emp, year=year, month=month, tab=tab, defaults=defaults,
+                employee=emp, year=year, month=month,
+                tab=_SALARY_TAB_STORAGE_ALIASES.get(tab, tab), defaults=defaults,
             )
             saved += 1
         messages.success(request, f"Saved salary adjustments for {saved} employee(s) ({tab}).")
@@ -2836,13 +3015,16 @@ def _write_salary_bank_sheet(ws, rows: list) -> float:
     together in one sheet (not one per tab), matching how this file
     actually gets uploaded to the bank. Header starts at row 1 with no
     title above it (unlike this app's other downloads). Skips employees
-    on Hold (nothing being paid out this month). Employees missing
-    Account No/IFSC Code (see _row_missing_bank_details) are still
-    included — with whatever fields they do have — rather than silently
-    dropped, but their whole row is colored red so whoever uploads this
-    to the bank notices it needs fixing before that transfer can
-    actually go out. Returns the total transferred, for the NEFT tab's
-    debit-authorization row (see _write_salary_neft_sheet)."""
+    on Hold (nothing being paid out this month) and anyone paid via UPI —
+    this sheet is for bank transfer (NEFT/RTGS) specifically, so a UPI
+    employee never belongs in it regardless of how complete their
+    details are. Employees with incomplete Bank Transfer details (see
+    _row_missing_bank_details) are still included — with whatever fields
+    they do have — rather than silently dropped, but their whole row is
+    colored red so whoever uploads this to the bank notices it needs
+    fixing before that transfer can actually go out. Returns the total
+    transferred, for the NEFT tab's debit-authorization row (see
+    _write_salary_neft_sheet)."""
     from openpyxl.styles import Font
 
     ws.append(_SALARY_BANK_SHEET_HEADER)
@@ -2853,6 +3035,8 @@ def _write_salary_bank_sheet(ws, rows: list) -> float:
     total = 0.0
     for r in rows:
         if r["hold"]:
+            continue
+        if r["employee"].payment_method == Employee.PAYMENT_METHOD_UPI:
             continue
         amount = r["calc"]["net"]
         ws.append(_salary_bank_row(r["employee"], amount))
