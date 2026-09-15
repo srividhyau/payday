@@ -1,0 +1,9207 @@
+[
+{
+  "model": "piecerate.style",
+  "pk": 1,
+  "fields": {
+    "name": "L_Pyjama",
+    "is_template": true,
+    "year": null,
+    "month": null
+  }
+},
+{
+  "model": "piecerate.style",
+  "pk": 2,
+  "fields": {
+    "name": "VEST_COAT",
+    "is_template": true,
+    "year": null,
+    "month": null
+  }
+},
+{
+  "model": "piecerate.style",
+  "pk": 3,
+  "fields": {
+    "name": "HNB_CHINO",
+    "is_template": true,
+    "year": null,
+    "month": null
+  }
+},
+{
+  "model": "piecerate.style",
+  "pk": 4,
+  "fields": {
+    "name": "HNB_5PKT",
+    "is_template": true,
+    "year": null,
+    "month": null
+  }
+},
+{
+  "model": "piecerate.style",
+  "pk": 5,
+  "fields": {
+    "name": "Bow",
+    "is_template": true,
+    "year": null,
+    "month": null
+  }
+},
+{
+  "model": "piecerate.style",
+  "pk": 6,
+  "fields": {
+    "name": "B_Shirt",
+    "is_template": true,
+    "year": null,
+    "month": null
+  }
+},
+{
+  "model": "piecerate.style",
+  "pk": 7,
+  "fields": {
+    "name": "B_Shorts",
+    "is_template": true,
+    "year": null,
+    "month": null
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 1,
+  "fields": {
+    "section": "Front",
+    "name": "Front Rise O/L",
+    "machine": "O/L",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 2,
+  "fields": {
+    "section": "Front",
+    "name": "Front Dart Marking (Shell) 2",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 3,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Big Facing Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 4,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Facing O/L Inside",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 5,
+  "fields": {
+    "section": "Bow",
+    "name": "Tie Joint",
+    "machine": "",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 6,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Top Marking",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 7,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket O/L L",
+    "machine": "O/L",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 8,
+  "fields": {
+    "section": "Front",
+    "name": "Front Dart Attach (Shell) 2",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 9,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Small Facing Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 10,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Marking",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 11,
+  "fields": {
+    "section": "Bow",
+    "name": "Tie Folder",
+    "machine": "",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 12,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Top Ready Stitch",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 13,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket O/L R",
+    "machine": "O/L",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 14,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt Attach L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 15,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Door",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 16,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Ready",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 17,
+  "fields": {
+    "section": "Bow",
+    "name": "Tie Kinnari R",
+    "machine": "",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 18,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Turning",
+    "machine": "Helper",
+    "rate": "0.40",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 19,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 20,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt Attach R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 21,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Attach",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 22,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Turning",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 23,
+  "fields": {
+    "section": "Bow",
+    "name": "Tie Kinnari L",
+    "machine": "",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 24,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Kinnari",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 25,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 26,
+  "fields": {
+    "section": "Front",
+    "name": "Front Dart Iron 2",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 27,
+  "fields": {
+    "section": "Front",
+    "name": "Front Downfly Ready",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 28,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Kinnari",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 29,
+  "fields": {
+    "section": "Bow",
+    "name": "Small Bow Center Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 30,
+  "fields": {
+    "section": "Assembly",
+    "name": "Neck Band Iron",
+    "machine": "Iron",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 31,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Inside O/L L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 32,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt Turning",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 33,
+  "fields": {
+    "section": "Front",
+    "name": "Front Downfly Kinnari",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 34,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Pointed",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 35,
+  "fields": {
+    "section": "Bow",
+    "name": "Small Bow Left Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 36,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar &Neck Band Setting",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 37,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Inside O/L R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 38,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt End Tucking L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 39,
+  "fields": {
+    "section": "Front",
+    "name": "Front Doublefly & Singlefly Piping Attach",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 40,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Top Facing Iron",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 41,
+  "fields": {
+    "section": "Bow",
+    "name": "Small Bow Right Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 42,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Pick Ready",
+    "machine": "S/N",
+    "rate": "2.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 43,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Natch L",
+    "machine": "S/N",
+    "rate": "0.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 44,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt End Tucking R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 45,
+  "fields": {
+    "section": "Front",
+    "name": "Front Fly Label Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 46,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Top Facing Kinnari",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 47,
+  "fields": {
+    "section": "Bow",
+    "name": "Big Bow Center Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 48,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Pick Turning",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 49,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Natch R",
+    "machine": "S/N",
+    "rate": "0.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 50,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt Down Closing L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 51,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Setting",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 52,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Top Facing Pointed",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 53,
+  "fields": {
+    "section": "Bow",
+    "name": "Big Bow Left Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 54,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Pick Iron",
+    "machine": "Iron",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 55,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Pointed L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 56,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt Down Closing R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 57,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Tucking Top & Down",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 58,
+  "fields": {
+    "section": "Bow",
+    "name": "Big Bow Right Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 59,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Ready Cut",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 60,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Pointed R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 61,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt Top Closing L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 62,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Top O/L L",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 63,
+  "fields": {
+    "section": "Bow",
+    "name": "Big Bow Turning",
+    "machine": "",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 64,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Middle Marking",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 65,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Tucking Top",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 66,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt Top Closing R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 67,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Top O/L R",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 68,
+  "fields": {
+    "section": "Bow",
+    "name": "Small Bow Turning",
+    "machine": "",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 69,
+  "fields": {
+    "section": "Assembly",
+    "name": "Cuff Door",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 70,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Tucking Down",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 71,
+  "fields": {
+    "section": "Front",
+    "name": "Front Welt Iron",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 72,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Down O/L L",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 73,
+  "fields": {
+    "section": "Bow",
+    "name": "Big & Small Bow Center Rapping",
+    "machine": "",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 74,
+  "fields": {
+    "section": "Assembly",
+    "name": "Cuff Marking",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 75,
+  "fields": {
+    "section": "Back",
+    "name": "Pocket Tucking For Kansai",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 76,
+  "fields": {
+    "section": "Front",
+    "name": "Front Dart Attach (Lining) 2",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 77,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Down O/L R",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 78,
+  "fields": {
+    "section": "Bow",
+    "name": "Bow Center Patch Ready",
+    "machine": "",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 79,
+  "fields": {
+    "section": "Assembly",
+    "name": "Cuff Ready",
+    "machine": "S/N",
+    "rate": "1.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 80,
+  "fields": {
+    "section": "Back",
+    "name": "Back Rise O/L",
+    "machine": "O/L",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 81,
+  "fields": {
+    "section": "Front",
+    "name": "Front Lining & Facing Attach L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 82,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Big Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 83,
+  "fields": {
+    "section": "Bow",
+    "name": "Bow Center Patch Attach",
+    "machine": "",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 84,
+  "fields": {
+    "section": "Front",
+    "name": "Cuff Turning",
+    "machine": "Helper",
+    "rate": "0.80",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 85,
+  "fields": {
+    "section": "Back",
+    "name": "Washcare Label Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 86,
+  "fields": {
+    "section": "Front",
+    "name": "Front Lining & Facing Attach R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 87,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Bag Tucking Top",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 88,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Down Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 89,
+  "fields": {
+    "section": "Bow",
+    "name": "Bow & Tie Tucking L",
+    "machine": "",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 90,
+  "fields": {
+    "section": "Front",
+    "name": "Cuff Iron",
+    "machine": "Iron",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 91,
+  "fields": {
+    "section": "Back",
+    "name": "Main Label Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 92,
+  "fields": {
+    "section": "Front",
+    "name": "Front &Facing Attach Setting",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 93,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Bag Tucking Down",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 94,
+  "fields": {
+    "section": "Front",
+    "name": "Front Coin Pocket Dummy Stitch",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 95,
+  "fields": {
+    "section": "Bow",
+    "name": "Bow & Tie Tucking R",
+    "machine": "",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 96,
+  "fields": {
+    "section": "Front",
+    "name": "Sleeve Flacket Pipeing Joint",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 97,
+  "fields": {
+    "section": "Back",
+    "name": "Checking",
+    "machine": "Helper",
+    "rate": "0.00",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 98,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pick Shape Marking L",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 99,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Bag Edge Cutter L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 100,
+  "fields": {
+    "section": "Bow",
+    "name": "Bow Label Attach",
+    "machine": "",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 101,
+  "fields": {
+    "section": "Front",
+    "name": "Sleeve Folder",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 102,
+  "fields": {
+    "section": "Back",
+    "name": "F/B Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 103,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pick Shape Marking R",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 104,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Bag Edge Cutter R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 105,
+  "fields": {
+    "section": "Front",
+    "name": "Front Single Fly O/L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 106,
+  "fields": {
+    "section": "Bow",
+    "name": "Welcrow Attach L",
+    "machine": "",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 107,
+  "fields": {
+    "section": "Front",
+    "name": "Sleeve Flacket Tucking",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 108,
+  "fields": {
+    "section": "Back",
+    "name": "Side Overlock L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 109,
+  "fields": {
+    "section": "Front",
+    "name": "Front &Facing Attach L (2 Corner Thread Insert ) L",
+    "machine": "S/N",
+    "rate": "1.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 110,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Bag Pointed L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 111,
+  "fields": {
+    "section": "Front",
+    "name": "Front Double Fly Making",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 112,
+  "fields": {
+    "section": "Bow",
+    "name": "Welcrow Attach R",
+    "machine": "",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 113,
+  "fields": {
+    "section": "Front",
+    "name": "Front Flacket Iron",
+    "machine": "Iron",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 114,
+  "fields": {
+    "section": "Back",
+    "name": "Side Overlock R",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 115,
+  "fields": {
+    "section": "Front",
+    "name": "Front &Facing Attach R (2Corner Thread Insert ) R",
+    "machine": "S/N",
+    "rate": "1.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 116,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Bag Pointed R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 117,
+  "fields": {
+    "section": "Front",
+    "name": "Front Double Fly O/L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 118,
+  "fields": {
+    "section": "Front",
+    "name": "Front Kaja Flacket Tucking Top &Down",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 119,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Panal Piping Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 120,
+  "fields": {
+    "section": "Front",
+    "name": "Front &Facing Bottom Closing (2Th Thread) L",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 121,
+  "fields": {
+    "section": "Front",
+    "name": "Front Single Fly Attach",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 122,
+  "fields": {
+    "section": "Front",
+    "name": "Front Button Flacket Tucking Top &Down",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 123,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Panal Piping Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 124,
+  "fields": {
+    "section": "Front",
+    "name": "Front &Facing Bottom Closing (2Th Thread) R",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 125,
+  "fields": {
+    "section": "Front",
+    "name": "Front Singlefly Attach",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 126,
+  "fields": {
+    "section": "Front",
+    "name": "Front Single Fly Kinnari",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 127,
+  "fields": {
+    "section": "Assembly",
+    "name": "Front And Back Setting",
+    "machine": "Helper",
+    "rate": "0.00",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 128,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Panal Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 129,
+  "fields": {
+    "section": "Front",
+    "name": "Front & Facing Katcha Cutting",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 130,
+  "fields": {
+    "section": "Front",
+    "name": "Front Singlefly Kinnari",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 131,
+  "fields": {
+    "section": "Front",
+    "name": "Front Zip Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 132,
+  "fields": {
+    "section": "Assembly",
+    "name": "Shoulder O/L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 133,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Panal Attach L",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 134,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pick Shape Snatch L",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 135,
+  "fields": {
+    "section": "Front",
+    "name": "Front J Stitch",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 136,
+  "fields": {
+    "section": "Assembly",
+    "name": "Shoulder Kinnari",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 137,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Panal Attach R",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 138,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pick Shape Snatch R",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 139,
+  "fields": {
+    "section": "Front",
+    "name": "Right Front Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 140,
+  "fields": {
+    "section": "Front",
+    "name": "Front Double Fly Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 141,
+  "fields": {
+    "section": "Assembly",
+    "name": "Kaja Patti Button Patti Katcha Cutting",
+    "machine": "Helper",
+    "rate": "0.30",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 142,
+  "fields": {
+    "section": "Assembly",
+    "name": "Kaja Mark",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 143,
+  "fields": {
+    "section": "Front",
+    "name": "Harmole Attach L",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 144,
+  "fields": {
+    "section": "Front",
+    "name": "Front Double Fly Kinnari",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 145,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 146,
+  "fields": {
+    "section": "Assembly",
+    "name": "Kaja Attach",
+    "machine": "Line",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 147,
+  "fields": {
+    "section": "Front",
+    "name": "Front Harmole Attach R",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 148,
+  "fields": {
+    "section": "Front",
+    "name": "Front Doublefly Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 149,
+  "fields": {
+    "section": "Front",
+    "name": "Front Rise Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 150,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Attach",
+    "machine": "S/N",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 151,
+  "fields": {
+    "section": "Assembly",
+    "name": "Elastic Mark & Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 152,
+  "fields": {
+    "section": "Front",
+    "name": "Front Harmole Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 153,
+  "fields": {
+    "section": "Front",
+    "name": "Front Doublefly Kinnari",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 154,
+  "fields": {
+    "section": "Front",
+    "name": "Front Rise D/N",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 155,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Neckband Pipeing Joint",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 156,
+  "fields": {
+    "section": "Assembly",
+    "name": "Elastic Tucking 4",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 157,
+  "fields": {
+    "section": "Front",
+    "name": "Front Bottom Lining Kinnari L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 158,
+  "fields": {
+    "section": "Front",
+    "name": "Front Right Front Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 159,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Neckband Pipeing Iron",
+    "machine": "Iron",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 160,
+  "fields": {
+    "section": "Assembly",
+    "name": "Kansai",
+    "machine": "S/N",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 161,
+  "fields": {
+    "section": "Front",
+    "name": "Front Bottom Lining Kinnari R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 162,
+  "fields": {
+    "section": "Front",
+    "name": "Front Rise Kinnari",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 163,
+  "fields": {
+    "section": "Front",
+    "name": "Front Washcare Label Attach With Pouch",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 164,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Neckband Pipeing Attach",
+    "machine": "S/N",
+    "rate": "1.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 165,
+  "fields": {
+    "section": "Assembly",
+    "name": "Kansai End Tucking",
+    "machine": "S/N",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 166,
+  "fields": {
+    "section": "Front",
+    "name": "Front Harmole Kinnari L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 167,
+  "fields": {
+    "section": "Front",
+    "name": "Front Insidefly Show Stitch",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 168,
+  "fields": {
+    "section": "Front",
+    "name": "Front Washcare Label Ready",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 169,
+  "fields": {
+    "section": "Assembly",
+    "name": "Main Label Ready With Size Label",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 170,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Panal Finish( L)",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 171,
+  "fields": {
+    "section": "Front",
+    "name": "Front Harmole Kinnari R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 172,
+  "fields": {
+    "section": "Back",
+    "name": "Back Dart Mark",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 173,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Panal Finish( R)",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 174,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pick Marking",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 175,
+  "fields": {
+    "section": "Back",
+    "name": "Back Dart Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 176,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Bag Setting",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 177,
+  "fields": {
+    "section": "Assembly",
+    "name": "Collar Finishing",
+    "machine": "S/N",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 178,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Tucking( L&R)",
+    "machine": "O/L",
+    "rate": "1.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 179,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pick Folding Attach L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 180,
+  "fields": {
+    "section": "Back",
+    "name": "Back Dart Iron",
+    "machine": "Iron",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 181,
+  "fields": {
+    "section": "Assembly",
+    "name": "Sleeve Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 182,
+  "fields": {
+    "section": "Assembly",
+    "name": "Inseam O/L",
+    "machine": "O/L",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 183,
+  "fields": {
+    "section": "Back",
+    "name": "Front Pick Folding Attach R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 184,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt Attach L",
+    "machine": "Apw",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 185,
+  "fields": {
+    "section": "Assembly",
+    "name": "Sleeve Attach L",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 186,
+  "fields": {
+    "section": "Assembly",
+    "name": "Peack Attach (L&R)",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 187,
+  "fields": {
+    "section": "Front",
+    "name": "Front & Lining Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 188,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt Attach R",
+    "machine": "Apw",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 189,
+  "fields": {
+    "section": "Back",
+    "name": "Front Pocket D/N L",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 190,
+  "fields": {
+    "section": "Assembly",
+    "name": "Sleeve Attach R",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 191,
+  "fields": {
+    "section": "Assembly",
+    "name": "Elastic Mark",
+    "machine": "Helper",
+    "rate": "0.40",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 192,
+  "fields": {
+    "section": "Back",
+    "name": "Back Size Label Ready",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 193,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt Turning",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 194,
+  "fields": {
+    "section": "Back",
+    "name": "Front Pocket D/N R",
+    "machine": "Iron",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 195,
+  "fields": {
+    "section": "Assembly",
+    "name": "Sleeve Armhole Snatch",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 196,
+  "fields": {
+    "section": "Assembly",
+    "name": "Elastic Cut",
+    "machine": "Helper",
+    "rate": "0.40",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 197,
+  "fields": {
+    "section": "Back",
+    "name": "Back Size Label Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 198,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt End Tucking L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 199,
+  "fields": {
+    "section": "Assembly",
+    "name": "Sleeve 3 Th O/L L",
+    "machine": "O/L",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 200,
+  "fields": {
+    "section": "Assembly",
+    "name": "Drawcord Ready",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 201,
+  "fields": {
+    "section": "Back",
+    "name": "Moon Patch Snatch",
+    "machine": "Helper",
+    "rate": "0.30",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 202,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt End Tucking R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 203,
+  "fields": {
+    "section": "Assembly",
+    "name": "Sleeve 3 Th O/L R",
+    "machine": "O/L",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 204,
+  "fields": {
+    "section": "Assembly",
+    "name": "Drawcord End Tucking",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 205,
+  "fields": {
+    "section": "Back",
+    "name": "Moon Patch Attach",
+    "machine": "S/N",
+    "rate": "1.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 206,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt Iron",
+    "machine": "Iron",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 207,
+  "fields": {
+    "section": "Assembly",
+    "name": "Sleeve Armhole Pointed L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 208,
+  "fields": {
+    "section": "Assembly",
+    "name": "Drawcord W/B Center Tucking",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 209,
+  "fields": {
+    "section": "Back",
+    "name": "Back Lining Dart Attach (2)",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 210,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt Down Kinnari",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 211,
+  "fields": {
+    "section": "Assembly",
+    "name": "Sleeve Armhole Pointed R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 212,
+  "fields": {
+    "section": "Back",
+    "name": "Back Shell Dart Attach (2)",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 213,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt Top Facing Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 214,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side O/L L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 215,
+  "fields": {
+    "section": "Back",
+    "name": "Back Bottom Shell & Lining Attach",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 216,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt Down Facing Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 217,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side O/L R",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 218,
+  "fields": {
+    "section": "Back",
+    "name": "Back Bottom Lining Kinnari",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 219,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Bag Edge Cutter L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 220,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Door L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 221,
+  "fields": {
+    "section": "Assembly",
+    "name": "Cuff Fleet Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 222,
+  "fields": {
+    "section": "Back",
+    "name": "Back Neck Attach Shell & Lining Attach",
+    "machine": "E/C",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 223,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Bag Edge Cutter R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 224,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Door R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 225,
+  "fields": {
+    "section": "Assembly",
+    "name": "Cuff Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 226,
+  "fields": {
+    "section": "Back",
+    "name": "Back Neck Kinnari Lining",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 227,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Pointed L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 228,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Show Stitch Mark",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 229,
+  "fields": {
+    "section": "Assembly",
+    "name": "Cuff Finishing L",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 230,
+  "fields": {
+    "section": "Back",
+    "name": "Shoulder Attach Shell",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 231,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Pointed R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 232,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Show Stitch Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 233,
+  "fields": {
+    "section": "Assembly",
+    "name": "Cuff Finishing R",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 234,
+  "fields": {
+    "section": "Back",
+    "name": "Shoulder Attach Lining",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 235,
+  "fields": {
+    "section": "Back",
+    "name": "Back Welt Top Kinnari",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 236,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Show Stitch Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 237,
+  "fields": {
+    "section": "Assembly",
+    "name": "Cuff Pointed",
+    "machine": "S/N",
+    "rate": "1.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 238,
+  "fields": {
+    "section": "Back",
+    "name": "Back Rise Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 239,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Iron L",
+    "machine": "Iron",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 240,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom & Cuff Katcha Cutting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 241,
+  "fields": {
+    "section": "Back",
+    "name": "Side Up & Down Marking L",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 242,
+  "fields": {
+    "section": "Back",
+    "name": "Back Rise Pointed",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 243,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Iron R",
+    "machine": "Iron",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 244,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 245,
+  "fields": {
+    "section": "Back",
+    "name": "Side Up & Down Marking R",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 246,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Marking L",
+    "machine": "Helper",
+    "rate": "0.30",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 247,
+  "fields": {
+    "section": "Back",
+    "name": "Back Yoke Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 248,
+  "fields": {
+    "section": "Back",
+    "name": "Back Harmole Attach L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 249,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Marking R",
+    "machine": "Helper",
+    "rate": "0.30",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 250,
+  "fields": {
+    "section": "Back",
+    "name": "Back Yoke D/N L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 251,
+  "fields": {
+    "section": "Back",
+    "name": "Back Harmole Attach R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 252,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Dummy Stitch L",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 253,
+  "fields": {
+    "section": "Back",
+    "name": "Back Yoke D/N R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 254,
+  "fields": {
+    "section": "Assembly",
+    "name": "Back Harmole Kinnari L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 255,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Dummy Stitch R",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 256,
+  "fields": {
+    "section": "Back",
+    "name": "Back Rise Feedaform",
+    "machine": "S/N",
+    "rate": "1.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 257,
+  "fields": {
+    "section": "Assembly",
+    "name": "Back Harmole Kinnari R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 258,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Setting",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 259,
+  "fields": {
+    "section": "Assembly",
+    "name": "Harmole Iron",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 260,
+  "fields": {
+    "section": "Assembly",
+    "name": "W/B Setting",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 261,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Pointed Mark L",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 262,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Iron",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 263,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side 5Th O/L L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 264,
+  "fields": {
+    "section": "Back",
+    "name": "Back Pocket Pointed Mark R",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 265,
+  "fields": {
+    "section": "Assembly",
+    "name": "Left Print Dummy Stitch Side",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 266,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side 5Th O/L R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 267,
+  "fields": {
+    "section": "Assembly",
+    "name": "Back Pocket Attach L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 268,
+  "fields": {
+    "section": "Assembly",
+    "name": "Label Cutting",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 269,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side Kinnari L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 270,
+  "fields": {
+    "section": "Assembly",
+    "name": "Back Pocket Attach R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 271,
+  "fields": {
+    "section": "Assembly",
+    "name": "Label Attach",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 272,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side Kinnari R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 273,
+  "fields": {
+    "section": "Assembly",
+    "name": "Left Side Attach Lining",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 274,
+  "fields": {
+    "section": "Assembly",
+    "name": "Left Side Attach Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 275,
+  "fields": {
+    "section": "Assembly",
+    "name": "Loop Ready",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 276,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Fit &Main Label Marking",
+    "machine": "",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 277,
+  "fields": {
+    "section": "Assembly",
+    "name": "Left Side Attach Shell",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 278,
+  "fields": {
+    "section": "Assembly",
+    "name": "Loop Cut",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 279,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Fit Label Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 280,
+  "fields": {
+    "section": "Assembly",
+    "name": "Right Side Attach Lining",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 281,
+  "fields": {
+    "section": "Assembly",
+    "name": "Loop Mark",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 282,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Main Label Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 283,
+  "fields": {
+    "section": "Assembly",
+    "name": "Right Side Attach Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 284,
+  "fields": {
+    "section": "Assembly",
+    "name": "Loop Attach H Cutting",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 285,
+  "fields": {
+    "section": "Assembly",
+    "name": "Right Side Attach Shell",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 286,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Joint",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 287,
+  "fields": {
+    "section": "Assembly",
+    "name": "Front Insert For Right Side Attach",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 288,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Top Folder (Fuseing)",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 289,
+  "fields": {
+    "section": "Assembly",
+    "name": "Inseam Folder",
+    "machine": "S/N",
+    "rate": "2.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 290,
+  "fields": {
+    "section": "Assembly",
+    "name": "Total Garment Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 291,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Down Folder (Fuseing)",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 292,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side O/L 5Th L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 293,
+  "fields": {
+    "section": "Assembly",
+    "name": "Lining Inside Kinnari",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 294,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Top Folder Tucking For Fusing",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 295,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side O/L 5Th R",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 296,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Down Folder Tucking For Fusing",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 297,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side D/N L",
+    "machine": "D/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 298,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Piping Attach",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 299,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side D/N R",
+    "machine": "D/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 300,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Ready Stitch",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 301,
+  "fields": {
+    "section": "Assembly",
+    "name": "Loop Marking",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 302,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Iron",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 303,
+  "fields": {
+    "section": "Assembly",
+    "name": "Loop Attach",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 304,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Attach",
+    "machine": "E/C",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 305,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 306,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 307,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Kansai",
+    "machine": "E/C",
+    "rate": "2.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 308,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Mouth Cutting",
+    "machine": "E/C",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 309,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band End Closing L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 310,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Dummy Tucking",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 311,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band End Closing R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 312,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Reinforcement Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 313,
+  "fields": {
+    "section": "Assembly",
+    "name": "Wash Care Label Attach With Pouch",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 314,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Top Kinnari",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 315,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing Cutting",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 316,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Down Kinnari",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 317,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing Marking",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 318,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Size Setting",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 319,
+  "fields": {
+    "section": "Assembly",
+    "name": "Leather Patch Attach",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 320,
+  "fields": {
+    "section": "Assembly",
+    "name": "Back Rise D/N",
+    "machine": "D/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 321,
+  "fields": {
+    "section": "Assembly",
+    "name": "Back Main & Washcare Label Attach",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 322,
+  "fields": {
+    "section": "Assembly",
+    "name": "Back Slit Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 323,
+  "fields": {
+    "section": "Assembly",
+    "name": "Back Slit Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 324,
+  "fields": {
+    "section": "Assembly",
+    "name": "Front & Back Setting",
+    "machine": "Helper",
+    "rate": "0.00",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 325,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side Attach L",
+    "machine": "S/M",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 326,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side Attach R",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 327,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side Pointed L",
+    "machine": "D/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 328,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side Pointed R",
+    "machine": "D/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 329,
+  "fields": {
+    "section": "Assembly",
+    "name": "Finishing Ironing",
+    "machine": "Iron",
+    "rate": "0.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 330,
+  "fields": {
+    "section": "Assembly",
+    "name": "Finishing Bartack (12)",
+    "machine": "Bartack",
+    "rate": "0.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 331,
+  "fields": {
+    "section": "Assembly",
+    "name": "Bottom Hemming / Finish",
+    "machine": "S/N",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 332,
+  "fields": {
+    "section": "Front",
+    "name": "Front Snatch Attach L",
+    "machine": "S/N",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 333,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Kinnari L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 334,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Kinnari R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 335,
+  "fields": {
+    "section": "Front",
+    "name": "Front Pocket Bag O/L L,R",
+    "machine": "O/L",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 336,
+  "fields": {
+    "section": "Assembly",
+    "name": "Pocket O/L End Tucking",
+    "machine": "S/N",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 337,
+  "fields": {
+    "section": "Front",
+    "name": "Front Slit Snatch & Mark",
+    "machine": "S/N",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 338,
+  "fields": {
+    "section": "Front",
+    "name": "Front Slit Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 339,
+  "fields": {
+    "section": "Front",
+    "name": "Front Slit Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 340,
+  "fields": {
+    "section": "Assembly",
+    "name": "Main & Washcare Label",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 341,
+  "fields": {
+    "section": "Assembly",
+    "name": "Side O/L & Inseam O/L Mesh Lining",
+    "machine": "O/L",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 342,
+  "fields": {
+    "section": "Assembly",
+    "name": "Mobilan Tape Attach Mesh Lining L",
+    "machine": "O/L",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 343,
+  "fields": {
+    "section": "Assembly",
+    "name": "Mobilan Tape Attach Mesh Lining R",
+    "machine": "O/L",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 344,
+  "fields": {
+    "section": "Assembly",
+    "name": "Lining & Body Tucking",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 345,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Mesh Lining Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 346,
+  "fields": {
+    "section": "Assembly",
+    "name": "Hanger Loop Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 347,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Elastic Tucking (4)",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 348,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Pocket Bag Tucking (2)",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 349,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Cutting & Mark",
+    "machine": "S/M",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 350,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Elastic Joint",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 351,
+  "fields": {
+    "section": "Assembly",
+    "name": "Drawcord Center Tucking",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 352,
+  "fields": {
+    "section": "Assembly",
+    "name": "Waist Band Mesh Lining & Body O/L",
+    "machine": "O/L",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.operation",
+  "pk": 353,
+  "fields": {
+    "section": "Front",
+    "name": "Front Snatch Attach R",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 1,
+  "fields": {
+    "style": 1,
+    "op_code": 1,
+    "section": "Front",
+    "name": "Front Rise O/L",
+    "machine": "O/L",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 2,
+  "fields": {
+    "style": 1,
+    "op_code": 2,
+    "section": "Front",
+    "name": "Front Pocket O/L L",
+    "machine": "O/L",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 3,
+  "fields": {
+    "style": 1,
+    "op_code": 3,
+    "section": "Front",
+    "name": "Front Pocket O/L R",
+    "machine": "O/L",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 4,
+  "fields": {
+    "style": 1,
+    "op_code": 4,
+    "section": "Front",
+    "name": "Front Pocket Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 5,
+  "fields": {
+    "style": 1,
+    "op_code": 5,
+    "section": "Front",
+    "name": "Front Pocket Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 6,
+  "fields": {
+    "style": 1,
+    "op_code": 6,
+    "section": "Front",
+    "name": "Front Pocket Inside O/L L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 7,
+  "fields": {
+    "style": 1,
+    "op_code": 7,
+    "section": "Front",
+    "name": "Front Pocket Inside O/L R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 8,
+  "fields": {
+    "style": 1,
+    "op_code": 8,
+    "section": "Front",
+    "name": "Front Pocket Natch L",
+    "machine": "S/N",
+    "rate": "0.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 9,
+  "fields": {
+    "style": 1,
+    "op_code": 9,
+    "section": "Front",
+    "name": "Front Pocket Natch R",
+    "machine": "S/N",
+    "rate": "0.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 10,
+  "fields": {
+    "style": 1,
+    "op_code": 10,
+    "section": "Front",
+    "name": "Front Pocket Pointed L",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 11,
+  "fields": {
+    "style": 1,
+    "op_code": 11,
+    "section": "Front",
+    "name": "Front Pocket Pointed R",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 12,
+  "fields": {
+    "style": 1,
+    "op_code": 12,
+    "section": "Front",
+    "name": "Front Pocket Tucking Top",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 13,
+  "fields": {
+    "style": 1,
+    "op_code": 13,
+    "section": "Front",
+    "name": "Front Pocket Tucking Down",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 14,
+  "fields": {
+    "style": 1,
+    "op_code": 14,
+    "section": "Back",
+    "name": "Pocket Tucking For Kansai",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 15,
+  "fields": {
+    "style": 1,
+    "op_code": 15,
+    "section": "Back",
+    "name": "Back Rise O/L",
+    "machine": "O/L",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 16,
+  "fields": {
+    "style": 1,
+    "op_code": 16,
+    "section": "Back",
+    "name": "Washcare Label Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 17,
+  "fields": {
+    "style": 1,
+    "op_code": 17,
+    "section": "Back",
+    "name": "Main Label Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 18,
+  "fields": {
+    "style": 1,
+    "op_code": 18,
+    "section": "Back",
+    "name": "Checking",
+    "machine": "Helper",
+    "rate": "0.00",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 19,
+  "fields": {
+    "style": 1,
+    "op_code": 19,
+    "section": "Back",
+    "name": "F/B Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 20,
+  "fields": {
+    "style": 1,
+    "op_code": 20,
+    "section": "Back",
+    "name": "Side Overlock L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 21,
+  "fields": {
+    "style": 1,
+    "op_code": 21,
+    "section": "Back",
+    "name": "Side Overlock R",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 22,
+  "fields": {
+    "style": 1,
+    "op_code": 22,
+    "section": "Assembly",
+    "name": "Bottom Panal Piping Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 23,
+  "fields": {
+    "style": 1,
+    "op_code": 23,
+    "section": "Assembly",
+    "name": "Bottom Panal Piping Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 24,
+  "fields": {
+    "style": 1,
+    "op_code": 24,
+    "section": "Assembly",
+    "name": "Bottom Panal Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 25,
+  "fields": {
+    "style": 1,
+    "op_code": 25,
+    "section": "Assembly",
+    "name": "Bottom Panal Attach L",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 26,
+  "fields": {
+    "style": 1,
+    "op_code": 26,
+    "section": "Assembly",
+    "name": "Bottom Panal Attach R",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 27,
+  "fields": {
+    "style": 1,
+    "op_code": 27,
+    "section": "Assembly",
+    "name": "Kaja Mark",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 28,
+  "fields": {
+    "style": 1,
+    "op_code": 28,
+    "section": "Assembly",
+    "name": "Kaja Attach",
+    "machine": "Line",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 29,
+  "fields": {
+    "style": 1,
+    "op_code": 29,
+    "section": "Assembly",
+    "name": "Elastic Mark & Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 30,
+  "fields": {
+    "style": 1,
+    "op_code": 30,
+    "section": "Assembly",
+    "name": "Elastic Tucking 4",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 31,
+  "fields": {
+    "style": 1,
+    "op_code": 31,
+    "section": "Assembly",
+    "name": "Kansai",
+    "machine": "S/N",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 32,
+  "fields": {
+    "style": 1,
+    "op_code": 32,
+    "section": "Assembly",
+    "name": "Kansai End Tucking",
+    "machine": "S/N",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 33,
+  "fields": {
+    "style": 1,
+    "op_code": 33,
+    "section": "Assembly",
+    "name": "Bottom Panal Finish( L)",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 34,
+  "fields": {
+    "style": 1,
+    "op_code": 34,
+    "section": "Assembly",
+    "name": "Bottom Panal Finish( R)",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 35,
+  "fields": {
+    "style": 1,
+    "op_code": 35,
+    "section": "Assembly",
+    "name": "Bottom Tucking( L&R)",
+    "machine": "O/L",
+    "rate": "1.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 36,
+  "fields": {
+    "style": 1,
+    "op_code": 36,
+    "section": "Assembly",
+    "name": "Inseam O/L",
+    "machine": "O/L",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 37,
+  "fields": {
+    "style": 1,
+    "op_code": 37,
+    "section": "Assembly",
+    "name": "Peack Attach (L&R)",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 38,
+  "fields": {
+    "style": 1,
+    "op_code": 38,
+    "section": "Assembly",
+    "name": "Elastic Mark",
+    "machine": "Helper",
+    "rate": "0.40",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 39,
+  "fields": {
+    "style": 1,
+    "op_code": 39,
+    "section": "Assembly",
+    "name": "Elastic Cut",
+    "machine": "Helper",
+    "rate": "0.40",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 40,
+  "fields": {
+    "style": 1,
+    "op_code": 40,
+    "section": "Assembly",
+    "name": "Drawcord Ready",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 41,
+  "fields": {
+    "style": 1,
+    "op_code": 41,
+    "section": "Assembly",
+    "name": "Drawcord End Tucking",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 42,
+  "fields": {
+    "style": 1,
+    "op_code": 42,
+    "section": "Assembly",
+    "name": "Drawcord W/B Center Tucking",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 43,
+  "fields": {
+    "style": 2,
+    "op_code": 1,
+    "section": "Front",
+    "name": "Front Dart Marking (Shell) 2",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 44,
+  "fields": {
+    "style": 2,
+    "op_code": 2,
+    "section": "Front",
+    "name": "Front Dart Attach (Shell) 2",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 45,
+  "fields": {
+    "style": 2,
+    "op_code": 3,
+    "section": "Front",
+    "name": "Front Welt Attach L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 46,
+  "fields": {
+    "style": 2,
+    "op_code": 4,
+    "section": "Front",
+    "name": "Front Welt Attach R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 47,
+  "fields": {
+    "style": 2,
+    "op_code": 5,
+    "section": "Front",
+    "name": "Front Dart Iron 2",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 48,
+  "fields": {
+    "style": 2,
+    "op_code": 6,
+    "section": "Front",
+    "name": "Front Welt Turning",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 49,
+  "fields": {
+    "style": 2,
+    "op_code": 7,
+    "section": "Front",
+    "name": "Front Welt End Tucking L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 50,
+  "fields": {
+    "style": 2,
+    "op_code": 8,
+    "section": "Front",
+    "name": "Front Welt End Tucking R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 51,
+  "fields": {
+    "style": 2,
+    "op_code": 9,
+    "section": "Front",
+    "name": "Front Welt Down Closing L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 52,
+  "fields": {
+    "style": 2,
+    "op_code": 10,
+    "section": "Front",
+    "name": "Front Welt Down Closing R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 53,
+  "fields": {
+    "style": 2,
+    "op_code": 11,
+    "section": "Front",
+    "name": "Front Welt Top Closing L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 54,
+  "fields": {
+    "style": 2,
+    "op_code": 12,
+    "section": "Front",
+    "name": "Front Welt Top Closing R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 55,
+  "fields": {
+    "style": 2,
+    "op_code": 13,
+    "section": "Front",
+    "name": "Front Welt Iron",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 56,
+  "fields": {
+    "style": 2,
+    "op_code": 14,
+    "section": "Front",
+    "name": "Front Dart Attach (Lining) 2",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 57,
+  "fields": {
+    "style": 2,
+    "op_code": 15,
+    "section": "Front",
+    "name": "Front Lining & Facing Attach L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 58,
+  "fields": {
+    "style": 2,
+    "op_code": 16,
+    "section": "Front",
+    "name": "Front Lining & Facing Attach R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 59,
+  "fields": {
+    "style": 2,
+    "op_code": 17,
+    "section": "Front",
+    "name": "Front &Facing Attach Setting",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 60,
+  "fields": {
+    "style": 2,
+    "op_code": 18,
+    "section": "Front",
+    "name": "Front Pick Shape Marking L",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 61,
+  "fields": {
+    "style": 2,
+    "op_code": 19,
+    "section": "Front",
+    "name": "Front Pick Shape Marking R",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 62,
+  "fields": {
+    "style": 2,
+    "op_code": 20,
+    "section": "Front",
+    "name": "Front &Facing Attach L (2 Corner Thread Insert ) L",
+    "machine": "S/N",
+    "rate": "1.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 63,
+  "fields": {
+    "style": 2,
+    "op_code": 21,
+    "section": "Front",
+    "name": "Front &Facing Attach R (2Corner Thread Insert ) R",
+    "machine": "S/N",
+    "rate": "1.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 64,
+  "fields": {
+    "style": 2,
+    "op_code": 22,
+    "section": "Front",
+    "name": "Front &Facing Bottom Closing (2Th Thread) L",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 65,
+  "fields": {
+    "style": 2,
+    "op_code": 23,
+    "section": "Front",
+    "name": "Front &Facing Bottom Closing (2Th Thread) R",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 66,
+  "fields": {
+    "style": 2,
+    "op_code": 24,
+    "section": "Front",
+    "name": "Front & Facing Katcha Cutting",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 67,
+  "fields": {
+    "style": 2,
+    "op_code": 25,
+    "section": "Front",
+    "name": "Front Pick Shape Snatch L",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 68,
+  "fields": {
+    "style": 2,
+    "op_code": 26,
+    "section": "Front",
+    "name": "Front Pick Shape Snatch R",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 69,
+  "fields": {
+    "style": 2,
+    "op_code": 27,
+    "section": "Front",
+    "name": "Harmole Attach L",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 70,
+  "fields": {
+    "style": 2,
+    "op_code": 28,
+    "section": "Front",
+    "name": "Front Harmole Attach R",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 71,
+  "fields": {
+    "style": 2,
+    "op_code": 29,
+    "section": "Front",
+    "name": "Front Harmole Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 72,
+  "fields": {
+    "style": 2,
+    "op_code": 30,
+    "section": "Front",
+    "name": "Front Bottom Lining Kinnari L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 73,
+  "fields": {
+    "style": 2,
+    "op_code": 31,
+    "section": "Front",
+    "name": "Front Bottom Lining Kinnari R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 74,
+  "fields": {
+    "style": 2,
+    "op_code": 32,
+    "section": "Front",
+    "name": "Front Harmole Kinnari L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 75,
+  "fields": {
+    "style": 2,
+    "op_code": 33,
+    "section": "Front",
+    "name": "Front Harmole Kinnari R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 76,
+  "fields": {
+    "style": 2,
+    "op_code": 34,
+    "section": "Front",
+    "name": "Front Pick Marking",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 77,
+  "fields": {
+    "style": 2,
+    "op_code": 35,
+    "section": "Front",
+    "name": "Front Pick Folding Attach L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 78,
+  "fields": {
+    "style": 2,
+    "op_code": 36,
+    "section": "Back",
+    "name": "Front Pick Folding Attach R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 79,
+  "fields": {
+    "style": 2,
+    "op_code": 37,
+    "section": "",
+    "name": "Front & Lining Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 80,
+  "fields": {
+    "style": 2,
+    "op_code": 38,
+    "section": "Back",
+    "name": "Back Size Label Ready",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 81,
+  "fields": {
+    "style": 2,
+    "op_code": 39,
+    "section": "Back",
+    "name": "Back Size Label Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 82,
+  "fields": {
+    "style": 2,
+    "op_code": 40,
+    "section": "Back",
+    "name": "Moon Patch Snatch",
+    "machine": "Helper",
+    "rate": "0.30",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 83,
+  "fields": {
+    "style": 2,
+    "op_code": 41,
+    "section": "Back",
+    "name": "Moon Patch Attach",
+    "machine": "S/N",
+    "rate": "1.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 84,
+  "fields": {
+    "style": 2,
+    "op_code": 42,
+    "section": "Back",
+    "name": "Back Lining Dart Attach (2)",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 85,
+  "fields": {
+    "style": 2,
+    "op_code": 43,
+    "section": "Back",
+    "name": "Back Shell Dart Attach (2)",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 86,
+  "fields": {
+    "style": 2,
+    "op_code": 44,
+    "section": "Back",
+    "name": "Back Bottom Shell & Lining Attach",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 87,
+  "fields": {
+    "style": 2,
+    "op_code": 45,
+    "section": "Back",
+    "name": "Back Bottom Lining Kinnari",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 88,
+  "fields": {
+    "style": 2,
+    "op_code": 46,
+    "section": "Back",
+    "name": "Back Neck Attach Shell & Lining Attach",
+    "machine": "E/C",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 89,
+  "fields": {
+    "style": 2,
+    "op_code": 47,
+    "section": "Back",
+    "name": "Back Neck Kinnari Lining",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 90,
+  "fields": {
+    "style": 2,
+    "op_code": 48,
+    "section": "Back",
+    "name": "Shoulder Attach Shell",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 91,
+  "fields": {
+    "style": 2,
+    "op_code": 49,
+    "section": "Back",
+    "name": "Shoulder Attach Lining",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 92,
+  "fields": {
+    "style": 2,
+    "op_code": 50,
+    "section": "Back",
+    "name": "F/B Setting",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 93,
+  "fields": {
+    "style": 2,
+    "op_code": 51,
+    "section": "Back",
+    "name": "Side Up & Down Marking L",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 94,
+  "fields": {
+    "style": 2,
+    "op_code": 52,
+    "section": "Back",
+    "name": "Side Up & Down Marking R",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 95,
+  "fields": {
+    "style": 2,
+    "op_code": 53,
+    "section": "Back",
+    "name": "Back Harmole Attach L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 96,
+  "fields": {
+    "style": 2,
+    "op_code": 54,
+    "section": "Back",
+    "name": "Back Harmole Attach R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 97,
+  "fields": {
+    "style": 2,
+    "op_code": 55,
+    "section": "Assembly",
+    "name": "Back Harmole Kinnari L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 98,
+  "fields": {
+    "style": 2,
+    "op_code": 56,
+    "section": "Assembly",
+    "name": "Back Harmole Kinnari R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 99,
+  "fields": {
+    "style": 2,
+    "op_code": 57,
+    "section": "Assembly",
+    "name": "Harmole Iron",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 100,
+  "fields": {
+    "style": 2,
+    "op_code": 58,
+    "section": "Assembly",
+    "name": "Bottom Iron",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 101,
+  "fields": {
+    "style": 2,
+    "op_code": 59,
+    "section": "Assembly",
+    "name": "Left Print Dummy Stitch Side",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 102,
+  "fields": {
+    "style": 2,
+    "op_code": 60,
+    "section": "Assembly",
+    "name": "Label Cutting",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 103,
+  "fields": {
+    "style": 2,
+    "op_code": 61,
+    "section": "Assembly",
+    "name": "Label Attach",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 104,
+  "fields": {
+    "style": 2,
+    "op_code": 62,
+    "section": "Assembly",
+    "name": "Left Side Attach Lining",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 105,
+  "fields": {
+    "style": 2,
+    "op_code": 63,
+    "section": "Assembly",
+    "name": "Left Side Attach Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 106,
+  "fields": {
+    "style": 2,
+    "op_code": 64,
+    "section": "Assembly",
+    "name": "Left Side Attach Shell",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 107,
+  "fields": {
+    "style": 2,
+    "op_code": 65,
+    "section": "Assembly",
+    "name": "Right Side Attach Lining",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 108,
+  "fields": {
+    "style": 2,
+    "op_code": 66,
+    "section": "Assembly",
+    "name": "Right Side Attach Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 109,
+  "fields": {
+    "style": 2,
+    "op_code": 67,
+    "section": "Assembly",
+    "name": "Right Side Attach Shell",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 110,
+  "fields": {
+    "style": 2,
+    "op_code": 68,
+    "section": "Assembly",
+    "name": "Front Insert For Right Side Attach",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 111,
+  "fields": {
+    "style": 2,
+    "op_code": 69,
+    "section": "Assembly",
+    "name": "Total Garment Turning",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 112,
+  "fields": {
+    "style": 2,
+    "op_code": 70,
+    "section": "Assembly",
+    "name": "Lining Inside Kinnari",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 113,
+  "fields": {
+    "style": 3,
+    "op_code": 1,
+    "section": "Front",
+    "name": "Front Pocket Big Facing Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 114,
+  "fields": {
+    "style": 3,
+    "op_code": 2,
+    "section": "Front",
+    "name": "Front Pocket Small Facing Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 115,
+  "fields": {
+    "style": 3,
+    "op_code": 3,
+    "section": "Front",
+    "name": "Front Coin Pocket Door",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 116,
+  "fields": {
+    "style": 3,
+    "op_code": 4,
+    "section": "Front",
+    "name": "Front Coin Pocket Attach",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 117,
+  "fields": {
+    "style": 3,
+    "op_code": 5,
+    "section": "Front",
+    "name": "Front Downfly Ready",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 118,
+  "fields": {
+    "style": 3,
+    "op_code": 6,
+    "section": "Front",
+    "name": "Front Downfly Kinnari",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 119,
+  "fields": {
+    "style": 3,
+    "op_code": 7,
+    "section": "Front",
+    "name": "Front Doublefly & Singlefly Piping Attach",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 120,
+  "fields": {
+    "style": 3,
+    "op_code": 8,
+    "section": "Front",
+    "name": "Front Fly Label Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 121,
+  "fields": {
+    "style": 3,
+    "op_code": 9,
+    "section": "Front",
+    "name": "Front Pocket Setting",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 122,
+  "fields": {
+    "style": 3,
+    "op_code": 10,
+    "section": "Front",
+    "name": "Front Pocket Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 123,
+  "fields": {
+    "style": 3,
+    "op_code": 11,
+    "section": "Front",
+    "name": "Front Pocket Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 124,
+  "fields": {
+    "style": 3,
+    "op_code": 12,
+    "section": "Front",
+    "name": "Front Pocket Natch L",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 125,
+  "fields": {
+    "style": 3,
+    "op_code": 13,
+    "section": "Front",
+    "name": "Front Pocket Natch R",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 126,
+  "fields": {
+    "style": 3,
+    "op_code": 14,
+    "section": "Front",
+    "name": "Front Pocket Pointed L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 127,
+  "fields": {
+    "style": 3,
+    "op_code": 15,
+    "section": "Front",
+    "name": "Front Pocket Pointed R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 128,
+  "fields": {
+    "style": 3,
+    "op_code": 16,
+    "section": "Front",
+    "name": "Front Pocket Bag Tucking Top",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 129,
+  "fields": {
+    "style": 3,
+    "op_code": 17,
+    "section": "Front",
+    "name": "Front Pocket Bag Tucking Down",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 130,
+  "fields": {
+    "style": 3,
+    "op_code": 18,
+    "section": "Front",
+    "name": "Front Pocket Bag Edge Cutter L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 131,
+  "fields": {
+    "style": 3,
+    "op_code": 19,
+    "section": "Front",
+    "name": "Front Pocket Bag Edge Cutter R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 132,
+  "fields": {
+    "style": 3,
+    "op_code": 20,
+    "section": "Front",
+    "name": "Front Pocket Bag Pointed L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 133,
+  "fields": {
+    "style": 3,
+    "op_code": 21,
+    "section": "Front",
+    "name": "Front Pocket Bag Pointed R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 134,
+  "fields": {
+    "style": 3,
+    "op_code": 22,
+    "section": "Front",
+    "name": "Front Rise O/L",
+    "machine": "O/L",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 135,
+  "fields": {
+    "style": 3,
+    "op_code": 23,
+    "section": "Front",
+    "name": "Front Singlefly Attach",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 136,
+  "fields": {
+    "style": 3,
+    "op_code": 24,
+    "section": "Front",
+    "name": "Front Singlefly Kinnari",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 137,
+  "fields": {
+    "style": 3,
+    "op_code": 25,
+    "section": "Front",
+    "name": "Front Zip Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 138,
+  "fields": {
+    "style": 3,
+    "op_code": 26,
+    "section": "Front",
+    "name": "Right Front Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 139,
+  "fields": {
+    "style": 3,
+    "op_code": 27,
+    "section": "Front",
+    "name": "Front J Stitch",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 140,
+  "fields": {
+    "style": 3,
+    "op_code": 28,
+    "section": "Front",
+    "name": "Front Doublefly Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 141,
+  "fields": {
+    "style": 3,
+    "op_code": 29,
+    "section": "Front",
+    "name": "Front Doublefly Kinnari",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 142,
+  "fields": {
+    "style": 3,
+    "op_code": 30,
+    "section": "Front",
+    "name": "Front Rise Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 143,
+  "fields": {
+    "style": 3,
+    "op_code": 31,
+    "section": "Front",
+    "name": "Front Rise Kinnari",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 144,
+  "fields": {
+    "style": 3,
+    "op_code": 32,
+    "section": "Front",
+    "name": "Front Insidefly Show Stitch",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 145,
+  "fields": {
+    "style": 3,
+    "op_code": 33,
+    "section": "Back",
+    "name": "Back Dart Mark",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 146,
+  "fields": {
+    "style": 3,
+    "op_code": 34,
+    "section": "Back",
+    "name": "Back Dart Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 147,
+  "fields": {
+    "style": 3,
+    "op_code": 35,
+    "section": "Back",
+    "name": "Back Dart Iron",
+    "machine": "Iron",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 148,
+  "fields": {
+    "style": 3,
+    "op_code": 36,
+    "section": "Back",
+    "name": "Back Welt Attach L",
+    "machine": "Apw",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 149,
+  "fields": {
+    "style": 3,
+    "op_code": 37,
+    "section": "Back",
+    "name": "Back Welt Attach R",
+    "machine": "Apw",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 150,
+  "fields": {
+    "style": 3,
+    "op_code": 38,
+    "section": "Back",
+    "name": "Back Welt Turning",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 151,
+  "fields": {
+    "style": 3,
+    "op_code": 39,
+    "section": "Back",
+    "name": "Back Welt End Tucking L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 152,
+  "fields": {
+    "style": 3,
+    "op_code": 40,
+    "section": "Back",
+    "name": "Back Welt End Tucking R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 153,
+  "fields": {
+    "style": 3,
+    "op_code": 41,
+    "section": "Back",
+    "name": "Back Welt Iron",
+    "machine": "Iron",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 154,
+  "fields": {
+    "style": 3,
+    "op_code": 42,
+    "section": "Back",
+    "name": "Back Welt Down Kinnari",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 155,
+  "fields": {
+    "style": 3,
+    "op_code": 43,
+    "section": "Back",
+    "name": "Back Welt Top Facing Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 156,
+  "fields": {
+    "style": 3,
+    "op_code": 44,
+    "section": "Back",
+    "name": "Back Welt Down Facing Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 157,
+  "fields": {
+    "style": 3,
+    "op_code": 45,
+    "section": "Back",
+    "name": "Back Pocket Bag Edge Cutter L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 158,
+  "fields": {
+    "style": 3,
+    "op_code": 46,
+    "section": "Back",
+    "name": "Back Pocket Bag Edge Cutter R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 159,
+  "fields": {
+    "style": 3,
+    "op_code": 47,
+    "section": "Back",
+    "name": "Back Pocket Pointed L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 160,
+  "fields": {
+    "style": 3,
+    "op_code": 48,
+    "section": "Back",
+    "name": "Back Pocket Pointed R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 161,
+  "fields": {
+    "style": 3,
+    "op_code": 49,
+    "section": "Back",
+    "name": "Back Welt Top Kinnari",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 162,
+  "fields": {
+    "style": 3,
+    "op_code": 50,
+    "section": "Back",
+    "name": "Back Rise Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 163,
+  "fields": {
+    "style": 3,
+    "op_code": 51,
+    "section": "Back",
+    "name": "Back Rise Pointed",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 164,
+  "fields": {
+    "style": 3,
+    "op_code": 52,
+    "section": "Back",
+    "name": "Back Pocket Marking L",
+    "machine": "Helper",
+    "rate": "0.30",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 165,
+  "fields": {
+    "style": 3,
+    "op_code": 53,
+    "section": "",
+    "name": "Back Pocket Marking R",
+    "machine": "Helper",
+    "rate": "0.30",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 166,
+  "fields": {
+    "style": 3,
+    "op_code": 54,
+    "section": "Back",
+    "name": "Back Pocket Dummy Stitch L",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 167,
+  "fields": {
+    "style": 3,
+    "op_code": 55,
+    "section": "",
+    "name": "Back Pocket Dummy Stitch R",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 168,
+  "fields": {
+    "style": 3,
+    "op_code": 56,
+    "section": "Assembly",
+    "name": "F/B Setting",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 169,
+  "fields": {
+    "style": 3,
+    "op_code": 57,
+    "section": "Assembly",
+    "name": "W/B Setting",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 170,
+  "fields": {
+    "style": 3,
+    "op_code": 58,
+    "section": "Assembly",
+    "name": "Side 5Th O/L L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 171,
+  "fields": {
+    "style": 3,
+    "op_code": 59,
+    "section": "Assembly",
+    "name": "Side 5Th O/L R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 172,
+  "fields": {
+    "style": 3,
+    "op_code": 60,
+    "section": "Assembly",
+    "name": "Side Kinnari L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 173,
+  "fields": {
+    "style": 3,
+    "op_code": 61,
+    "section": "Assembly",
+    "name": "Side Kinnari R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 174,
+  "fields": {
+    "style": 3,
+    "op_code": 62,
+    "section": "Assembly",
+    "name": "Inseam O/L",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 175,
+  "fields": {
+    "style": 3,
+    "op_code": 63,
+    "section": "Assembly",
+    "name": "Loop Ready",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 176,
+  "fields": {
+    "style": 3,
+    "op_code": 64,
+    "section": "Assembly",
+    "name": "Loop Cut",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 177,
+  "fields": {
+    "style": 3,
+    "op_code": 65,
+    "section": "Assembly",
+    "name": "Loop Mark",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 178,
+  "fields": {
+    "style": 3,
+    "op_code": 66,
+    "section": "Assembly",
+    "name": "Loop Attach H Cutting",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 179,
+  "fields": {
+    "style": 3,
+    "op_code": 67,
+    "section": "Assembly",
+    "name": "Waist Band Joint",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 180,
+  "fields": {
+    "style": 3,
+    "op_code": 68,
+    "section": "Assembly",
+    "name": "Waist Band Top Folder (Fuseing)",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 181,
+  "fields": {
+    "style": 3,
+    "op_code": 69,
+    "section": "Assembly",
+    "name": "Waist Band Down Folder (Fuseing)",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 182,
+  "fields": {
+    "style": 3,
+    "op_code": 70,
+    "section": "Assembly",
+    "name": "Waist Band Top Folder Tucking For Fusing",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 183,
+  "fields": {
+    "style": 3,
+    "op_code": 71,
+    "section": "Assembly",
+    "name": "Waist Band Down Folder Tucking For Fusing",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 184,
+  "fields": {
+    "style": 3,
+    "op_code": 72,
+    "section": "Assembly",
+    "name": "Waist Band Piping Attach",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 185,
+  "fields": {
+    "style": 3,
+    "op_code": 73,
+    "section": "Assembly",
+    "name": "Waist Band Ready Stitch",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 186,
+  "fields": {
+    "style": 3,
+    "op_code": 74,
+    "section": "Assembly",
+    "name": "Waist Band Iron",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 187,
+  "fields": {
+    "style": 3,
+    "op_code": 75,
+    "section": "Assembly",
+    "name": "Waist Band Attach",
+    "machine": "E/C",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 188,
+  "fields": {
+    "style": 3,
+    "op_code": 76,
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 189,
+  "fields": {
+    "style": 3,
+    "op_code": 77,
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 190,
+  "fields": {
+    "style": 3,
+    "op_code": 78,
+    "section": "Assembly",
+    "name": "Waist Band Mouth Cutting",
+    "machine": "E/C",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 191,
+  "fields": {
+    "style": 3,
+    "op_code": 79,
+    "section": "Assembly",
+    "name": "Waist Band Dummy Tucking",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 192,
+  "fields": {
+    "style": 3,
+    "op_code": 80,
+    "section": "Assembly",
+    "name": "Waist Band Reinforcement Attach",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 193,
+  "fields": {
+    "style": 3,
+    "op_code": 81,
+    "section": "Assembly",
+    "name": "Wash Care Label Attach With Pouch",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 194,
+  "fields": {
+    "style": 3,
+    "op_code": 82,
+    "section": "Assembly",
+    "name": "Waist Band Top Kinnari",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 195,
+  "fields": {
+    "style": 3,
+    "op_code": 83,
+    "section": "Assembly",
+    "name": "Waist Band Down Kinnari",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 196,
+  "fields": {
+    "style": 3,
+    "op_code": 84,
+    "section": "Assembly",
+    "name": "Bottom",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 197,
+  "fields": {
+    "style": 4,
+    "op_code": 1,
+    "section": "Front",
+    "name": "Front Coin Pocket Facing O/L Inside",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 198,
+  "fields": {
+    "style": 4,
+    "op_code": 2,
+    "section": "Front",
+    "name": "Front Coin Pocket Marking",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 199,
+  "fields": {
+    "style": 4,
+    "op_code": 3,
+    "section": "Front",
+    "name": "Front Coin Pocket Ready",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 200,
+  "fields": {
+    "style": 4,
+    "op_code": 4,
+    "section": "Front",
+    "name": "Front Coin Pocket Turning",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 201,
+  "fields": {
+    "style": 4,
+    "op_code": 5,
+    "section": "Front",
+    "name": "Front Coin Pocket Kinnari",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 202,
+  "fields": {
+    "style": 4,
+    "op_code": 6,
+    "section": "Front",
+    "name": "Front Coin Pocket Pointed",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 203,
+  "fields": {
+    "style": 4,
+    "op_code": 7,
+    "section": "Front",
+    "name": "Front Coin Pocket Top Facing Iron",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 204,
+  "fields": {
+    "style": 4,
+    "op_code": 8,
+    "section": "Front",
+    "name": "Front Coin Pocket Top Facing Kinnari",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 205,
+  "fields": {
+    "style": 4,
+    "op_code": 9,
+    "section": "Front",
+    "name": "Front Coin Pocket Top Facing Pointed",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 206,
+  "fields": {
+    "style": 4,
+    "op_code": 10,
+    "section": "Front",
+    "name": "Front Coin Pocket Tucking Top & Down",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 207,
+  "fields": {
+    "style": 4,
+    "op_code": 17,
+    "section": "Front",
+    "name": "Front Coin Pocket Dummy Stitch",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 208,
+  "fields": {
+    "style": 4,
+    "op_code": 11,
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Top O/L L",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 209,
+  "fields": {
+    "style": 4,
+    "op_code": 12,
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Top O/L R",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 210,
+  "fields": {
+    "style": 4,
+    "op_code": 13,
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Down O/L L",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 211,
+  "fields": {
+    "style": 4,
+    "op_code": 14,
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Down O/L R",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 212,
+  "fields": {
+    "style": 4,
+    "op_code": 15,
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Big Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 213,
+  "fields": {
+    "style": 4,
+    "op_code": 16,
+    "section": "Front",
+    "name": "Front Coin Pocket Facing Down Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 214,
+  "fields": {
+    "style": 4,
+    "op_code": 18,
+    "section": "Front",
+    "name": "Front Rise O/L",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 215,
+  "fields": {
+    "style": 4,
+    "op_code": 19,
+    "section": "Front",
+    "name": "Front Single Fly O/L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 216,
+  "fields": {
+    "style": 4,
+    "op_code": 20,
+    "section": "Front",
+    "name": "Front Double Fly Making",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 217,
+  "fields": {
+    "style": 4,
+    "op_code": 21,
+    "section": "Front",
+    "name": "Front Double Fly O/L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 218,
+  "fields": {
+    "style": 4,
+    "op_code": 22,
+    "section": "Front",
+    "name": "Front Single Fly Attach",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 219,
+  "fields": {
+    "style": 4,
+    "op_code": 23,
+    "section": "Front",
+    "name": "Front Single Fly Kinnari",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 220,
+  "fields": {
+    "style": 4,
+    "op_code": 24,
+    "section": "Front",
+    "name": "Front Zip Attach",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 221,
+  "fields": {
+    "style": 4,
+    "op_code": 25,
+    "section": "Front",
+    "name": "Front J Stitch",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 222,
+  "fields": {
+    "style": 4,
+    "op_code": 26,
+    "section": "Front",
+    "name": "Front Double Fly Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 223,
+  "fields": {
+    "style": 4,
+    "op_code": 27,
+    "section": "Front",
+    "name": "Front Double Fly Kinnari",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 224,
+  "fields": {
+    "style": 4,
+    "op_code": 28,
+    "section": "Front",
+    "name": "Front Rise Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 225,
+  "fields": {
+    "style": 4,
+    "op_code": 29,
+    "section": "Front",
+    "name": "Front Rise D/N",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 226,
+  "fields": {
+    "style": 4,
+    "op_code": 30,
+    "section": "Front",
+    "name": "Front Right Front Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 227,
+  "fields": {
+    "style": 4,
+    "op_code": 31,
+    "section": "Front",
+    "name": "Front Washcare Label Attach With Pouch",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 228,
+  "fields": {
+    "style": 4,
+    "op_code": 32,
+    "section": "Front",
+    "name": "Front Washcare Label Ready",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 229,
+  "fields": {
+    "style": 4,
+    "op_code": 33,
+    "section": "Front",
+    "name": "Front Fly Label Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 230,
+  "fields": {
+    "style": 4,
+    "op_code": 34,
+    "section": "Front",
+    "name": "Front Pocket Bag Setting",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 231,
+  "fields": {
+    "style": 4,
+    "op_code": 35,
+    "section": "Back",
+    "name": "Front Pocket Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 232,
+  "fields": {
+    "style": 4,
+    "op_code": 36,
+    "section": "Back",
+    "name": "Front Pocket Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 233,
+  "fields": {
+    "style": 4,
+    "op_code": 37,
+    "section": "Back",
+    "name": "Front Pocket D/N L",
+    "machine": "S/N",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 234,
+  "fields": {
+    "style": 4,
+    "op_code": 38,
+    "section": "Back",
+    "name": "Front Pocket D/N R",
+    "machine": "Iron",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 235,
+  "fields": {
+    "style": 4,
+    "op_code": 39,
+    "section": "Back",
+    "name": "Front Pocket Tucking Top",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 236,
+  "fields": {
+    "style": 4,
+    "op_code": 40,
+    "section": "Back",
+    "name": "Front Pocket Tucking Down",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 237,
+  "fields": {
+    "style": 4,
+    "op_code": 41,
+    "section": "Back",
+    "name": "Front Pocket Bag Edge Cutter L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 238,
+  "fields": {
+    "style": 4,
+    "op_code": 42,
+    "section": "Back",
+    "name": "Front Pocket Bag Edge Cutter R",
+    "machine": "Iron",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 239,
+  "fields": {
+    "style": 4,
+    "op_code": 43,
+    "section": "Back",
+    "name": "Front Pocket Bag Pointed L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 240,
+  "fields": {
+    "style": 4,
+    "op_code": 44,
+    "section": "Back",
+    "name": "Front Pocket Bag Pointed R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 241,
+  "fields": {
+    "style": 4,
+    "op_code": 45,
+    "section": "Back",
+    "name": "Back Pocket Door L",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 242,
+  "fields": {
+    "style": 4,
+    "op_code": 46,
+    "section": "Back",
+    "name": "Back Pocket Door R",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 243,
+  "fields": {
+    "style": 4,
+    "op_code": 47,
+    "section": "Back",
+    "name": "Back Pocket Show Stitch Mark",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 244,
+  "fields": {
+    "style": 4,
+    "op_code": 48,
+    "section": "Back",
+    "name": "Back Pocket Show Stitch Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 245,
+  "fields": {
+    "style": 4,
+    "op_code": 49,
+    "section": "Back",
+    "name": "Back Pocket Show Stitch Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 246,
+  "fields": {
+    "style": 4,
+    "op_code": 50,
+    "section": "Back",
+    "name": "Back Pocket Iron L",
+    "machine": "Iron",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 247,
+  "fields": {
+    "style": 4,
+    "op_code": 51,
+    "section": "Back",
+    "name": "Back Pocket Iron R",
+    "machine": "Iron",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 248,
+  "fields": {
+    "style": 4,
+    "op_code": 52,
+    "section": "Back",
+    "name": "Back Yoke Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 249,
+  "fields": {
+    "style": 4,
+    "op_code": 53,
+    "section": "Back",
+    "name": "Back Yoke D/N L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 250,
+  "fields": {
+    "style": 4,
+    "op_code": 54,
+    "section": "",
+    "name": "Back Yoke D/N R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 251,
+  "fields": {
+    "style": 4,
+    "op_code": 55,
+    "section": "Back",
+    "name": "Back Rise Feedaform",
+    "machine": "S/N",
+    "rate": "1.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 252,
+  "fields": {
+    "style": 4,
+    "op_code": 56,
+    "section": "Back",
+    "name": "Back Pocket Setting",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 253,
+  "fields": {
+    "style": 4,
+    "op_code": 57,
+    "section": "Back",
+    "name": "Back Pocket Pointed Mark L",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 254,
+  "fields": {
+    "style": 4,
+    "op_code": 58,
+    "section": "Back",
+    "name": "Back Pocket Pointed Mark R",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 255,
+  "fields": {
+    "style": 4,
+    "op_code": 59,
+    "section": "Assembly",
+    "name": "Back Pocket Attach L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 256,
+  "fields": {
+    "style": 4,
+    "op_code": 60,
+    "section": "Assembly",
+    "name": "Back Pocket Attach R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 257,
+  "fields": {
+    "style": 4,
+    "op_code": 61,
+    "section": "Assembly",
+    "name": "Back Pocket Pointed L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 258,
+  "fields": {
+    "style": 4,
+    "op_code": 62,
+    "section": "Assembly",
+    "name": "Back Pocket Pointed R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 259,
+  "fields": {
+    "style": 4,
+    "op_code": 63,
+    "section": "Assembly",
+    "name": "Waist Band Fit &Main Label Marking",
+    "machine": "",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 260,
+  "fields": {
+    "style": 4,
+    "op_code": 64,
+    "section": "Assembly",
+    "name": "Waist Band Fit Label Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 261,
+  "fields": {
+    "style": 4,
+    "op_code": 65,
+    "section": "Assembly",
+    "name": "Waist Band Main Label Attach",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 262,
+  "fields": {
+    "style": 4,
+    "op_code": 66,
+    "section": "Assembly",
+    "name": "W/B Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 263,
+  "fields": {
+    "style": 4,
+    "op_code": 67,
+    "section": "Assembly",
+    "name": "F/B Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 264,
+  "fields": {
+    "style": 4,
+    "op_code": 68,
+    "section": "Assembly",
+    "name": "Inseam Folder",
+    "machine": "S/N",
+    "rate": "2.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 265,
+  "fields": {
+    "style": 4,
+    "op_code": 69,
+    "section": "Assembly",
+    "name": "Side O/L 5Th L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 266,
+  "fields": {
+    "style": 4,
+    "op_code": 70,
+    "section": "Assembly",
+    "name": "Side O/L 5Th R",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 267,
+  "fields": {
+    "style": 4,
+    "op_code": 71,
+    "section": "Assembly",
+    "name": "Side D/N L",
+    "machine": "D/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 268,
+  "fields": {
+    "style": 4,
+    "op_code": 72,
+    "section": "Assembly",
+    "name": "Side D/N R",
+    "machine": "D/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 269,
+  "fields": {
+    "style": 4,
+    "op_code": 73,
+    "section": "Assembly",
+    "name": "Loop Marking",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 270,
+  "fields": {
+    "style": 4,
+    "op_code": 74,
+    "section": "Assembly",
+    "name": "Loop Attach",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 271,
+  "fields": {
+    "style": 4,
+    "op_code": 75,
+    "section": "Assembly",
+    "name": "Loop Cut",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 272,
+  "fields": {
+    "style": 4,
+    "op_code": 76,
+    "section": "Assembly",
+    "name": "Loop Ready",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 273,
+  "fields": {
+    "style": 4,
+    "op_code": 77,
+    "section": "Assembly",
+    "name": "Waist Band Kansai",
+    "machine": "E/C",
+    "rate": "2.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 274,
+  "fields": {
+    "style": 4,
+    "op_code": 78,
+    "section": "Assembly",
+    "name": "Waist Band End Closing L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 275,
+  "fields": {
+    "style": 4,
+    "op_code": 79,
+    "section": "Assembly",
+    "name": "Waist Band End Closing R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 276,
+  "fields": {
+    "style": 4,
+    "op_code": 80,
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing L",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 277,
+  "fields": {
+    "style": 4,
+    "op_code": 81,
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing R",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 278,
+  "fields": {
+    "style": 4,
+    "op_code": 82,
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing Cutting",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 279,
+  "fields": {
+    "style": 4,
+    "op_code": 83,
+    "section": "Assembly",
+    "name": "Waist Band Mouth Finishing Marking",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 280,
+  "fields": {
+    "style": 4,
+    "op_code": 84,
+    "section": "Assembly",
+    "name": "Waist Band Size Setting",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 281,
+  "fields": {
+    "style": 4,
+    "op_code": 85,
+    "section": "Assembly",
+    "name": "Bottom",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 282,
+  "fields": {
+    "style": 4,
+    "op_code": 86,
+    "section": "Assembly",
+    "name": "Leather Patch Attach",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 283,
+  "fields": {
+    "style": 5,
+    "op_code": 1,
+    "section": "Bow",
+    "name": "Tie Joint",
+    "machine": "",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 284,
+  "fields": {
+    "style": 5,
+    "op_code": 2,
+    "section": "Bow",
+    "name": "Tie Folder",
+    "machine": "",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 285,
+  "fields": {
+    "style": 5,
+    "op_code": 3,
+    "section": "Bow",
+    "name": "Tie Kinnari R",
+    "machine": "",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 286,
+  "fields": {
+    "style": 5,
+    "op_code": 4,
+    "section": "Bow",
+    "name": "Tie Kinnari L",
+    "machine": "",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 287,
+  "fields": {
+    "style": 5,
+    "op_code": 5,
+    "section": "Bow",
+    "name": "Small Bow Center Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 288,
+  "fields": {
+    "style": 5,
+    "op_code": 6,
+    "section": "Bow",
+    "name": "Small Bow Left Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 289,
+  "fields": {
+    "style": 5,
+    "op_code": 7,
+    "section": "Bow",
+    "name": "Small Bow Right Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 290,
+  "fields": {
+    "style": 5,
+    "op_code": 8,
+    "section": "Bow",
+    "name": "Big Bow Center Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 291,
+  "fields": {
+    "style": 5,
+    "op_code": 9,
+    "section": "Bow",
+    "name": "Big Bow Left Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 292,
+  "fields": {
+    "style": 5,
+    "op_code": 10,
+    "section": "Bow",
+    "name": "Big Bow Right Tucking",
+    "machine": "",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 293,
+  "fields": {
+    "style": 5,
+    "op_code": 11,
+    "section": "Bow",
+    "name": "Big Bow Turning",
+    "machine": "",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 294,
+  "fields": {
+    "style": 5,
+    "op_code": 12,
+    "section": "Bow",
+    "name": "Small Bow Turning",
+    "machine": "",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 295,
+  "fields": {
+    "style": 5,
+    "op_code": 13,
+    "section": "Bow",
+    "name": "Big & Small Bow Center Rapping",
+    "machine": "",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 296,
+  "fields": {
+    "style": 5,
+    "op_code": 14,
+    "section": "Bow",
+    "name": "Bow Center Patch Ready",
+    "machine": "",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 297,
+  "fields": {
+    "style": 5,
+    "op_code": 15,
+    "section": "Bow",
+    "name": "Bow Center Patch Attach",
+    "machine": "",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 298,
+  "fields": {
+    "style": 5,
+    "op_code": 16,
+    "section": "Bow",
+    "name": "Bow & Tie Tucking L",
+    "machine": "",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 299,
+  "fields": {
+    "style": 5,
+    "op_code": 17,
+    "section": "Bow",
+    "name": "Bow & Tie Tucking R",
+    "machine": "",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 300,
+  "fields": {
+    "style": 5,
+    "op_code": 18,
+    "section": "Bow",
+    "name": "Bow Label Attach",
+    "machine": "",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 301,
+  "fields": {
+    "style": 5,
+    "op_code": 19,
+    "section": "Bow",
+    "name": "Welcrow Attach L",
+    "machine": "",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 302,
+  "fields": {
+    "style": 5,
+    "op_code": 20,
+    "section": "Bow",
+    "name": "Welcrow Attach R",
+    "machine": "",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 303,
+  "fields": {
+    "style": 6,
+    "op_code": 1,
+    "section": "Collar",
+    "name": "Collar Top Marking",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 304,
+  "fields": {
+    "style": 6,
+    "op_code": 2,
+    "section": "Collar",
+    "name": "Collar Top Ready Stitch",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 305,
+  "fields": {
+    "style": 6,
+    "op_code": 3,
+    "section": "Collar",
+    "name": "Collar Turning",
+    "machine": "Helper",
+    "rate": "0.40",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 306,
+  "fields": {
+    "style": 6,
+    "op_code": 4,
+    "section": "Collar",
+    "name": "Collar Kinnari",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 307,
+  "fields": {
+    "style": 6,
+    "op_code": 5,
+    "section": "Collar",
+    "name": "Neck Band Iron",
+    "machine": "Iron",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 308,
+  "fields": {
+    "style": 6,
+    "op_code": 6,
+    "section": "Collar",
+    "name": "Collar &Neck Band Setting",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 309,
+  "fields": {
+    "style": 6,
+    "op_code": 7,
+    "section": "Collar",
+    "name": "Collar Pick Ready",
+    "machine": "S/N",
+    "rate": "2.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 310,
+  "fields": {
+    "style": 6,
+    "op_code": 8,
+    "section": "Collar",
+    "name": "Collar Pick Turning",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 311,
+  "fields": {
+    "style": 6,
+    "op_code": 9,
+    "section": "Collar",
+    "name": "Collar Pick Iron",
+    "machine": "Iron",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 312,
+  "fields": {
+    "style": 6,
+    "op_code": 10,
+    "section": "Cuff",
+    "name": "Collar Ready Cut",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 313,
+  "fields": {
+    "style": 6,
+    "op_code": 11,
+    "section": "Cuff",
+    "name": "Collar Middle Marking",
+    "machine": "Helper",
+    "rate": "0.60",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 314,
+  "fields": {
+    "style": 6,
+    "op_code": 12,
+    "section": "Cuff",
+    "name": "Cuff Door",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 315,
+  "fields": {
+    "style": 6,
+    "op_code": 13,
+    "section": "Cuff",
+    "name": "Cuff Marking",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 316,
+  "fields": {
+    "style": 6,
+    "op_code": 14,
+    "section": "Cuff",
+    "name": "Cuff Ready",
+    "machine": "S/N",
+    "rate": "1.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 317,
+  "fields": {
+    "style": 6,
+    "op_code": 15,
+    "section": "Front",
+    "name": "Cuff Turning",
+    "machine": "Helper",
+    "rate": "0.80",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 318,
+  "fields": {
+    "style": 6,
+    "op_code": 16,
+    "section": "Front",
+    "name": "Cuff Iron",
+    "machine": "Iron",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 319,
+  "fields": {
+    "style": 6,
+    "op_code": 17,
+    "section": "Front",
+    "name": "Sleeve Flacket Pipeing Joint",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 320,
+  "fields": {
+    "style": 6,
+    "op_code": 18,
+    "section": "Front",
+    "name": "Sleeve Folder",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 321,
+  "fields": {
+    "style": 6,
+    "op_code": 19,
+    "section": "Front",
+    "name": "Sleeve Flacket Tucking",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 322,
+  "fields": {
+    "style": 6,
+    "op_code": 20,
+    "section": "Collar",
+    "name": "Front Flacket Iron",
+    "machine": "Iron",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 323,
+  "fields": {
+    "style": 6,
+    "op_code": 21,
+    "section": "Collar",
+    "name": "Front Kaja Flacket Tucking Top &Down",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 324,
+  "fields": {
+    "style": 6,
+    "op_code": 22,
+    "section": "Collar",
+    "name": "Front Button Flacket Tucking Top &Down",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 325,
+  "fields": {
+    "style": 6,
+    "op_code": 23,
+    "section": "Collar",
+    "name": "Front And Back Setting",
+    "machine": "Helper",
+    "rate": "0.00",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 326,
+  "fields": {
+    "style": 6,
+    "op_code": 24,
+    "section": "Collar",
+    "name": "Shoulder O/L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 327,
+  "fields": {
+    "style": 6,
+    "op_code": 25,
+    "section": "Collar",
+    "name": "Shoulder Kinnari",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 328,
+  "fields": {
+    "style": 6,
+    "op_code": 26,
+    "section": "Collar",
+    "name": "Kaja Patti Button Patti Katcha Cutting",
+    "machine": "Helper",
+    "rate": "0.30",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 329,
+  "fields": {
+    "style": 6,
+    "op_code": 27,
+    "section": "Collar",
+    "name": "Collar Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 330,
+  "fields": {
+    "style": 6,
+    "op_code": 28,
+    "section": "Collar",
+    "name": "Collar Attach",
+    "machine": "S/N",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 331,
+  "fields": {
+    "style": 6,
+    "op_code": 29,
+    "section": "Collar",
+    "name": "Collar Neckband Pipeing Joint",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 332,
+  "fields": {
+    "style": 6,
+    "op_code": 30,
+    "section": "Sleeve",
+    "name": "Collar Neckband Pipeing Iron",
+    "machine": "Iron",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 333,
+  "fields": {
+    "style": 6,
+    "op_code": 31,
+    "section": "Sleeve",
+    "name": "Collar Neckband Pipeing Attach",
+    "machine": "S/N",
+    "rate": "1.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 334,
+  "fields": {
+    "style": 6,
+    "op_code": 32,
+    "section": "Sleeve",
+    "name": "Main Label Ready With Size Label",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 335,
+  "fields": {
+    "style": 6,
+    "op_code": 33,
+    "section": "Sleeve",
+    "name": "Main Label Attach",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 336,
+  "fields": {
+    "style": 6,
+    "op_code": 34,
+    "section": "Sleeve",
+    "name": "Collar Finishing",
+    "machine": "S/N",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 337,
+  "fields": {
+    "style": 6,
+    "op_code": 35,
+    "section": "Sleeve",
+    "name": "Sleeve Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 338,
+  "fields": {
+    "style": 6,
+    "op_code": 36,
+    "section": "Sleeve",
+    "name": "Sleeve Attach L",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 339,
+  "fields": {
+    "style": 6,
+    "op_code": 37,
+    "section": "Assembly",
+    "name": "Sleeve Attach R",
+    "machine": "S/N",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 340,
+  "fields": {
+    "style": 6,
+    "op_code": 38,
+    "section": "Assembly",
+    "name": "Sleeve Armhole Snatch",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 341,
+  "fields": {
+    "style": 6,
+    "op_code": 39,
+    "section": "Assembly",
+    "name": "Sleeve 3 Th O/L L",
+    "machine": "O/L",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 342,
+  "fields": {
+    "style": 6,
+    "op_code": 40,
+    "section": "Assembly",
+    "name": "Sleeve 3 Th O/L R",
+    "machine": "O/L",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 343,
+  "fields": {
+    "style": 6,
+    "op_code": 41,
+    "section": "Assembly",
+    "name": "Sleeve Armhole Pointed L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 344,
+  "fields": {
+    "style": 6,
+    "op_code": 42,
+    "section": "Assembly",
+    "name": "Sleeve Armhole Pointed R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 345,
+  "fields": {
+    "style": 6,
+    "op_code": 43,
+    "section": "Assembly",
+    "name": "Side O/L L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 346,
+  "fields": {
+    "style": 6,
+    "op_code": 44,
+    "section": "Assembly",
+    "name": "Side O/L R",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 347,
+  "fields": {
+    "style": 6,
+    "op_code": 45,
+    "section": "Assembly",
+    "name": "Cuff Fleet Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 348,
+  "fields": {
+    "style": 6,
+    "op_code": 46,
+    "section": "Assembly",
+    "name": "Cuff Setting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 349,
+  "fields": {
+    "style": 6,
+    "op_code": 47,
+    "section": "Assembly",
+    "name": "Cuff Finishing L",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 350,
+  "fields": {
+    "style": 6,
+    "op_code": 48,
+    "section": "Assembly",
+    "name": "Cuff Finishing R",
+    "machine": "S/N",
+    "rate": "1.25",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 351,
+  "fields": {
+    "style": 6,
+    "op_code": 49,
+    "section": "Assembly",
+    "name": "Cuff Pointed",
+    "machine": "S/N",
+    "rate": "1.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 352,
+  "fields": {
+    "style": 6,
+    "op_code": 50,
+    "section": "Assembly",
+    "name": "Bottom & Cuff Katcha Cutting",
+    "machine": "Helper",
+    "rate": "0.50",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 353,
+  "fields": {
+    "style": 6,
+    "op_code": 51,
+    "section": "Assembly",
+    "name": "Bottom",
+    "machine": "S/N",
+    "rate": "2.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 354,
+  "fields": {
+    "style": 6,
+    "op_code": 52,
+    "section": "Assembly",
+    "name": "Washcare Label Attach",
+    "machine": "S/N",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 355,
+  "fields": {
+    "style": 7,
+    "op_code": 1,
+    "section": "Front",
+    "name": "Front Rise O/L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 356,
+  "fields": {
+    "style": 7,
+    "op_code": 2,
+    "section": "Front",
+    "name": "Front Rise D/N",
+    "machine": "D/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 357,
+  "fields": {
+    "style": 7,
+    "op_code": 3,
+    "section": "Back",
+    "name": "Back Rise O/L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 358,
+  "fields": {
+    "style": 7,
+    "op_code": 4,
+    "section": "Back",
+    "name": "Back Rise D/N",
+    "machine": "D/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 359,
+  "fields": {
+    "style": 7,
+    "op_code": 5,
+    "section": "Back",
+    "name": "Back Main & Washcare Label Attach",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 360,
+  "fields": {
+    "style": 7,
+    "op_code": 6,
+    "section": "Back",
+    "name": "Back Slit Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 361,
+  "fields": {
+    "style": 7,
+    "op_code": 7,
+    "section": "Back",
+    "name": "Back Slit Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 362,
+  "fields": {
+    "style": 7,
+    "op_code": 9,
+    "section": "Assembly",
+    "name": "Front & Back Setting",
+    "machine": "Helper",
+    "rate": "0.00",
+    "pay_type": "helper"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 363,
+  "fields": {
+    "style": 7,
+    "op_code": 10,
+    "section": "Assembly",
+    "name": "Side Attach L",
+    "machine": "S/M",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 364,
+  "fields": {
+    "style": 7,
+    "op_code": 11,
+    "section": "Assembly",
+    "name": "Side Attach R",
+    "machine": "S/N",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 365,
+  "fields": {
+    "style": 7,
+    "op_code": 12,
+    "section": "Assembly",
+    "name": "Side Kinnari L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 366,
+  "fields": {
+    "style": 7,
+    "op_code": 13,
+    "section": "Assembly",
+    "name": "Side Kinnari R",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 367,
+  "fields": {
+    "style": 7,
+    "op_code": 14,
+    "section": "Assembly",
+    "name": "Side Pointed L",
+    "machine": "D/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 368,
+  "fields": {
+    "style": 7,
+    "op_code": 15,
+    "section": "Assembly",
+    "name": "Side Pointed R",
+    "machine": "D/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 369,
+  "fields": {
+    "style": 7,
+    "op_code": 16,
+    "section": "Assembly",
+    "name": "Inseam O/L",
+    "machine": "O/L",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 370,
+  "fields": {
+    "style": 7,
+    "op_code": 17,
+    "section": "Assembly",
+    "name": "Side O/L L",
+    "machine": "O/L",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 371,
+  "fields": {
+    "style": 7,
+    "op_code": 18,
+    "section": "Assembly",
+    "name": "Side O/L R",
+    "machine": "O/L",
+    "rate": "0.75",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 372,
+  "fields": {
+    "style": 7,
+    "op_code": 19,
+    "section": "Finishing",
+    "name": "Finishing Ironing",
+    "machine": "Iron",
+    "rate": "0.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 373,
+  "fields": {
+    "style": 7,
+    "op_code": 20,
+    "section": "Finishing",
+    "name": "Finishing Bartack (12)",
+    "machine": "Bartack",
+    "rate": "0.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 374,
+  "fields": {
+    "style": 7,
+    "op_code": 22,
+    "section": "Bottom",
+    "name": "Bottom Hemming / Finish",
+    "machine": "S/N",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 375,
+  "fields": {
+    "style": 7,
+    "op_code": 23,
+    "section": "Front Pocket",
+    "name": "Front Pocket Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 376,
+  "fields": {
+    "style": 7,
+    "op_code": 24,
+    "section": "Front Pocket",
+    "name": "Front Pocket Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 377,
+  "fields": {
+    "style": 7,
+    "op_code": 25,
+    "section": "Front Pocket",
+    "name": "Front Snatch Attach L",
+    "machine": "S/N",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 378,
+  "fields": {
+    "style": 7,
+    "op_code": 26,
+    "section": "Front Pocket",
+    "name": "Front Pocket Kinnari L",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 379,
+  "fields": {
+    "style": 7,
+    "op_code": 27,
+    "section": "Front Pocket",
+    "name": "Front Pocket Kinnari R",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 380,
+  "fields": {
+    "style": 7,
+    "op_code": 28,
+    "section": "Front Pocket",
+    "name": "Front Pocket Pointed L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 381,
+  "fields": {
+    "style": 7,
+    "op_code": 29,
+    "section": "Front Pocket",
+    "name": "Front Pocket Pointed R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 382,
+  "fields": {
+    "style": 7,
+    "op_code": 30,
+    "section": "Front Pocket",
+    "name": "Front Pocket Tucking Top",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 383,
+  "fields": {
+    "style": 7,
+    "op_code": 31,
+    "section": "Front Pocket",
+    "name": "Front Pocket Tucking Down",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 384,
+  "fields": {
+    "style": 7,
+    "op_code": 32,
+    "section": "Front Pocket",
+    "name": "Front Pocket Bag O/L L,R",
+    "machine": "O/L",
+    "rate": "1.20",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 385,
+  "fields": {
+    "style": 7,
+    "op_code": 33,
+    "section": "Front Pocket",
+    "name": "Pocket O/L End Tucking",
+    "machine": "S/N",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 386,
+  "fields": {
+    "style": 7,
+    "op_code": 34,
+    "section": "Front Slit",
+    "name": "Front Slit Snatch & Mark",
+    "machine": "S/N",
+    "rate": "0.40",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 387,
+  "fields": {
+    "style": 7,
+    "op_code": 35,
+    "section": "Front Slit",
+    "name": "Front Slit Attach L",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 388,
+  "fields": {
+    "style": 7,
+    "op_code": 36,
+    "section": "Front Slit",
+    "name": "Front Slit Attach R",
+    "machine": "S/N",
+    "rate": "0.70",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 389,
+  "fields": {
+    "style": 7,
+    "op_code": 37,
+    "section": "Labels",
+    "name": "Main & Washcare Label",
+    "machine": "S/N",
+    "rate": "0.80",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 390,
+  "fields": {
+    "style": 7,
+    "op_code": 38,
+    "section": "Lining",
+    "name": "Side O/L & Inseam O/L Mesh Lining",
+    "machine": "O/L",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 391,
+  "fields": {
+    "style": 7,
+    "op_code": 39,
+    "section": "Lining",
+    "name": "Mobilan Tape Attach Mesh Lining L",
+    "machine": "O/L",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 392,
+  "fields": {
+    "style": 7,
+    "op_code": 40,
+    "section": "Lining",
+    "name": "Mobilan Tape Attach Mesh Lining R",
+    "machine": "O/L",
+    "rate": "0.90",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 393,
+  "fields": {
+    "style": 7,
+    "op_code": 41,
+    "section": "Lining",
+    "name": "Lining & Body Tucking",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 394,
+  "fields": {
+    "style": 7,
+    "op_code": 42,
+    "section": "Lining",
+    "name": "Waist Band Mesh Lining Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 395,
+  "fields": {
+    "style": 7,
+    "op_code": 43,
+    "section": "Trim",
+    "name": "Hanger Loop Attach",
+    "machine": "S/N",
+    "rate": "1.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 396,
+  "fields": {
+    "style": 7,
+    "op_code": 45,
+    "section": "Waistband",
+    "name": "Waist Band Elastic Tucking (4)",
+    "machine": "S/N",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 397,
+  "fields": {
+    "style": 7,
+    "op_code": 46,
+    "section": "Waistband",
+    "name": "Waist Band Pocket Bag Tucking (2)",
+    "machine": "S/N",
+    "rate": "0.60",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 398,
+  "fields": {
+    "style": 7,
+    "op_code": 47,
+    "section": "Waistband",
+    "name": "Waist Band Kansai",
+    "machine": "Kansai",
+    "rate": "2.00",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 399,
+  "fields": {
+    "style": 7,
+    "op_code": 48,
+    "section": "Waistband",
+    "name": "Waist Band Cutting & Mark",
+    "machine": "S/M",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 400,
+  "fields": {
+    "style": 7,
+    "op_code": 49,
+    "section": "Waistband",
+    "name": "Waist Band Elastic Joint",
+    "machine": "S/N",
+    "rate": "0.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 401,
+  "fields": {
+    "style": 7,
+    "op_code": 50,
+    "section": "Waistband",
+    "name": "Drawcord Center Tucking",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 402,
+  "fields": {
+    "style": 7,
+    "op_code": 51,
+    "section": "Waistband / Trim",
+    "name": "Kaja Attach",
+    "machine": "Kaja",
+    "rate": "1.10",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 403,
+  "fields": {
+    "style": 7,
+    "op_code": 52,
+    "section": "Waistband/Lining",
+    "name": "Waist Band Mesh Lining & Body O/L",
+    "machine": "O/L",
+    "rate": "1.50",
+    "pay_type": "operator"
+  }
+},
+{
+  "model": "piecerate.ratecardoperation",
+  "pk": 404,
+  "fields": {
+    "style": 7,
+    "op_code": 53,
+    "section": "Waistband/Lining",
+    "name": "Front Snatch Attach R",
+    "machine": "S/N",
+    "rate": "0.30",
+    "pay_type": "operator"
+  }
+}
+]
