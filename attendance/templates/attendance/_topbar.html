@@ -1,11 +1,11 @@
 {% load static %}
 <header class="topbar">
-    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
+    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% elif is_production_head %}{% url 'piece_rate' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
         <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
         Payday
     </a>
     <nav>
-        {% if not is_salary_viewer and not is_employee_editor %}
+        {% if not is_salary_viewer and not is_employee_editor and not is_production_head %}
         <details class="nav-dropdown">
             <summary{% if current == "mark_attendance" or current == "dashboard" or current == "upload" or current == "calendar" %} class="current"{% endif %}>Attendance</summary>
             <div class="nav-dropdown-menu">
@@ -16,6 +16,7 @@
             </div>
         </details>
         {% endif %}
+        {% if not is_production_head %}
         {% if is_salary_viewer or not is_employee_editor %}
         <details class="nav-dropdown">
             <summary{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} class="current"{% endif %}>Payroll</summary>
@@ -34,6 +35,7 @@
                 <a href="{% url 'cash_register' %}"{% if current == "cash_register" %} class="current"{% endif %}>Cash Register</a>
             </div>
         </details>
+        {% endif %}
         {% endif %}
         {% if not is_salary_viewer and not is_employee_editor %}
         <details class="nav-dropdown">
