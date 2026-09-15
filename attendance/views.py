@@ -1359,13 +1359,11 @@ def _whatsapp_send_image(image_bytes: bytes, filename: str, caption: str = "") -
     the Meta WhatsApp Business Cloud API — uploads the image once (getting
     back a media id), then posts one /messages call per recipient
     referencing that id, mirroring _telegram_send_photo's best-effort
-    (ok, error) contract. Sends a free-form image message by default —
-    only deliverable within 24h of the recipient's last message to the
-    business account — because the currently-approved WHATSAPP_TEMPLATE_NAME
-    template has no image header component to carry the screenshot (Meta
-    rejects a header parameter on it with #132018). Once a template with an
-    approved image header exists, flip WHATSAPP_USE_TEMPLATE on to send via
-    that template instead, which has no 24h-window restriction."""
+    (ok, error) contract. With WHATSAPP_USE_TEMPLATE on, sends via the
+    approved "report" template (image header + a body with one named
+    variable, {{name}}, filled from `caption`) — this has no 24h-window
+    restriction, unlike the free-form image fallback used when the
+    template is off."""
     token = settings.WHATSAPP_ACCESS_TOKEN
     phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
     recipients = settings.WHATSAPP_RECIPIENTS
@@ -1415,6 +1413,16 @@ def _whatsapp_send_image(image_bytes: bytes, filename: str, caption: str = "") -
                     "language": {"code": settings.WHATSAPP_TEMPLATE_LANGUAGE},
                     "components": [
                         {"type": "header", "parameters": [{"type": "image", "image": {"id": media_id}}]},
+                        {
+                            "type": "body",
+                            "parameters": [
+                                {
+                                    "type": "text",
+                                    "parameter_name": "name",
+                                    "text": (caption or "Report").strip()[:60],
+                                }
+                            ],
+                        },
                     ],
                 },
             }

@@ -20,7 +20,7 @@
 }
 * { box-sizing: border-box; }
 body {
-    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: Verdana, Geneva, sans-serif;
     margin: 0;
     background: var(--surface);
     color: var(--text);

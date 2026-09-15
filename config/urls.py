@@ -23,4 +23,5 @@ admin.site.__class__ = OTPAdminSite
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('attendance.urls')),
+    path('piece-rate/', include('piecerate.urls')),
 ]

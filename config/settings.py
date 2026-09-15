@@ -76,15 +76,15 @@ WHATSAPP_PHONE_NUMBER_ID = os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
 # Comma-separated E.164 numbers without the leading "+", e.g. "9198XXXXXXXX".
 WHATSAPP_RECIPIENTS = ['919071426633', '919840911975', '919655601975']
 
-# Template (WhatsApp Manager > Message Templates) meant to send the report
-# image outside the 24h free-form window, once one with an approved IMAGE
-# header exists — test_mesage currently has no header component, so
-# _whatsapp_send_image sends a free-form image instead until this is
-# switched on. Flip WHATSAPP_USE_TEMPLATE to true once that template is
-# approved; name/language must match exactly or the send fails with
-# "template not found".
+# Template (WhatsApp Manager > Message Templates) used to send the report
+# image outside the 24h free-form window — "report" has an approved IMAGE
+# header plus a body with one named variable ({{name}}, filled from the
+# caption passed to _whatsapp_send_image). name/language must match exactly
+# or the send fails with "template not found"; it must also be approved on
+# the WABA that owns WHATSAPP_PHONE_NUMBER_ID specifically, not just any
+# WABA under this app.
 WHATSAPP_USE_TEMPLATE = os.environ.get('WHATSAPP_USE_TEMPLATE', 'false').strip().lower() in ('1', 'true', 'yes')
-WHATSAPP_TEMPLATE_NAME = os.environ.get('WHATSAPP_TEMPLATE_NAME', 'test_mesage')
+WHATSAPP_TEMPLATE_NAME = os.environ.get('WHATSAPP_TEMPLATE_NAME', 'report')
 WHATSAPP_TEMPLATE_LANGUAGE = os.environ.get('WHATSAPP_TEMPLATE_LANGUAGE', 'en')
 
 # WhatsApp Embedded Signup (Meta's official onboarding JS flow) — lets an
@@ -153,6 +153,7 @@ INSTALLED_APPS = [
     'django_otp',
     'django_otp.plugins.otp_totp',
     'attendance',
+    'piecerate',
 ]
 
 MIDDLEWARE = [

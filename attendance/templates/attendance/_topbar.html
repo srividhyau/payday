@@ -17,7 +17,16 @@
         </details>
         {% endif %}
         {% if is_salary_viewer or not is_employee_editor %}
-        <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
+        <details class="nav-dropdown">
+            <summary{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} class="current"{% endif %}>Payroll</summary>
+            <div class="nav-dropdown-menu">
+                <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
+                {% if not is_salary_viewer and not is_employee_editor %}
+                <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
+                <a href="{% url 'leave_ledger' %}"{% if current == "leave_ledger" %} class="current"{% endif %}>EL &amp; Comp-Off</a>
+                {% endif %}
+            </div>
+        </details>
         <details class="nav-dropdown">
             <summary{% if current == "cash_withdrawal" or current == "cash_register" %} class="current"{% endif %}>Cash</summary>
             <div class="nav-dropdown-menu">
@@ -28,10 +37,11 @@
         {% endif %}
         {% if not is_salary_viewer and not is_employee_editor %}
         <details class="nav-dropdown">
-            <summary{% if current == "ot_details" or current == "leave_ledger" %} class="current"{% endif %}>OT</summary>
+            <summary{% if current == "piece_rate_styles" or current == "piece_rate_templates" or current == "piece_rate_operations" %} class="current"{% endif %}>Piece Rate</summary>
             <div class="nav-dropdown-menu">
-                <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
-                <a href="{% url 'leave_ledger' %}"{% if current == "leave_ledger" %} class="current"{% endif %}>EL &amp; Comp-Off</a>
+                <a href="{% url 'piece_rate' %}"{% if current == "piece_rate_styles" %} class="current"{% endif %}>Styles</a>
+                <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
+                <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
             </div>
         </details>
         {% endif %}

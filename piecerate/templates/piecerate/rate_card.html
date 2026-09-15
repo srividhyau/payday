@@ -1,0 +1,316 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — {{ style.name }} Rate Card</title>
+    <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+<style>
+    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+    .save-btn, .delete-btn {
+        border: none; background: none; padding: 0; cursor: pointer; font-family: inherit;
+        font-size: 0.7rem; text-decoration: underline;
+    }
+    .save-btn { color: var(--navy); }
+    .save-btn:hover { color: var(--navy-deep); }
+    .delete-btn { color: #b3261e; }
+    .delete-btn:hover { color: #7a1a15; }
+
+    .table-wrap { overflow: visible; }
+    table.simple { border-collapse: collapse; }
+    table.simple th, table.simple td { border: 1px solid #b7bcc4; padding: 0.1rem 0.4rem; font-size: 0.78rem; }
+    table.simple th, table.simple th.num { background: #fef9c3; position: sticky; top: 56px; z-index: 5; text-align: center; }
+
+    table.simple input[type="text"], table.simple input[type="number"], table.simple select {
+        border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.3rem;
+        font-size: 0.78rem; font-family: inherit; box-sizing: border-box;
+    }
+    table.simple input:focus, table.simple select:focus { outline: none; border-color: var(--navy); }
+    table.simple input[readonly] { background: #f1f3f5; color: var(--text-muted); }
+    table.simple select:disabled { background: #f1f3f5; color: var(--text-muted); }
+    .col-drag { width: 20px; text-align: center; cursor: grab; color: var(--text-muted); user-select: none; }
+    .col-drag:active { cursor: grabbing; }
+    .col-op-code { width: 35px; text-align: center; color: var(--text-muted); }
+    .col-section input { width: 90px; }
+    .col-name select { width: 100%; min-width: 240px; }
+    .col-machine input { width: 70px; }
+    .col-rate input { width: 60px; }
+    .col-rate input.rate-higher { color: #1e7e34; font-weight: 700; }
+    .col-rate input.rate-lower { color: #b3261e; font-weight: 700; }
+    .col-pay-type select { width: 100px; }
+    .new-row td { background: #f8fafc; }
+    tbody tr.dragging { opacity: 0.4; }
+    tbody tr.drag-over { box-shadow: inset 0 2px 0 var(--navy); }
+</style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="piece_rate_styles" %}
+
+    <div class="page">
+        <div class="page-header-row">
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+                <h1>Rate Card</h1>
+                <select id="styleSwitch" class="search-input" style="min-width:180px;">
+                    {% for s in all_styles %}
+                    <option value="{% url 'piece_rate_rate_card' s.id %}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <span id="orderSavedNote" style="font-size:0.8rem; color:var(--text-muted); display:none;">Order saved</span>
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <form method="post" id="rateCardForm">
+            {% csrf_token %}
+            <div class="table-wrap fit-content">
+                <table class="simple">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Op Code</th>
+                            <th>Section</th>
+                            <th>Operation</th>
+                            <th>Machine</th>
+                            <th class="num">Rate</th>
+                            <th>Pay Type</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="new-row">
+                            <td></td>
+                            <td class="col-op-code">—</td>
+                            <td class="col-section"><input type="text" name="section" readonly></td>
+                            <td class="col-name">
+                                <select name="name" class="op-select">
+                                    <option value="">— choose operation —</option>
+                                    {% regroup master_operations by section as section_list %}
+                                    {% for section in section_list %}
+                                    <optgroup label="{{ section.grouper|default:"(no section)" }}">
+                                        {% for mop in section.list %}
+                                        <option value="{{ mop.name }}">{{ mop.name }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="col-machine"><input type="text" name="machine" readonly></td>
+                            <td class="col-rate"><input type="number" step="0.01" name="rate"></td>
+                            <td class="col-pay-type">
+                                <select class="pay-type-select" disabled>
+                                    {% for value, label in pay_type_choices %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="hidden" name="pay_type" class="pay-type-hidden" value="operator">
+                            </td>
+                            <td><button type="submit" name="action" value="create" class="save-btn">+ Add</button></td>
+                        </tr>
+                        {% for op in operations %}
+                        <tr data-op-id="{{ op.id }}">
+                            <td class="col-drag" draggable="true" title="Drag to reorder">⠿</td>
+                            <td class="col-op-code">{{ forloop.counter }}</td>
+                            <td class="col-section"><input type="text" name="section_{{ op.id }}" value="{{ op.section }}" readonly></td>
+                            <td class="col-name">
+                                <select name="name_{{ op.id }}" class="op-select">
+                                    <option value="">— choose operation —</option>
+                                    {% regroup master_operations by section as section_list %}
+                                    {% for section in section_list %}
+                                    <optgroup label="{{ section.grouper|default:"(no section)" }}">
+                                        {% for mop in section.list %}
+                                        <option value="{{ mop.name }}"{% if mop.name == op.name %} selected{% endif %}>{{ mop.name }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="col-machine"><input type="text" name="machine_{{ op.id }}" value="{{ op.machine }}" readonly></td>
+                            <td class="col-rate"><input type="number" step="0.01" name="rate_{{ op.id }}" value="{{ op.rate }}"></td>
+                            <td class="col-pay-type">
+                                <select class="pay-type-select" disabled>
+                                    {% for value, label in pay_type_choices %}
+                                    <option value="{{ value }}"{% if value == op.pay_type %} selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="hidden" name="pay_type_{{ op.id }}" class="pay-type-hidden" value="{{ op.pay_type }}">
+                            </td>
+                            <td>
+                                <button type="submit" name="action" value="edit_{{ op.id }}" class="save-btn">Save</button>
+                                &nbsp;
+                                <button type="submit" name="action" value="delete_{{ op.id }}" class="delete-btn" data-confirm-name="{{ op.name|escapejs }}">Delete</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {% if not operations %}
+        <p class="empty-state">No operations yet — add one above to start this style's rate card.</p>
+        {% endif %}
+    </div>
+
+    {{ master_map|json_script:"masterMap" }}
+    <script>
+        var masterMap = JSON.parse(document.getElementById('masterMap').textContent);
+
+        function fillFromMaster(select) {
+            var data = masterMap[select.value];
+            var row = select.closest('tr');
+            var sectionInput = row.querySelector('.col-section input');
+            var machineInput = row.querySelector('.col-machine input');
+            var rateInput = row.querySelector('.col-rate input');
+            var payTypeSelect = row.querySelector('.pay-type-select');
+            var payTypeHidden = row.querySelector('.pay-type-hidden');
+            if (data) {
+                sectionInput.value = data.section;
+                machineInput.value = data.machine;
+                rateInput.value = data.rate;
+                payTypeSelect.value = data.pay_type;
+                payTypeHidden.value = data.pay_type;
+            } else {
+                sectionInput.value = '';
+                machineInput.value = '';
+                rateInput.value = '';
+                payTypeSelect.value = 'operator';
+                payTypeHidden.value = 'operator';
+            }
+            updateRateColor(row);
+        }
+
+        function updateRateColor(row) {
+            var select = row.querySelector('.op-select');
+            var rateInput = row.querySelector('.col-rate input');
+            var data = masterMap[select.value];
+            rateInput.classList.remove('rate-higher', 'rate-lower');
+            if (!data || rateInput.value === '') return;
+            var current = parseFloat(rateInput.value);
+            var masterRate = parseFloat(data.rate);
+            if (isNaN(current) || isNaN(masterRate)) return;
+            if (current > masterRate) rateInput.classList.add('rate-higher');
+            else if (current < masterRate) rateInput.classList.add('rate-lower');
+        }
+
+        // An operation already used elsewhere on this rate card can't be
+        // picked again — grey it out in every OTHER row's dropdown (a
+        // row keeps its own current value selectable, so editing that
+        // row without changing its operation still works).
+        function refreshOptionAvailability() {
+            var selects = document.querySelectorAll('.op-select');
+            var usedElsewhere = {};
+            selects.forEach(function (select) {
+                if (select.value) usedElsewhere[select.value] = (usedElsewhere[select.value] || 0) + 1;
+            });
+            selects.forEach(function (select) {
+                Array.from(select.options).forEach(function (option) {
+                    if (!option.value) return;
+                    var usedByAnother = option.value !== select.value && !!usedElsewhere[option.value];
+                    option.disabled = usedByAnother;
+                });
+            });
+        }
+
+        document.querySelectorAll('.op-select').forEach(function (select) {
+            select.addEventListener('change', function () {
+                fillFromMaster(select);
+                refreshOptionAvailability();
+            });
+            updateRateColor(select.closest('tr'));
+        });
+        refreshOptionAvailability();
+
+        document.querySelectorAll('.col-rate input').forEach(function (input) {
+            input.addEventListener('input', function () {
+                updateRateColor(input.closest('tr'));
+            });
+        });
+
+        document.getElementById('styleSwitch').addEventListener('change', function (e) {
+            window.location.href = e.target.value;
+        });
+        document.getElementById('rateCardForm').addEventListener('submit', function (e) {
+            var btn = e.submitter;
+            if (btn && btn.classList.contains('delete-btn')) {
+                if (!confirm('Delete operation ' + btn.dataset.confirmName + '?')) {
+                    e.preventDefault();
+                }
+            }
+        });
+
+        // Drag-and-drop reordering — the handle cell (⠿) is draggable;
+        // dropping onto another row moves it ahead of/behind it, then
+        // every row's Op Code display is renumbered by its new position
+        // and the new order is saved to the server immediately in the
+        // background (no separate save step).
+        var tbody = document.querySelector('table.simple tbody');
+        var draggedRow = null;
+        var csrfToken = document.querySelector('#rateCardForm [name=csrfmiddlewaretoken]').value;
+
+        function renumberRows() {
+            var rows = tbody.querySelectorAll('tr[data-op-id]');
+            rows.forEach(function (row, i) {
+                row.querySelector('.col-op-code').textContent = i + 1;
+            });
+        }
+
+        function saveOrder() {
+            var ids = Array.from(tbody.querySelectorAll('tr[data-op-id]')).map(function (r) {
+                return r.dataset.opId;
+            });
+            var formData = new FormData();
+            formData.append('action', 'reorder');
+            formData.append('order_csv', ids.join(','));
+            formData.append('csrfmiddlewaretoken', csrfToken);
+            fetch(window.location.href, { method: 'POST', body: formData })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error('save failed');
+                    var note = document.getElementById('orderSavedNote');
+                    note.style.display = '';
+                    clearTimeout(note._hideTimer);
+                    note._hideTimer = setTimeout(function () { note.style.display = 'none'; }, 1500);
+                })
+                .catch(function () {
+                    alert('Could not save the new order — please try again.');
+                });
+        }
+
+        tbody.querySelectorAll('.col-drag').forEach(function (handle) {
+            handle.addEventListener('dragstart', function (e) {
+                draggedRow = handle.closest('tr');
+                draggedRow.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            handle.addEventListener('dragend', function () {
+                if (draggedRow) draggedRow.classList.remove('dragging');
+                draggedRow = null;
+                tbody.querySelectorAll('.drag-over').forEach(function (r) { r.classList.remove('drag-over'); });
+            });
+        });
+
+        tbody.querySelectorAll('tr[data-op-id]').forEach(function (row) {
+            row.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                if (!draggedRow || draggedRow === row) return;
+                row.classList.add('drag-over');
+            });
+            row.addEventListener('dragleave', function () {
+                row.classList.remove('drag-over');
+            });
+            row.addEventListener('drop', function (e) {
+                e.preventDefault();
+                row.classList.remove('drag-over');
+                if (!draggedRow || draggedRow === row) return;
+                var rect = row.getBoundingClientRect();
+                var before = (e.clientY - rect.top) < rect.height / 2;
+                row.parentNode.insertBefore(draggedRow, before ? row : row.nextSibling);
+                renumberRows();
+                saveOrder();
+            });
+        });
+    </script>
+</body>
+</html>
