@@ -9,6 +9,17 @@ from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, RateCardOperation, Style
+from .permissions import can_edit_piece_rate
+
+
+def _require_piece_rate_editor(request, redirect_to=None):
+    """Shared gate for Master Operations/Templates writes — everyone with
+    general app access can still view both pages; only a superuser or a
+    "Piece Rate Editor" can add/edit/delete. See piecerate/permissions.py."""
+    if not can_edit_piece_rate(request.user):
+        messages.error(request, "You don't have permission to edit this.")
+        return redirect(redirect_to or request.path)
+    return None
 
 
 def _master_rate_map():
@@ -124,6 +135,9 @@ def piece_rate_view(request):
             messages.success(request, "Style deleted.")
             return redirect(redirect_url)
         if action.startswith("save_as_template_"):
+            denied = _require_piece_rate_editor(request, redirect_to=redirect_url)
+            if denied:
+                return denied
             style = get_object_or_404(
                 Style, id=action[len("save_as_template_"):], is_template=False,
             )
@@ -160,6 +174,9 @@ def template_list_view(request):
     """Permanent, reusable rate cards with no month of their own — kept
     as a reference, never used for production directly."""
     if request.method == "POST":
+        denied = _require_piece_rate_editor(request)
+        if denied:
+            return denied
         action = request.POST.get("action", "")
         if action == "create_template":
             name = request.POST.get("name", "").strip()
@@ -203,6 +220,10 @@ def rate_card_view(request, style_id):
     style = get_object_or_404(Style, id=style_id)
 
     if request.method == "POST":
+        if style.is_template:
+            denied = _require_piece_rate_editor(request)
+            if denied:
+                return denied
         action = request.POST.get("action", "")
 
         if action.startswith("delete_"):
@@ -268,6 +289,7 @@ def rate_card_view(request, style_id):
         "master_operations": master_operations,
         "master_map": master_map,
         "pay_type_choices": PAY_TYPE_CHOICES,
+        "can_edit_this_style": not style.is_template or can_edit_piece_rate(request.user),
     })
 
 
@@ -278,6 +300,9 @@ def master_operations_view(request):
     cards after de-duplicating spelling/abbreviation drift. Add, edit,
     delete an operation here."""
     if request.method == "POST":
+        denied = _require_piece_rate_editor(request)
+        if denied:
+            return denied
         action = request.POST.get("action", "")
         if action in ("create", "edit"):
             if action == "edit":

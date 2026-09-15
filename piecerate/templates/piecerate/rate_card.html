@@ -81,6 +81,7 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% if can_edit_this_style %}
                         <tr class="new-row">
                             <td></td>
                             <td class="col-op-code">—</td>
@@ -110,7 +111,9 @@
                             </td>
                             <td><button type="submit" name="action" value="create" class="save-btn">+ Add</button></td>
                         </tr>
+                        {% endif %}
                         {% for op in operations %}
+                        {% if can_edit_this_style %}
                         <tr data-op-id="{{ op.id }}">
                             <td class="col-drag" draggable="true" title="Drag to reorder">⠿</td>
                             <td class="col-op-code">{{ forloop.counter }}</td>
@@ -144,6 +147,18 @@
                                 <button type="submit" name="action" value="delete_{{ op.id }}" class="delete-btn" data-confirm-name="{{ op.name|escapejs }}">Delete</button>
                             </td>
                         </tr>
+                        {% else %}
+                        <tr>
+                            <td></td>
+                            <td class="col-op-code">{{ forloop.counter }}</td>
+                            <td>{{ op.section|default:"—" }}</td>
+                            <td>{{ op.name }}</td>
+                            <td>{{ op.machine|default:"—" }}</td>
+                            <td class="num">{{ op.rate }}</td>
+                            <td>{{ op.get_pay_type_display }}</td>
+                            <td></td>
+                        </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>

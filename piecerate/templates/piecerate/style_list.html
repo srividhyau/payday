@@ -111,11 +111,13 @@
                         <td class="num {{ row.rate_class }}">{{ row.total_rate }}</td>
                         <td><a href="{% url 'piece_rate_rate_card' row.style.id %}" class="edit-link">Rate Card</a></td>
                         <td>
+                            {% if is_piece_rate_editor %}
                             <form method="post" style="display:inline;">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="save_as_template_{{ row.style.id }}">
                                 <button type="submit" class="edit-link">Save as Template</button>
                             </form>
+                            {% endif %}
                         </td>
                         <td>
                             <form method="post" style="display:inline;" onsubmit="return confirm('Delete style {{ row.style.name|escapejs }} and its entire rate card?');">
