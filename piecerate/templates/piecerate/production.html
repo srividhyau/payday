@@ -1,0 +1,517 @@
+{% load static piecerate_extras %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — {{ style.name }} Production</title>
+    <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+<style>
+    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+
+    .table-wrap { overflow: auto; max-height: calc(100vh - 170px); }
+    /* border-collapse:collapse + position:sticky cells is a known
+       browser rendering bug — scrolled-under content can bleed through
+       a sticky cell's border/background. border-separate avoids it. */
+    table.simple { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+    table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.15rem 0.3rem; font-size: 0.75rem; text-align: center; white-space: nowrap; }
+    table.simple thead th { background: #fef9c3; position: sticky; top: 0; z-index: 6; }
+
+    .col-opcode, .col-section, .col-label, .col-total {
+        position: sticky; z-index: 3; background: #fff;
+    }
+    /* Needs to out-specificity "table.simple thead th" (which also sets
+       z-index) or the day-number headers — same z-index, later in DOM —
+       paint on top of these during a horizontal scroll. */
+    table.simple thead th.col-opcode, table.simple thead th.col-section,
+    table.simple thead th.col-label, table.simple thead th.col-total { z-index: 7; background: #fef9c3; }
+    tr.op-row td.col-opcode, tr.op-row td.col-section, tr.op-row td.col-label, tr.op-row td.col-total { background: #eef2f7; z-index: 4; }
+
+    .col-opcode { left: 0; width: 30px; }
+    .col-section { left: 30px; width: 90px; }
+    .col-label { left: 120px; width: 240px; }
+    .col-total { left: 360px; width: 55px; font-weight: 700; }
+    .col-day { width: 40px; }
+    .col-day .dow { display: block; font-size: 0.6rem; font-weight: 400; color: var(--text-muted); line-height: 1.3; }
+
+    /* table.simple th/td's own text-align:center rule (above) has higher
+       specificity (two type selectors) than a single class like
+       .col-label would, so it wins over a plain ".col-label {text-align:
+       left}" — these need the same table.simple/type qualifiers to
+       actually override it. */
+    table.simple th.col-section, table.simple td.col-section,
+    table.simple th.col-label, table.simple td.col-label { text-align: left; white-space: normal; }
+
+    tr.op-row td { background: #eef2f7; font-weight: 700; }
+    tr.op-row td.op-summary { text-align: left; }
+    .op-meta { font-weight: 400; color: var(--text-muted); font-size: 0.72rem; }
+    .diff-more { color: #a400a4; font-weight: 700; }
+    .diff-less { color: #b3261e; font-weight: 700; }
+    .diff-balanced { color: #1e7e34; font-weight: 700; }
+
+    /* Same colors as the Attendance dashboard's day headers for a
+       Holiday/Paid Holiday/Comp Off — so a day marked off there reads
+       the same way on this page. table.simple thead th (above) already
+       sets a background with higher specificity than a plain ".special-H"
+       class would have, so these need the same table.simple/thead/th
+       qualifiers to actually win. */
+    table.simple thead th.special-H, table.simple td.special-H { background: #ececec; }
+    table.simple thead th.special-PH, table.simple td.special-PH { background: #d3ece9; }
+    table.simple thead th.special-CO, table.simple td.special-CO { background: #fce3c9; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; font-size: 0.75rem; color: var(--text-muted); }
+    .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; margin-right: 0.3rem; vertical-align: middle; border: 1px solid rgba(0,0,0,0.1); }
+    .legend .swatch-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
+
+    .op-name-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.4rem; }
+    .op-name-text { white-space: normal; overflow-wrap: break-word; }
+
+    .add-operator-btn {
+        flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--navy);
+        background: #fff; color: var(--navy); font-weight: 700; font-size: 0.8rem; line-height: 1;
+        cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .add-operator-btn:hover { background: var(--navy); color: #fff; }
+
+    .operator-name-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+    .remove-operator-btn {
+        flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #b3261e;
+        background: #fff; color: #b3261e; font-weight: 700; font-size: 0.75rem; line-height: 1;
+        cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .remove-operator-btn:hover { background: #b3261e; color: #fff; }
+
+    tr.operator-row td.col-label { text-align: left; padding-left: 1.1rem; }
+    .day-input {
+        width: 34px; border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem;
+        font-size: 0.72rem; text-align: center; font-family: inherit; box-sizing: border-box;
+        -moz-appearance: textfield;
+    }
+    .day-input::-webkit-outer-spin-button, .day-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .day-input:focus { outline: none; border-color: var(--navy); }
+    .day-input.saving { border-color: var(--navy); }
+    .day-input.save-error { border-color: #b3261e; background: #fdecea; }
+    .day-input.qty-invalid, .day-input.qty-invalid:focus {
+        border-color: #a400a4; border-width: 2px; background: #fbe6fb; color: #a400a4; font-weight: 700;
+    }
+
+    .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+
+    .edit-modal.add-operator-modal { max-width: 340px; }
+    .edit-modal.add-operator-modal h3 { font-size: 0.95rem; }
+    #addOperatorInput { width: 100%; margin-bottom: 1rem; box-sizing: border-box; }
+</style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="piece_rate_styles" %}
+
+    <div class="page">
+        <div class="page-header-row">
+            <div style="display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap;">
+                <h1>Production — {{ style.name }}</h1>
+                <div class="legend">
+                    <span><span class="swatch" style="background:#ececec"></span>Holiday</span>
+                    <span><span class="swatch" style="background:#d3ece9"></span>Paid Holiday</span>
+                    <span><span class="swatch" style="background:#fce3c9"></span>Comp Off</span>
+                    <span><span class="swatch-dot" style="background:#a400a4"></span>More than Order Qty</span>
+                    <span><span class="swatch-dot" style="background:#b3261e"></span>Less than Order Qty</span>
+                    <span><span class="swatch-dot" style="background:#1e7e34"></span>Balanced</span>
+                </div>
+            </div>
+            <a href="{% url 'piece_rate_rate_card' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Rate Card</a>
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        {% if op_rows %}
+        <div class="table-wrap fit-content">
+            <table class="simple">
+                <thead>
+                    <tr>
+                        <th class="col-opcode">Op Code</th>
+                        <th class="col-section">Section</th>
+                        <th class="col-label">Operation / Operator</th>
+                        <th class="col-total">Total</th>
+                        {% for dh in day_headers %}<th class="col-day{% if special_days|dict_get:dh.day %} special-{{ special_days|dict_get:dh.day }}{% endif %}"><span class="dow">{{ dh.dow }}</span>{{ dh.day }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in op_rows %}
+                    <tr class="op-row" data-op-id="{{ row.op.id }}" data-order-qty="{{ row.op.order_quantity }}">
+                        <td class="col-opcode">{{ row.op.op_code }}</td>
+                        <td class="col-section">{{ row.op.section|default:"—" }}</td>
+                        <td class="col-label">
+                            <div class="op-name-row">
+                                <span class="op-name-text {{ row.diff_class }}">{{ row.op.name }}</span>
+                                <button type="button" class="add-operator-btn" data-op-id="{{ row.op.id }}" data-op-name="{{ row.op.name }}"
+                                    title="Add operator" {% if not row.available_employees %}style="display:none;"{% endif %}>+</button>
+                                <datalist id="opEmpList{{ row.op.id }}">
+                                    {% for e in row.available_employees %}
+                                    <option data-id="{{ e.id }}" value="{{ e.name }}"></option>
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+                        </td>
+                        <td class="col-total op-total-cell {{ row.diff_class }}">{{ row.op_total }}</td>
+                        <td class="op-summary" colspan="{{ days|length }}">
+                            <span class="op-meta">Order Qty {{ row.op.order_quantity }}{% if row.op.order_quantity %} · <span class="op-diff-value {{ row.diff_class }}">{{ row.diff_display }}</span>{% endif %}</span>
+                        </td>
+                    </tr>
+                    {% for r in row.rows %}
+                    <tr class="operator-row" data-op-id="{{ row.op.id }}" data-employee-id="{{ r.employee.id }}">
+                        <td class="col-opcode"></td>
+                        <td class="col-section"></td>
+                        <td class="col-label">
+                            <div class="operator-name-row">
+                                <span>{{ r.employee.name }}</span>
+                                <button type="button" class="remove-operator-btn" data-op-id="{{ row.op.id }}"
+                                    data-employee-id="{{ r.employee.id }}" data-employee-name="{{ r.employee.name|escapejs }}"
+                                    title="Remove operator">×</button>
+                            </div>
+                        </td>
+                        <td class="col-total row-total-cell">{{ r.total }}</td>
+                        {% for d in days %}
+                        <td{% if special_days|dict_get:d %} class="special-{{ special_days|dict_get:d }}"{% endif %}><input type="number" min="0" step="1" class="day-input"
+                            data-rate-card-operation-id="{{ row.op.id }}"
+                            data-employee-id="{{ r.employee.id }}"
+                            data-day="{{ d }}"
+                            value="{{ r.days|dict_get:d|default_if_none:'' }}"></td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty-state">This style has no rate card operations yet — add some on the Rate Card page first.</p>
+        {% endif %}
+    </div>
+
+    <div class="edit-overlay" id="addOperatorOverlay">
+        <div class="edit-modal add-operator-modal">
+            <h3 id="addOperatorTitle">Add operator</h3>
+            <input type="text" id="addOperatorInput" placeholder="Search operator…" autocomplete="off" class="search-input">
+            <div class="edit-actions">
+                <button type="button" id="addOperatorCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    {{ special_days|json_script:"specialDays" }}
+    <script>
+        var specialDays = JSON.parse(document.getElementById('specialDays').textContent);
+
+        var csrfToken = document.cookie.split('; ').find(function (row) { return row.startsWith('csrftoken='); });
+        csrfToken = csrfToken ? csrfToken.split('=')[1] : '';
+
+        function rowTotal(tr) {
+            var sum = 0;
+            tr.querySelectorAll('.day-input').forEach(function (input) {
+                sum += parseInt(input.value, 10) || 0;
+            });
+            return sum;
+        }
+
+        var DIFF_CLASSES = ['diff-more', 'diff-less', 'diff-balanced'];
+
+        function updateOpTotal(opId) {
+            var sum = 0;
+            document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"]').forEach(function (tr) {
+                sum += rowTotal(tr);
+            });
+            var opRow = document.querySelector('tr.op-row[data-op-id="' + opId + '"]');
+            if (!opRow) return sum;
+
+            var orderQty = parseInt(opRow.dataset.orderQty, 10) || 0;
+            var diffClass = '';
+            var diffText = '';
+            if (orderQty) {
+                var diff = sum - orderQty;
+                if (diff > 0) { diffClass = 'diff-more'; diffText = '+' + diff; }
+                else if (diff < 0) { diffClass = 'diff-less'; diffText = String(diff); }
+                else { diffClass = 'diff-balanced'; diffText = '0'; }
+            }
+
+            var totalCell = opRow.querySelector('.op-total-cell');
+            if (totalCell) {
+                totalCell.classList.remove.apply(totalCell.classList, DIFF_CLASSES);
+                if (diffClass) totalCell.classList.add(diffClass);
+                totalCell.textContent = sum;
+            }
+            var diffSpan = opRow.querySelector('.op-diff-value');
+            if (diffSpan) {
+                diffSpan.classList.remove.apply(diffSpan.classList, DIFF_CLASSES);
+                if (diffClass) diffSpan.classList.add(diffClass);
+                diffSpan.textContent = diffText;
+            }
+            var nameSpan = opRow.querySelector('.op-name-text');
+            if (nameSpan) {
+                nameSpan.classList.remove.apply(nameSpan.classList, DIFF_CLASSES);
+                if (diffClass) nameSpan.classList.add(diffClass);
+            }
+            return sum;
+        }
+
+        function saveCell(input, previousValue) {
+            input.classList.remove('save-error');
+            input.classList.add('saving');
+            var formData = new FormData();
+            formData.append('rate_card_operation_id', input.dataset.rateCardOperationId);
+            formData.append('employee_id', input.dataset.employeeId);
+            formData.append('day', input.dataset.day);
+            formData.append('quantity', input.value || '0');
+            fetch(window.location.href, {
+                method: 'POST', body: formData,
+                headers: { 'X-CSRFToken': csrfToken },
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    input.classList.remove('saving');
+                    if (!data.ok) {
+                        input.classList.add('save-error');
+                        alert(data.error || 'Could not save — please try again.');
+                        // Server rejected it (e.g. someone else's edit in another
+                        // tab pushed the total over first) — put the cell back
+                        // the way it was and recompute totals to match.
+                        input.value = previousValue;
+                        input.dataset.lastGoodValue = previousValue;
+                        var tr = input.closest('tr');
+                        tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
+                        updateOpTotal(input.dataset.rateCardOperationId);
+                    } else {
+                        input.dataset.lastGoodValue = input.value;
+                    }
+                })
+                .catch(function () {
+                    input.classList.remove('saving');
+                    input.classList.add('save-error');
+                });
+        }
+
+        // Checks whether the operation's total, with THIS input's current
+        // (possibly not-yet-saved) value counted, would exceed its Order
+        // Qty. Used both to live-color the input while typing and to
+        // decide, on blur, whether the field is allowed to lose focus.
+        function checkOverLimit(input) {
+            var opId = input.dataset.rateCardOperationId;
+            var opRow = document.querySelector('tr.op-row[data-op-id="' + opId + '"]');
+            var orderQty = opRow ? (parseInt(opRow.dataset.orderQty, 10) || 0) : 0;
+            if (!orderQty) return { over: false };
+            var hypothetical = 0;
+            document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"] .day-input').forEach(function (di) {
+                hypothetical += parseInt(di.value, 10) || 0;
+            });
+            return { over: hypothetical > orderQty, hypothetical: hypothetical, orderQty: orderQty };
+        }
+
+        // Live preview as they type: color the field and update the
+        // row/operation totals immediately, before anything is saved.
+        function attachDayInput(input) {
+            input.dataset.lastGoodValue = input.value;
+
+            input.addEventListener('input', function () {
+                var tr = input.closest('tr');
+                input.classList.toggle('qty-invalid', checkOverLimit(input).over);
+                tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
+                updateOpTotal(input.dataset.rateCardOperationId);
+            });
+
+            // Trap focus on this cell while it's over the limit — a popup
+            // explains why, then focus snaps right back to the same box,
+            // so the amount has to be fixed before moving on to anything
+            // else (another cell, the "+"/remove buttons, navigation).
+            //
+            // Whether THIS blur should trap is decided from this input's
+            // own "qty-invalid" class (set by its "input" handler above),
+            // not a fresh whole-operation recheck — checkOverLimit sums
+            // every cell in the operation, so if it drove the decision
+            // here too, every OTHER cell in an over-limit operation would
+            // also count itself as the culprit the instant it got focus.
+            // Tabbing from this cell to the next one would then trap
+            // that cell too, and refocusing this one would trap it right
+            // back — an infinite focus fight between the two.
+            input.addEventListener('blur', function () {
+                if (input.classList.contains('qty-invalid')) {
+                    var status = checkOverLimit(input);
+                    alert(
+                        'This would bring the total to ' + status.hypothetical + ', which exceeds the Order Qty of ' +
+                        status.orderQty + '. Fix the amount before moving on.'
+                    );
+                    // Deferred to the next tick: refocusing synchronously
+                    // from inside a blur handler can make some browsers
+                    // fire blur on this same element again right away.
+                    setTimeout(function () { input.focus(); }, 0);
+                    return;
+                }
+                if (input.value !== input.dataset.lastGoodValue) {
+                    saveCell(input, input.dataset.lastGoodValue);
+                }
+            });
+        }
+
+        document.querySelectorAll('.day-input').forEach(attachDayInput);
+
+        function addOperatorRow(opId, employeeId, employeeName) {
+            // Insert after the last existing operator row for this
+            // operation, or right after the operation's own header row
+            // if it has none yet.
+            var existingRows = document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"]');
+            var afterRow = existingRows.length
+                ? existingRows[existingRows.length - 1]
+                : document.querySelector('tr.op-row[data-op-id="' + opId + '"]');
+            var newRow = document.createElement('tr');
+            newRow.className = 'operator-row';
+            newRow.dataset.opId = opId;
+            newRow.dataset.employeeId = employeeId;
+
+            var opcodeTd = document.createElement('td');
+            opcodeTd.className = 'col-opcode';
+            newRow.appendChild(opcodeTd);
+
+            var sectionTd = document.createElement('td');
+            sectionTd.className = 'col-section';
+            newRow.appendChild(sectionTd);
+
+            var labelTd = document.createElement('td');
+            labelTd.className = 'col-label';
+            var nameRow = document.createElement('div');
+            nameRow.className = 'operator-name-row';
+            var nameSpan = document.createElement('span');
+            nameSpan.textContent = employeeName;
+            nameRow.appendChild(nameSpan);
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-operator-btn';
+            removeBtn.title = 'Remove operator';
+            removeBtn.textContent = '×';
+            removeBtn.dataset.opId = opId;
+            removeBtn.dataset.employeeId = employeeId;
+            removeBtn.dataset.employeeName = employeeName;
+            attachRemoveHandler(removeBtn);
+            nameRow.appendChild(removeBtn);
+            labelTd.appendChild(nameRow);
+            newRow.appendChild(labelTd);
+
+            var totalTd = document.createElement('td');
+            totalTd.className = 'col-total row-total-cell';
+            totalTd.textContent = '0';
+            newRow.appendChild(totalTd);
+
+            var dayCount = {{ days|length }};
+            for (var d = 1; d <= dayCount; d++) {
+                var td = document.createElement('td');
+                if (specialDays[d]) td.className = 'special-' + specialDays[d];
+                var inputEl = document.createElement('input');
+                inputEl.type = 'number';
+                inputEl.min = '0';
+                inputEl.step = '1';
+                inputEl.className = 'day-input';
+                inputEl.dataset.rateCardOperationId = opId;
+                inputEl.dataset.employeeId = employeeId;
+                inputEl.dataset.day = d;
+                attachDayInput(inputEl);
+                td.appendChild(inputEl);
+                newRow.appendChild(td);
+            }
+
+            afterRow.parentNode.insertBefore(newRow, afterRow.nextSibling);
+        }
+
+        // Removing an operator deletes every entry they have on this
+        // operation (all days) — confirm first if they actually have
+        // any quantity logged, so an empty just-added-by-mistake row
+        // can be removed without a prompt.
+        function attachRemoveHandler(btn) {
+            btn.addEventListener('click', function () {
+                var tr = btn.closest('tr');
+                var opId = btn.dataset.opId;
+                var employeeId = btn.dataset.employeeId;
+                var employeeName = btn.dataset.employeeName;
+                var total = rowTotal(tr);
+                if (total > 0 && !confirm(
+                    'Remove ' + employeeName + '? They already have ' + total +
+                    ' piece(s) logged for this operation — this deletes all of it.'
+                )) {
+                    return;
+                }
+
+                var formData = new FormData();
+                formData.append('action', 'remove_operator');
+                formData.append('rate_card_operation_id', opId);
+                formData.append('employee_id', employeeId);
+                fetch(window.location.href, {
+                    method: 'POST', body: formData,
+                    headers: { 'X-CSRFToken': csrfToken },
+                })
+                    .then(function (resp) { return resp.json(); })
+                    .then(function (data) {
+                        if (!data.ok) { alert('Could not remove — please try again.'); return; }
+                        tr.remove();
+                        updateOpTotal(opId);
+
+                        var datalist = document.getElementById('opEmpList' + opId);
+                        var opt = document.createElement('option');
+                        opt.value = employeeName;
+                        opt.dataset.id = employeeId;
+                        datalist.appendChild(opt);
+                        var addBtn = document.querySelector('.add-operator-btn[data-op-id="' + opId + '"]');
+                        if (addBtn) addBtn.style.display = '';
+                    })
+                    .catch(function () {
+                        alert('Could not remove — please try again.');
+                    });
+            });
+        }
+
+        document.querySelectorAll('.remove-operator-btn').forEach(attachRemoveHandler);
+
+        // "+" opens a shared popup; its search input is pointed at the
+        // clicked operation's own (hidden) <datalist> by swapping the
+        // `list` attribute, so one popup + one input serves every
+        // operation without duplicating the search UI per row.
+        var addOperatorOverlay = document.getElementById('addOperatorOverlay');
+        var addOperatorInput = document.getElementById('addOperatorInput');
+        var addOperatorTitle = document.getElementById('addOperatorTitle');
+
+        function closeAddOperatorPopup() {
+            addOperatorOverlay.classList.remove('open');
+            addOperatorInput.value = '';
+            addOperatorInput.removeAttribute('list');
+        }
+
+        document.querySelectorAll('.add-operator-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                addOperatorOverlay.dataset.opId = btn.dataset.opId;
+                addOperatorTitle.textContent = 'Add operator — ' + btn.dataset.opName;
+                addOperatorInput.setAttribute('list', 'opEmpList' + btn.dataset.opId);
+                addOperatorInput.value = '';
+                addOperatorOverlay.classList.add('open');
+                addOperatorInput.focus();
+            });
+        });
+
+        addOperatorInput.addEventListener('input', function () {
+            var opId = addOperatorOverlay.dataset.opId;
+            var datalist = document.getElementById('opEmpList' + opId);
+            var match = null;
+            datalist.querySelectorAll('option').forEach(function (opt) {
+                if (opt.value === addOperatorInput.value) match = opt;
+            });
+            if (!match) return;
+            addOperatorRow(opId, match.dataset.id, match.value);
+            match.remove();
+            var btn = document.querySelector('.add-operator-btn[data-op-id="' + opId + '"]');
+            if (!datalist.querySelector('option') && btn) btn.style.display = 'none';
+            closeAddOperatorPopup();
+        });
+
+        document.getElementById('addOperatorCancel').addEventListener('click', closeAddOperatorPopup);
+        addOperatorOverlay.addEventListener('click', function (e) {
+            if (e.target === addOperatorOverlay) closeAddOperatorPopup();
+        });
+    </script>
+</body>
+</html>

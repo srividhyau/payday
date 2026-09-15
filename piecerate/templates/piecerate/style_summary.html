@@ -1,0 +1,170 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — Style Summary</title>
+    <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+<style>
+    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+    .month-nav { display: flex; align-items: center; gap: 0.9rem; }
+    .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; color: var(--navy); }
+    .month-nav a {
+        color: var(--navy); text-decoration: none; font-size: 1rem; width: 2rem; height: 2rem;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--border); border-radius: 50%; background: var(--surface);
+    }
+    .month-nav a:hover { background: var(--navy); color: var(--yellow); }
+
+    table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
+    table.simple thead th { background: #fef9c3; color: var(--navy); }
+
+    /* Same lightened three-tier scheme as Operator Summary, just
+       re-keyed: Style on top, Operator in the middle, Operation as the
+       leaf (white) — see that page's CSS comments for the reasoning. */
+    table.simple td, table.simple th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+
+    tr.style-top-row td {
+        background: #a9bdd1; color: var(--navy); font-weight: 700; font-size: 0.75rem; text-align: left;
+    }
+    tr.style-top-row td.num { text-align: right; }
+    tr.style-top-row { cursor: pointer; }
+    table.simple tr.style-gap td { border: none; padding: 0; height: 0.6rem; background: var(--surface); }
+    table.simple tbody tr.style-top-row:hover td { background: #94aac0; }
+    .toggle-arrow { display: inline-block; width: 1rem; transition: transform 0.15s ease; }
+    tr.style-top-row.collapsed .toggle-arrow { transform: rotate(-90deg); }
+    tr.style-top-row.collapsed { border-bottom: 3px solid var(--navy); }
+
+    tr.operator-row td { background: #e1e8f0; color: var(--navy); font-weight: 700; text-align: left; }
+    tr.operator-row td.label { padding-left: 1.25rem; }
+    tr.operator-row td.num { text-align: right; }
+
+    tr.op-detail-row td { background: #fff; font-weight: 400; }
+    tr.op-detail-row td.op-label { padding-left: 2.5rem; text-align: left; }
+    tr.op-detail-row:hover td { background: #fafbff; }
+
+    .grand-total-row td { font-weight: 700; background: #fef9c3; }
+
+    .amount-label {
+        font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+        opacity: 0.75; margin-right: 0.3rem;
+    }
+
+    /* Quantity vs Order Qty, same scheme as the Production page. */
+    .diff-more { color: #a400a4; font-weight: 700; }
+    .diff-less { color: #b3261e; font-weight: 700; }
+    .diff-balanced { color: #1e7e34; font-weight: 700; }
+</style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="piece_rate_operator_summary" %}
+
+    <div class="page">
+        <div class="page-header-row">
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <h1>Style Summary</h1>
+                <a href="{% url 'piece_rate_operator_summary' %}?date={{ current_date }}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Operator View</a>
+                <a href="{% url 'piece_rate_management_summary' %}?date={{ current_date }}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Management View</a>
+                <button type="button" id="expandAllBtn" class="edit-link" style="border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; background:#fff; cursor:pointer; font-family:inherit;">Expand All</button>
+                <button type="button" id="collapseAllBtn" class="edit-link" style="border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; background:#fff; cursor:pointer; font-family:inherit;">Collapse All</button>
+            </div>
+            <div class="month-nav">
+                <a href="?date={{ prev_date }}">&larr;</a>
+                <h2>{{ month_name }} {{ year }}</h2>
+                <a href="?date={{ next_date }}">&rarr;</a>
+            </div>
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        {% if style_rows %}
+        <div class="table-wrap fit-content">
+            <table class="simple">
+                <thead>
+                    <tr>
+                        <th>Style / Operator / Operation</th>
+                        <th>Section</th>
+                        <th class="num">Order Qty</th>
+                        <th class="num">Operator Qty</th>
+                        <th class="num">Rate</th>
+                        <th class="num">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in style_rows %}
+                    {% if not forloop.first %}
+                    <tr class="style-gap"><td colspan="6"></td></tr>
+                    {% endif %}
+                    <tr class="style-top-row" data-style-id="{{ forloop.counter }}">
+                        <td><span class="toggle-arrow">▾</span>{{ row.style_name }}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="num">{{ row.total }}</td>
+                    </tr>
+                    {% for emp in row.employees %}
+                    <tr class="operator-row" data-style-id="{{ forloop.parentloop.counter }}">
+                        <td class="label">{{ emp.employee.name }}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td><span class="amount-label">Subtotal</span> {{ emp.total }}</td>
+                    </tr>
+                    {% for op in emp.ops %}
+                    <tr class="op-detail-row {{ op.diff_class }}" data-style-id="{{ forloop.parentloop.parentloop.counter }}">
+                        <td class="op-label">{{ op.op_name }}</td>
+                        <td>{{ op.section|default:"—" }}</td>
+                        <td class="num">{{ op.order_quantity }}</td>
+                        <td class="num">{{ op.quantity }}</td>
+                        <td class="num">{{ op.rate }}</td>
+                        <td>{{ op.amount }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                    {% endfor %}
+                    <tr class="grand-total-row">
+                        <td colspan="5">Grand Total</td>
+                        <td class="num">{{ grand_total }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty-state">No production entries logged for {{ month_name }} {{ year }} yet.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        function setCollapsed(topRow, collapsed) {
+            topRow.classList.toggle('collapsed', collapsed);
+            var styleId = topRow.dataset.styleId;
+            document.querySelectorAll(
+                'tr.operator-row[data-style-id="' + styleId + '"], tr.op-detail-row[data-style-id="' + styleId + '"]'
+            ).forEach(function (tr) {
+                tr.hidden = collapsed;
+            });
+        }
+
+        document.querySelectorAll('tr.style-top-row').forEach(function (row) {
+            row.addEventListener('click', function () {
+                setCollapsed(row, !row.classList.contains('collapsed'));
+            });
+        });
+
+        document.getElementById('expandAllBtn').addEventListener('click', function () {
+            document.querySelectorAll('tr.style-top-row').forEach(function (row) { setCollapsed(row, false); });
+        });
+        document.getElementById('collapseAllBtn').addEventListener('click', function () {
+            document.querySelectorAll('tr.style-top-row').forEach(function (row) { setCollapsed(row, true); });
+        });
+
+        // Starts collapsed, same reasoning as Management Summary.
+        document.querySelectorAll('tr.style-top-row').forEach(function (row) { setCollapsed(row, true); });
+    </script>
+</body>
+</html>

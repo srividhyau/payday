@@ -37,11 +37,12 @@
         {% endif %}
         {% if not is_salary_viewer and not is_employee_editor %}
         <details class="nav-dropdown">
-            <summary{% if current == "piece_rate_styles" or current == "piece_rate_templates" or current == "piece_rate_operations" %} class="current"{% endif %}>Piece Rate</summary>
+            <summary{% if current == "piece_rate_styles" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" %} class="current"{% endif %}>Piece Rate</summary>
             <div class="nav-dropdown-menu">
                 <a href="{% url 'piece_rate' %}"{% if current == "piece_rate_styles" %} class="current"{% endif %}>Styles</a>
                 <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
                 <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
+                <a href="{% url 'piece_rate_operator_summary' %}"{% if current == "piece_rate_operator_summary" %} class="current"{% endif %}>Operator Summary</a>
             </div>
         </details>
         {% endif %}

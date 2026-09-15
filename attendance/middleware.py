@@ -8,6 +8,20 @@ from django.urls import Resolver404, resolve
 # RoleRestrictionMiddleware.
 SALARY_VIEWER_GROUP = "Salary Viewer"
 EMPLOYEE_EDIT_GROUP = "Employee Edit"
+PRODUCTION_HEAD_GROUP = "Production Head"
+
+# Every URL name under the Piece Rate module — Styles/Templates/Master
+# Operations/the summaries (view-only, no POST branch) plus each style's
+# Rate Card and Production pages (real POST actions).
+_PIECE_RATE_GET_URLS = {
+    "piece_rate", "piece_rate_templates", "piece_rate_operations",
+    "piece_rate_operator_summary", "piece_rate_style_summary", "piece_rate_management_summary",
+    "piece_rate_rate_card", "piece_rate_production",
+}
+_PIECE_RATE_POST_URLS = {
+    "piece_rate", "piece_rate_templates", "piece_rate_operations",
+    "piece_rate_rate_card", "piece_rate_production",
+}
 
 # Deny-by-default per role: for each restricted group, the URL names it
 # may GET at all, and — of those — the ones it may also POST to. Anything
@@ -30,6 +44,14 @@ _ROLE_ACCESS = {
         "get": {"employee_list", "employee_create", "employee_edit", "login", "logout"},
         "post": {"employee_create", "employee_edit", "login", "logout"},
     },
+    # Confined to Piece Rate and nothing else — but full read/write
+    # across the whole module (see piecerate.permissions.can_edit_piece_rate,
+    # which also treats this group as a Piece Rate Editor so Master
+    # Operations/Templates edits aren't separately gated for them).
+    PRODUCTION_HEAD_GROUP: {
+        "get": _PIECE_RATE_GET_URLS | {"login", "logout"},
+        "post": _PIECE_RATE_POST_URLS | {"login", "logout"},
+    },
 }
 
 # Where an over-reach redirects to, per role — the first page that role is
@@ -37,6 +59,7 @@ _ROLE_ACCESS = {
 _ROLE_HOME = {
     SALARY_VIEWER_GROUP: "salary",
     EMPLOYEE_EDIT_GROUP: "employee_list",
+    PRODUCTION_HEAD_GROUP: "piece_rate",
 }
 
 

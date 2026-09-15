@@ -6,9 +6,12 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, RateCardOperation, Style
+from attendance.models import Employee, SpecialDay
+
+from .models import PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, PieceRateEntry, RateCardOperation, Style
 from .permissions import can_edit_piece_rate
 
 
@@ -59,6 +62,13 @@ def _parse_decimal(value):
         return Decimal(str(value).strip() or "0")
     except InvalidOperation:
         return Decimal("0")
+
+
+def _parse_int(value):
+    try:
+        return max(0, int(str(value).strip() or "0"))
+    except ValueError:
+        return 0
 
 
 def _parse_month_date(date_param):
@@ -249,6 +259,12 @@ def rate_card_view(request, style_id):
             messages.success(request, "Order saved.")
             return redirect("piece_rate_rate_card", style_id=style.id)
 
+        if action == "bulk_order_quantity":
+            qty = _parse_int(request.POST.get("bulk_order_quantity"))
+            updated = style.operations.update(order_quantity=qty)
+            messages.success(request, f"Order Qty set to {qty} on {updated} operation(s).")
+            return redirect("piece_rate_rate_card", style_id=style.id)
+
         if action == "create" or action.startswith("edit_"):
             suffix = "" if action == "create" else f"_{action[len('edit_'):]}"
             if suffix:
@@ -271,6 +287,7 @@ def rate_card_view(request, style_id):
                 op.machine = request.POST.get(f"machine{suffix}", "").strip()
                 op.rate = _parse_decimal(request.POST.get(f"rate{suffix}"))
                 op.pay_type = request.POST.get(f"pay_type{suffix}") or PAY_TYPE_OPERATOR
+                op.order_quantity = _parse_int(request.POST.get(f"order_quantity{suffix}"))
                 op.save()
                 messages.success(request, f'Operation "{op.name}" saved.')
             return redirect("piece_rate_rate_card", style_id=style.id)
@@ -357,4 +374,351 @@ def master_operations_view(request):
         "dir": direction,
         "sections": sections,
         "section_filter": section_filter,
+    })
+
+
+@login_required
+def production_view(request, style_id):
+    """Per-style daily production entry. One grid, scoped to the style's
+    own month: every operator who has logged against an operation gets a
+    row, one column per day of that month. An operation's order_quantity
+    (set on the Rate Card page) is the total every operator's entries for
+    it should sum to across the month — op_total vs order_quantity is
+    what drives the match/mismatch coloring client-side expects.
+
+    A cell save is a single day's (operation, operator) quantity — POST
+    here is AJAX-only (see the fetch call in production.html), not a
+    full-page form submit, since the grid can have far too many cells
+    for one big multi-row submit to be practical."""
+    style = get_object_or_404(Style, id=style_id, is_template=False)
+
+    if request.method == "POST":
+        rc_op = get_object_or_404(RateCardOperation, id=request.POST.get("rate_card_operation_id"), style=style)
+        employee = get_object_or_404(Employee, id=request.POST.get("employee_id"))
+
+        if request.POST.get("action") == "remove_operator":
+            PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee).delete()
+            return JsonResponse({"ok": True})
+
+        day = _parse_int(request.POST.get("day"))
+        quantity = _parse_int(request.POST.get("quantity"))
+        num_days = calendar.monthrange(style.year, style.month)[1]
+        if day < 1 or day > num_days:
+            return JsonResponse({"ok": False, "error": "Invalid day."}, status=400)
+
+        entry_date = date_cls(style.year, style.month, day)
+
+        if rc_op.order_quantity:
+            other_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).exclude(
+                employee=employee, date=entry_date
+            ).aggregate(total=Sum("quantity"))["total"] or 0
+            hypothetical = other_total + quantity
+            if hypothetical > rc_op.order_quantity:
+                return JsonResponse({
+                    "ok": False,
+                    "error": (
+                        f"This would bring the total to {hypothetical}, which exceeds "
+                        f"the Order Qty of {rc_op.order_quantity}. Reduce the quantity."
+                    ),
+                }, status=400)
+
+        if quantity > 0:
+            PieceRateEntry.objects.update_or_create(
+                rate_card_operation=rc_op, employee=employee, date=entry_date,
+                defaults={"quantity": quantity},
+            )
+        else:
+            PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee, date=entry_date).delete()
+
+        op_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).aggregate(total=Sum("quantity"))["total"] or 0
+        return JsonResponse({"ok": True, "op_total": op_total})
+
+    num_days = calendar.monthrange(style.year, style.month)[1]
+    days = list(range(1, num_days + 1))
+    day_headers = [
+        {"day": d, "dow": date_cls(style.year, style.month, d).strftime("%a")}
+        for d in days
+    ]
+
+    # Same Holiday/Paid Holiday/Comp Off calendar (and colors) as the
+    # Attendance dashboard, so a day already marked off there reads the
+    # same way here.
+    special_days = {
+        sd.date.day: sd.day_type
+        for sd in SpecialDay.objects.filter(date__year=style.year, date__month=style.month)
+    }
+
+    rc_ops = list(style.operations.all())
+    all_employees = list(Employee.objects.filter(department__name__iexact="Operator").order_by("name"))
+    employees_by_id = {e.id: e for e in all_employees}
+
+    entries_by_op = {}
+    for e in PieceRateEntry.objects.filter(rate_card_operation__in=rc_ops):
+        entries_by_op.setdefault(e.rate_card_operation_id, {}).setdefault(e.employee_id, {})[e.date.day] = e.quantity
+
+    op_rows = []
+    for op in rc_ops:
+        op_entries = entries_by_op.get(op.id, {})
+        rows = []
+        for emp_id, day_map in op_entries.items():
+            employee = employees_by_id.get(emp_id)
+            if not employee:
+                continue
+            rows.append({"employee": employee, "days": day_map, "total": sum(day_map.values())})
+        rows.sort(key=lambda r: r["employee"].name)
+
+        op_total = sum(r["total"] for r in rows)
+        diff = op_total - op.order_quantity
+        if not op.order_quantity:
+            diff_class, diff_display = "", ""
+        elif diff > 0:
+            diff_class, diff_display = "diff-more", f"+{diff}"
+        elif diff < 0:
+            diff_class, diff_display = "diff-less", str(diff)
+        else:
+            diff_class, diff_display = "diff-balanced", "0"
+
+        used_employee_ids = {r["employee"].id for r in rows}
+        op_rows.append({
+            "op": op,
+            "rows": rows,
+            "op_total": op_total,
+            "diff_class": diff_class,
+            "diff_display": diff_display,
+            "available_employees": [e for e in all_employees if e.id not in used_employee_ids],
+        })
+
+    return render(request, "piecerate/production.html", {
+        "style": style,
+        "days": days,
+        "op_rows": op_rows,
+        "special_days": special_days,
+        "day_headers": day_headers,
+    })
+
+
+def _qty_diff_class(quantity, order_quantity):
+    """Shared by Operator Summary and Style Summary — the same
+    more/less/balanced classes Production uses, keyed off a leaf
+    operation's worked quantity vs. its order_quantity."""
+    if not order_quantity:
+        return ""
+    diff = quantity - order_quantity
+    if diff > 0:
+        return "diff-more"
+    if diff < 0:
+        return "diff-less"
+    return "diff-balanced"
+
+
+def _month_piece_rate_entries(year, month):
+    return (
+        PieceRateEntry.objects.filter(
+            rate_card_operation__style__year=year, rate_card_operation__style__month=month,
+        )
+        .select_related("employee", "rate_card_operation", "rate_card_operation__style")
+    )
+
+
+@login_required
+def operator_summary_view(request):
+    """What every operator worked on this month, across every style, and
+    how much it comes to — quantity x the operation's current Rate Card
+    rate. Amounts here always reflect whatever a Rate Card currently
+    says (no per-entry rate snapshot), so editing a rate after the fact
+    shifts past months' totals too — same as everywhere else rates are
+    used in this app."""
+    current = _parse_month_date(request.GET.get("date"))
+    year, month = current.year, current.month
+    prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
+    next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+    entries = _month_piece_rate_entries(year, month)
+
+    # Operator -> Style -> Operation, each level totaling the ones below it.
+    by_employee = {}
+    for e in entries:
+        rc_op = e.rate_card_operation
+        style = rc_op.style
+        emp_bucket = by_employee.setdefault(e.employee_id, {"employee": e.employee, "styles": {}})
+        style_bucket = emp_bucket["styles"].setdefault(style.id, {"style_name": style.name, "ops": {}})
+        op_bucket = style_bucket["ops"].setdefault(rc_op.id, {
+            "op_name": rc_op.name, "section": rc_op.section, "rate": rc_op.rate,
+            "order_quantity": rc_op.order_quantity, "quantity": 0,
+        })
+        op_bucket["quantity"] += e.quantity
+
+    operator_rows = []
+    grand_total = Decimal("0")
+    for emp_data in by_employee.values():
+        style_list = []
+        employee_total = Decimal("0")
+        for style_data in emp_data["styles"].values():
+            op_list = []
+            style_total = Decimal("0")
+            for op_bucket in style_data["ops"].values():
+                amount = (op_bucket["rate"] * op_bucket["quantity"]).quantize(Decimal("0.01"))
+                style_total += amount
+                diff_class = _qty_diff_class(op_bucket["quantity"], op_bucket["order_quantity"])
+                op_list.append({**op_bucket, "amount": amount, "diff_class": diff_class})
+            op_list.sort(key=lambda o: o["op_name"])
+            style_list.append({"style_name": style_data["style_name"], "ops": op_list, "total": style_total})
+            employee_total += style_total
+        style_list.sort(key=lambda s: s["style_name"])
+        operator_rows.append({"employee": emp_data["employee"], "styles": style_list, "total": employee_total})
+        grand_total += employee_total
+
+    operator_rows.sort(key=lambda r: r["employee"].name)
+
+    return render(request, "piecerate/operator_summary.html", {
+        "operator_rows": operator_rows,
+        "grand_total": grand_total,
+        "year": year,
+        "month": month,
+        "month_name": calendar.month_name[month],
+        "current_date": current.isoformat(),
+        "prev_date": prev_date.isoformat(),
+        "next_date": next_date.isoformat(),
+    })
+
+
+@login_required
+def style_summary_view(request):
+    """Same data as Operator Summary, grouped Style -> Operator ->
+    Operation instead of Operator -> Style -> Operation — which style is
+    costing the most and who worked it, rather than what one operator
+    did across every style."""
+    current = _parse_month_date(request.GET.get("date"))
+    year, month = current.year, current.month
+    prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
+    next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+    entries = _month_piece_rate_entries(year, month)
+
+    # Style -> Operator -> Operation, each level totaling the ones below it.
+    by_style = {}
+    for e in entries:
+        rc_op = e.rate_card_operation
+        style = rc_op.style
+        style_bucket = by_style.setdefault(style.id, {"style_name": style.name, "employees": {}})
+        emp_bucket = style_bucket["employees"].setdefault(e.employee_id, {"employee": e.employee, "ops": {}})
+        op_bucket = emp_bucket["ops"].setdefault(rc_op.id, {
+            "op_name": rc_op.name, "section": rc_op.section, "rate": rc_op.rate,
+            "order_quantity": rc_op.order_quantity, "quantity": 0,
+        })
+        op_bucket["quantity"] += e.quantity
+
+    style_rows = []
+    grand_total = Decimal("0")
+    for style_data in by_style.values():
+        employee_list = []
+        style_total = Decimal("0")
+        for emp_data in style_data["employees"].values():
+            op_list = []
+            employee_total = Decimal("0")
+            for op_bucket in emp_data["ops"].values():
+                amount = (op_bucket["rate"] * op_bucket["quantity"]).quantize(Decimal("0.01"))
+                employee_total += amount
+                diff_class = _qty_diff_class(op_bucket["quantity"], op_bucket["order_quantity"])
+                op_list.append({**op_bucket, "amount": amount, "diff_class": diff_class})
+            op_list.sort(key=lambda o: o["op_name"])
+            employee_list.append({"employee": emp_data["employee"], "ops": op_list, "total": employee_total})
+            style_total += employee_total
+        employee_list.sort(key=lambda e: e["employee"].name)
+        style_rows.append({"style_name": style_data["style_name"], "employees": employee_list, "total": style_total})
+        grand_total += style_total
+
+    style_rows.sort(key=lambda r: r["style_name"])
+
+    return render(request, "piecerate/style_summary.html", {
+        "style_rows": style_rows,
+        "grand_total": grand_total,
+        "year": year,
+        "month": month,
+        "month_name": calendar.month_name[month],
+        "current_date": current.isoformat(),
+        "prev_date": prev_date.isoformat(),
+        "next_date": next_date.isoformat(),
+    })
+
+
+@login_required
+def management_summary_view(request):
+    """Style -> Operation -> Operator, planned vs actual: every operation
+    on every non-template style set up this month, whether or not anyone
+    has logged against it yet — Planned Amount (rate x Order Qty, the
+    budgeted cost) next to Actual Amount (rate x what was actually
+    worked). Unlike Operator/Style Summary (built purely from logged
+    entries), this starts from the rate cards themselves, so an
+    operation with a big plan and zero actual work still shows up —
+    the whole point of a management/budget view."""
+    current = _parse_month_date(request.GET.get("date"))
+    year, month = current.year, current.month
+    prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
+    next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+    styles = Style.objects.filter(year=year, month=month, is_template=False).prefetch_related("operations")
+
+    actual_by_op = {}
+    for e in _month_piece_rate_entries(year, month):
+        op_bucket = actual_by_op.setdefault(e.rate_card_operation_id, {})
+        emp_bucket = op_bucket.setdefault(e.employee_id, {"employee": e.employee, "quantity": 0})
+        emp_bucket["quantity"] += e.quantity
+
+    style_rows = []
+    grand_planned = Decimal("0")
+    grand_actual = Decimal("0")
+    for style in styles:
+        op_rows = []
+        style_planned = Decimal("0")
+        style_actual = Decimal("0")
+        style_order_qty = 0
+        style_rate = Decimal("0")
+        for op in style.operations.all():
+            # The style's overall order quantity, not a sum across
+            # operations — every operation is normally cut for the same
+            # order, so the highest order_quantity seen is that order
+            # size; some operations legitimately apply to only part of
+            # it (a lower order_quantity), which shouldn't inflate this.
+            style_order_qty = max(style_order_qty, op.order_quantity)
+            style_rate += op.rate
+            planned_amount = (op.rate * op.order_quantity).quantize(Decimal("0.01"))
+
+            operator_list = []
+            actual_quantity = 0
+            for emp_data in actual_by_op.get(op.id, {}).values():
+                qty = emp_data["quantity"]
+                actual_quantity += qty
+                operator_list.append({
+                    "employee": emp_data["employee"], "quantity": qty,
+                    "amount": (op.rate * qty).quantize(Decimal("0.01")),
+                })
+            operator_list.sort(key=lambda o: o["employee"].name)
+
+            actual_amount = (op.rate * actual_quantity).quantize(Decimal("0.01"))
+            op_rows.append({
+                "op": op, "planned_amount": planned_amount, "actual_quantity": actual_quantity,
+                "actual_amount": actual_amount, "diff_class": _qty_diff_class(actual_quantity, op.order_quantity),
+                "operators": operator_list,
+            })
+            style_planned += planned_amount
+            style_actual += actual_amount
+
+        style_rows.append({
+            "style": style, "ops": op_rows, "planned_total": style_planned, "actual_total": style_actual,
+            "order_quantity": style_order_qty, "rate_sum": style_rate,
+        })
+        grand_planned += style_planned
+        grand_actual += style_actual
+
+    return render(request, "piecerate/management_summary.html", {
+        "style_rows": style_rows,
+        "grand_planned": grand_planned,
+        "grand_actual": grand_actual,
+        "year": year,
+        "month": month,
+        "month_name": calendar.month_name[month],
+        "current_date": current.isoformat(),
+        "prev_date": prev_date.isoformat(),
+        "next_date": next_date.isoformat(),
     })

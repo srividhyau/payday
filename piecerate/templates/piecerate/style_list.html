@@ -93,6 +93,7 @@
                         <th></th>
                         <th></th>
                         <th></th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -110,6 +111,7 @@
                         <td class="num">{{ row.operation_count }}</td>
                         <td class="num {{ row.rate_class }}">{{ row.total_rate }}</td>
                         <td><a href="{% url 'piece_rate_rate_card' row.style.id %}" class="edit-link">Rate Card</a></td>
+                        <td><a href="{% url 'piece_rate_production' row.style.id %}" class="edit-link">Production</a></td>
                         <td>
                             {% if is_piece_rate_editor %}
                             <form method="post" style="display:inline;">

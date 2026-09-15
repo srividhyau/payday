@@ -1,5 +1,7 @@
 from django.db import models
 
+from attendance.models import Employee
+
 PAY_TYPE_OPERATOR = "operator"
 PAY_TYPE_HELPER = "helper"
 PAY_TYPE_FINISHING = "finishing"
@@ -64,6 +66,11 @@ class RateCardOperation(models.Model):
     machine = models.CharField(max_length=50, blank=True)
     rate = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     pay_type = models.CharField(max_length=10, choices=PAY_TYPE_CHOICES, default=PAY_TYPE_OPERATOR)
+    order_quantity = models.PositiveIntegerField(
+        default=0,
+        help_text="Total pieces planned for this operation this month — the "
+                   "target every operator's daily entries for it should sum to.",
+    )
 
     class Meta:
         ordering = ["op_code"]
@@ -73,3 +80,26 @@ class RateCardOperation(models.Model):
 
     def __str__(self):
         return f"{self.style} — {self.name}"
+
+
+class PieceRateEntry(models.Model):
+    """One operator's piece count for one operation on one day. Multiple
+    operators can log against the same RateCardOperation — see the
+    Production page, which groups these by operation and compares their
+    sum for the month against RateCardOperation.order_quantity."""
+
+    rate_card_operation = models.ForeignKey(RateCardOperation, on_delete=models.CASCADE, related_name="entries")
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="piece_rate_entries")
+    date = models.DateField()
+    quantity = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["rate_card_operation", "employee", "date"], name="unique_entry_per_operator_per_day"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.rate_card_operation} — {self.employee} — {self.date}: {self.quantity}"
