@@ -483,22 +483,33 @@ def production_view(request, style_id):
     num_days_in_month = calendar.monthrange(style.year, style.month)[1]
     month_start = date_cls(style.year, style.month, 1)
     month_end = date_cls(style.year, style.month, num_days_in_month)
-    month_days = {month_start + timedelta(n) for n in range(num_days_in_month)}
+    # A style that actually started before the 1st of its own month
+    # (Style.start_date, e.g. the 20th of the prior month) shows those
+    # earlier days too, not just once someone happens to log against
+    # one — the whole point of setting start_date is to see them.
+    range_start = min(style.start_date, month_start) if style.start_date else month_start
+    base_days = {range_start + timedelta(n) for n in range((month_end - range_start).days + 1)}
 
     rc_ops = list(style.operations.all())
 
     # A style "shifted to next month" keeps every day that already has an
     # entry logged against it, even the ones from before the shift — so
     # nothing already recorded ever disappears off this page just because
-    # it no longer falls in the style's current month.
-    carried_over_dates = set(
+    # it no longer falls in the style's current month (or its start_date
+    # range above).
+    entries_outside_range = set(
         PieceRateEntry.objects.filter(rate_card_operation__in=rc_ops)
-        .exclude(date__gte=month_start, date__lte=month_end)
+        .exclude(date__gte=range_start, date__lte=month_end)
         .values_list("date", flat=True)
     )
-    days = sorted(month_days | carried_over_dates)
+    days = sorted(base_days | entries_outside_range)
+    # Everything outside the style's own calendar month — its start_date
+    # days and any stray carried-over entries alike — highlighted the
+    # same way, so the header/cell shading always agrees with each other.
+    carried_over_dates = [d for d in days if d < month_start or d > month_end]
+    carried_over_set = set(carried_over_dates)
     day_headers = [
-        {"date": d, "day": d.day, "dow": d.strftime("%a"), "is_carried_over": d in carried_over_dates}
+        {"date": d, "day": d.day, "dow": d.strftime("%a"), "is_carried_over": d in carried_over_set}
         for d in days
     ]
 
