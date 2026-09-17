@@ -19,12 +19,24 @@
         font-family: inherit; text-decoration: none;
     }
     .edit-link:hover { background: var(--bg); }
-    .inline-name-form { display: flex; gap: 0.4rem; align-items: center; }
+    .inline-name-form { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
     .inline-name-form input[type="text"] {
         padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 6px;
-        font-size: 0.85rem; font-family: inherit; width: 220px;
+        font-size: 0.85rem; font-family: inherit; width: 160px;
     }
     .inline-name-form input[type="text"]:focus { outline: none; border-color: var(--navy); }
+    .inline-name-form input[type="file"] { font-size: 0.72rem; max-width: 130px; }
+    .inline-name-form input[type="date"] {
+        padding: 0.28rem 0.4rem; border: 1px solid var(--border); border-radius: 6px;
+        font-size: 0.78rem; font-family: inherit;
+    }
+    .style-thumb {
+        width: 32px; height: 32px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border);
+    }
+    .style-thumb-placeholder {
+        width: 32px; height: 32px; border-radius: 6px; border: 1px dashed var(--border);
+        display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--text-muted);
+    }
     .save-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
         padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
@@ -94,17 +106,25 @@
                         <th></th>
                         <th></th>
                         <th></th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in styles %}
                     <tr>
                         <td>
-                            <form method="post" class="inline-name-form">
+                            <form method="post" class="inline-name-form" enctype="multipart/form-data">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="rename_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
-                                <input type="text" name="name" value="{{ row.style.name }}">
+                                {% if row.style.image %}
+                                <img src="{{ row.style.image.url }}" alt="" class="style-thumb">
+                                {% else %}
+                                <span class="style-thumb-placeholder">—</span>
+                                {% endif %}
+                                <input type="text" name="name" value="{{ row.style.name }}" placeholder="Style name">
+                                <input type="date" name="start_date" value="{{ row.style.start_date|date:'Y-m-d' }}" title="Running from — first day operators can log against this style">
+                                <input type="file" name="image" accept="image/*">
                                 <button type="submit" class="save-btn">Save</button>
                             </form>
                         </td>
@@ -112,6 +132,13 @@
                         <td class="num {{ row.rate_class }}">{{ row.total_rate }}</td>
                         <td><a href="{% url 'piece_rate_rate_card' row.style.id %}" class="edit-link">Rate Card</a></td>
                         <td><a href="{% url 'piece_rate_production' row.style.id %}" class="edit-link">Production</a></td>
+                        <td>
+                            <form method="post" style="display:inline;" onsubmit="return confirm('Shift {{ row.style.name|escapejs }} to next month? Its rate card, Order Qty, and every logged entry will report under next month instead.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="shift_next_month_{{ row.style.id }}">
+                                <button type="submit" class="edit-link">Shift to Next Month</button>
+                            </form>
+                        </td>
                         <td>
                             {% if is_piece_rate_editor %}
                             <form method="post" style="display:inline;">

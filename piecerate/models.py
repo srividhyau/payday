@@ -1,3 +1,5 @@
+import secrets
+
 from django.db import models
 
 from attendance.models import Employee
@@ -25,6 +27,17 @@ class Style(models.Model):
     is_template = models.BooleanField(default=False)
     year = models.IntegerField(null=True, blank=True)
     month = models.IntegerField(null=True, blank=True)
+    # Shown on the operator mobile entry page so operators can pick a
+    # style by photo instead of just reading its English code — the
+    # Google Translate widget on that page handles translating the
+    # name itself, so there's no separate translated-name field.
+    image = models.ImageField(upload_to="style_images/", blank=True, null=True)
+    # The first day operators may log against this style — defaults to
+    # the 1st of its year/month, but a style that actually started
+    # partway through (e.g. the 20th) can be set to that real date so
+    # the mobile entry page's date picker doesn't offer days before it
+    # actually existed.
+    start_date = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -103,3 +116,20 @@ class PieceRateEntry(models.Model):
 
     def __str__(self):
         return f"{self.rate_card_operation} — {self.employee} — {self.date}: {self.quantity}"
+
+
+class OperatorLink(models.Model):
+    """A private, unguessable URL that identifies one operator — the
+    whole mechanism behind the mobile self-entry page (see
+    operator_entry_view). No login: the token in the link IS the
+    identity, so a phone with this link bookmarked/added to its home
+    screen stays "linked" to this operator indefinitely, with nothing
+    to log into or a session that can expire. Revoke access (lost
+    phone, employee left) by deleting this row and generating a new one."""
+
+    employee = models.OneToOneField(Employee, on_delete=models.CASCADE, related_name="piece_rate_link")
+    token = models.CharField(max_length=43, unique=True, default=secrets.token_urlsafe, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.employee} link"

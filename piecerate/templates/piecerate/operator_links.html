@@ -1,0 +1,108 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — Operator Links</title>
+    <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+<style>
+    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+
+    table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.4rem 0.6rem; font-size: 0.85rem; vertical-align: middle; }
+    table.simple thead th { background: #fef9c3; color: var(--navy); }
+
+    .link-cell { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .link-cell img { width: 84px; height: 84px; border: 1px solid var(--border); border-radius: 6px; }
+    .link-url {
+        font-family: monospace; font-size: 0.75rem; word-break: break-all; max-width: 320px;
+        color: var(--navy); background: var(--bg); padding: 0.3rem 0.5rem; border-radius: 6px;
+    }
+    .no-link { color: var(--text-muted); font-size: 0.85rem; }
+
+    .btn {
+        border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; background: #fff;
+        cursor: pointer; font-family: inherit; font-size: 0.78rem; font-weight: 600; color: var(--navy);
+    }
+    .btn:hover { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+    .btn.danger:hover { background: #b3261e; color: #fff; border-color: #b3261e; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="piece_rate_operator_links" %}
+
+    <div class="page">
+        <div class="page-header-row">
+            <h1>Operator Links</h1>
+        </div>
+        <p class="empty-state" style="padding-top:0;">
+            Each link is a private URL for one operator's phone — no username or password.
+            Generate a link, then have the operator open it once and add it to their phone's
+            home screen (or scan the QR code with their camera). They can log today's production
+            once per operation and can't edit or delete it afterward — corrections still happen
+            on the desktop Production page.
+        </p>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <div class="table-wrap fit-content">
+            <table class="simple">
+                <thead>
+                    <tr>
+                        <th>Operator</th>
+                        <th>Link</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.employee.name }}</td>
+                        <td>
+                            {% if row.link %}
+                            <div class="link-cell">
+                                <img src="{{ row.qr_data_uri }}" alt="QR code for {{ row.employee.name }}'s link">
+                                <span class="link-url">{{ row.url }}</span>
+                            </div>
+                            {% else %}
+                            <span class="no-link">No link yet</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="actions">
+                                {% if row.link %}
+                                <form method="post" onsubmit="return confirm('Regenerate the link for {{ row.employee.name|escapejs }}? The old link/QR code will stop working immediately.');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <input type="hidden" name="action" value="regenerate">
+                                    <button type="submit" class="btn">Regenerate</button>
+                                </form>
+                                <form method="post" onsubmit="return confirm('Revoke the link for {{ row.employee.name|escapejs }}? They will no longer be able to log production from their phone until a new link is generated.');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <input type="hidden" name="action" value="revoke">
+                                    <button type="submit" class="btn danger">Revoke</button>
+                                </form>
+                                {% else %}
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                    <input type="hidden" name="action" value="generate">
+                                    <button type="submit" class="btn">Generate Link</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="empty-state">No operators found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

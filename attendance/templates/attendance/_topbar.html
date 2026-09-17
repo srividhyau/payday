@@ -39,12 +39,19 @@
         {% endif %}
         {% if not is_salary_viewer and not is_employee_editor %}
         <details class="nav-dropdown">
-            <summary{% if current == "piece_rate_styles" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" %} class="current"{% endif %}>Piece Rate</summary>
+            <summary{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" %} class="current"{% endif %}>Piece Rate</summary>
             <div class="nav-dropdown-menu">
-                <a href="{% url 'piece_rate' %}"{% if current == "piece_rate_styles" %} class="current"{% endif %}>Styles</a>
-                <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
-                <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
-                <a href="{% url 'piece_rate_operator_summary' %}"{% if current == "piece_rate_operator_summary" %} class="current"{% endif %}>Operator Summary</a>
+                <div class="nav-dropdown-group">
+                    <a href="{% url 'piece_rate' %}"{% if current == "piece_rate_styles" %} class="current"{% endif %}>Styles</a>
+                    <a href="{% url 'piece_rate_production_shortcut' %}"{% if current == "piece_rate_production" %} class="current"{% endif %}>Production</a>
+                    <a href="{% url 'piece_rate_operator_summary' %}"{% if current == "piece_rate_operator_summary" %} class="current"{% endif %}>Summary</a>
+                </div>
+                <div class="nav-dropdown-divider"></div>
+                <div class="nav-dropdown-group nav-dropdown-group-alt">
+                    <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
+                    <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
+                    <a href="{% url 'piece_rate_operator_links' %}"{% if current == "piece_rate_operator_links" %} class="current"{% endif %}>Operator Links</a>
+                </div>
             </div>
         </details>
         {% endif %}
@@ -67,6 +74,21 @@
             document.querySelectorAll('.nav-dropdown').forEach(function (other) {
                 if (other !== details) other.open = false;
             });
+        });
+        // Desktop-style hover-to-open, on top of the native click-to-open
+        // <details> already gives for free (kept for touch/keyboard). The
+        // close is delayed a touch and cancelled on re-entry — without
+        // that, a fast or slightly-off-course mouse move from the
+        // summary down into the menu can register a leave/enter blip
+        // (sub-pixel gaps, rounded corners) and slam the menu shut
+        // before the pointer visibly reaches it.
+        var closeTimer = null;
+        details.addEventListener('mouseenter', function () {
+            clearTimeout(closeTimer);
+            details.open = true;
+        });
+        details.addEventListener('mouseleave', function () {
+            closeTimer = setTimeout(function () { details.open = false; }, 150);
         });
     });
     document.addEventListener('click', function (e) {

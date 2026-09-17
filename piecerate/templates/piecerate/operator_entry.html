@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Payday — Log Production</title>
+    <link rel="icon" href="data:,">
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #0f1b2d; color: #1b2430; min-height: 100vh;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+
+    .header { padding: 1.25rem 0.25rem 1rem; color: #fff; }
+    .header .name { font-size: 1.4rem; font-weight: 700; }
+    .header .date { font-size: 0.95rem; opacity: 0.8; margin-top: 0.15rem; }
+
+    .card { background: #fff; border-radius: 14px; padding: 1.1rem; margin-bottom: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+    .card h2 { margin: 0 0 0.8rem; font-size: 1rem; color: #0f1b2d; }
+
+    .msg { padding: 0.7rem 0.9rem; border-radius: 10px; margin-bottom: 0.9rem; font-size: 0.95rem; font-weight: 600; }
+    .msg.success { background: #e6f4ea; color: #1e7e34; }
+    .msg.error { background: #fdecea; color: #b3261e; }
+
+    label { display: block; font-size: 0.85rem; font-weight: 600; color: #4a5468; margin-bottom: 0.35rem; }
+
+    select, input[type=number] {
+        width: 100%; font-size: 1.15rem; padding: 0.85rem 0.7rem; border-radius: 10px;
+        border: 1.5px solid #c9d0dc; margin-bottom: 1rem; font-family: inherit; background: #fff;
+    }
+    select:focus, input[type=number]:focus { outline: none; border-color: #0f1b2d; }
+
+    button.submit {
+        width: 100%; font-size: 1.15rem; font-weight: 700; padding: 0.95rem; border-radius: 10px;
+        border: none; background: #f5c400; color: #0f1b2d; cursor: pointer;
+    }
+    button.submit:active { background: #d9ac00; }
+
+    .empty { color: #6b7280; font-size: 0.95rem; text-align: center; padding: 0.5rem 0; }
+
+    .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .style-card {
+        display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+        border: 1.5px solid #e1e5eb; border-radius: 12px; padding: 0.75rem 0.5rem;
+        background: #fff; cursor: pointer; font-family: inherit; text-align: center;
+    }
+    .style-card:active { background: #f5f7fa; border-color: #0f1b2d; }
+    .style-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+    .style-card .style-img-placeholder {
+        width: 100%; aspect-ratio: 1; border-radius: 8px; background: #eef1f5;
+        display: flex; align-items: center; justify-content: center; font-size: 1.8rem;
+    }
+    .style-card .en { display: block; font-weight: 700; font-size: 0.95rem; color: #0f1b2d; }
+
+    .back-btn {
+        background: none; border: none; color: #4a5468; font-size: 0.9rem; font-weight: 600;
+        cursor: pointer; font-family: inherit; padding: 0 0 0.7rem; margin: 0;
+    }
+    .entry-card h2 { display: flex; flex-direction: column; }
+
+    .history-link {
+        display: block; text-align: right; font-size: 0.82rem; font-weight: 600;
+        color: #2563eb; text-decoration: none; margin: -0.5rem 0 1rem;
+    }
+    .history-link[hidden] { display: none; }
+
+    .logged-row {
+        display: flex; justify-content: space-between; align-items: baseline;
+        padding: 0.6rem 0; border-bottom: 1px solid #eef0f4; font-size: 0.95rem;
+    }
+    .logged-row:last-child { border-bottom: none; }
+    .logged-row .op { font-weight: 600; color: #0f1b2d; }
+    .logged-row .style { font-size: 0.78rem; color: #8a92a0; display: block; }
+    .logged-row .qty { font-weight: 700; color: #1e7e34; font-size: 1.1rem; }
+
+    .done-note { text-align: center; color: rgba(255,255,255,0.75); font-size: 0.85rem; padding: 0.5rem 0 0; }
+
+    /* Google Translate widget — see the two <script> tags near the end
+       of <body>. #google_translate_element is where it mounts itself;
+       .goog-te-gadget is the "Powered by Google Translate" wrapper it
+       injects. Floated as a small fixed pill in the top-right corner so
+       it never pushes the page's own content down or takes a full row. */
+    #google_translate_element {
+        position: fixed; top: 0.6rem; right: 0.6rem; z-index: 1000;
+        background: rgba(255,255,255,0.14); border-radius: 999px; padding: 0.15rem 0.7rem;
+    }
+    .goog-te-gadget { font-family: inherit !important; font-size: 0.72rem !important; color: rgba(255,255,255,0.9) !important; }
+    .goog-te-gadget select.goog-te-combo {
+        font-family: inherit; font-size: 0.8rem; padding: 0.3rem 0.5rem; border-radius: 8px; border: none;
+    }
+    /* Google's top "Translated into: X — Show original" banner iframe
+       and the top-offset it forces on <body> — suppressed since our own
+       pill is enough of a control. Its CSS class is an internal,
+       unstable build hash that changes between Google's releases, but
+       it's reliably the only iframe Google gives an id ending in
+       ".container" (confirmed by inspecting the live widget), so that's
+       what's targeted instead of the class name. */
+    iframe[id$=".container"] { display: none !important; }
+    body { top: 0 !important; }
+
+    .day-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: stretch; }
+    .day-tabs a {
+        text-align: center; padding: 0.6rem 0.9rem; border-radius: 10px; font-size: 0.9rem;
+        font-weight: 700; text-decoration: none; color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.08);
+        display: flex; align-items: center;
+    }
+    .day-tabs a.active { color: #0f1b2d; background: #f5c400; }
+    .day-tabs input[type=date] {
+        flex: 1; border-radius: 10px; border: none; padding: 0 0.7rem; font-size: 0.9rem;
+        font-weight: 700; font-family: inherit; color: #0f1b2d; background: #fff;
+    }
+</style>
+</head>
+<body>
+    <div class="wrap">
+        <div id="google_translate_element"></div>
+
+        <div class="header">
+            <div class="name">{{ employee.name }}</div>
+            <div class="date">{{ entry_date|date:"l, d M Y" }}</div>
+        </div>
+
+        <div class="day-tabs">
+            <a href="?date={{ today|date:'Y-m-d' }}" class="{% if entry_date == today %}active{% endif %}">Today</a>
+            <input type="date" id="datePicker" value="{{ entry_date|date:'Y-m-d' }}" min="{{ min_date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        {% if style_rows %}
+        <div class="card" id="styleSelectCard">
+            <h2>Select style</h2>
+            <div class="style-grid">
+                {% for row in style_rows %}
+                <button type="button" class="style-card" data-style-id="{{ row.style.id }}">
+                    {% if row.style.image %}
+                    <img src="{{ row.style.image.url }}" alt="">
+                    {% else %}
+                    <span class="style-img-placeholder">👕</span>
+                    {% endif %}
+                    <span>
+                        <span class="en">{{ row.style.name }}</span>
+                    </span>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% for row in style_rows %}
+        <div class="card entry-card" id="entry-{{ row.style.id }}" hidden>
+            <button type="button" class="back-btn" data-back>&larr; Change style</button>
+            <h2>
+                <span class="en">{{ row.style.name }}</span>
+            </h2>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ entry_date|date:'Y-m-d' }}">
+                <label for="op-{{ row.style.id }}">Operation</label>
+                <select name="rate_card_operation_id" id="op-{{ row.style.id }}" class="op-select" required>
+                    <option value="" disabled selected>Select operation</option>
+                    {% for op in row.ops %}
+                    <option value="{{ op.id }}">{{ op.op_code }} — {{ op.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <a class="history-link" data-history-for="op-{{ row.style.id }}" data-history-base="{% url 'piece_rate_operator_history' token 0 %}" hidden>See my quantities so far &rarr;</a>
+
+                <label for="qty-{{ row.style.id }}">Quantity</label>
+                <input type="number" name="quantity" id="qty-{{ row.style.id }}" min="1" step="1" inputmode="numeric" required>
+
+                <button type="submit" class="submit">Submit</button>
+            </form>
+        </div>
+        {% endfor %}
+        {% elif no_styles_this_month %}
+        <div class="card">
+            <h2>Log production</h2>
+            <p class="empty">No production has been set up for this month yet — check with your supervisor.</p>
+        </div>
+        {% elif not_started_yet %}
+        <div class="card">
+            <h2>Log production</h2>
+            <p class="empty">No style had started running yet on {{ day_label }}.</p>
+        </div>
+        {% else %}
+        <div class="card">
+            <h2>Log production</h2>
+            <p class="empty">Everything's logged for {{ day_label }}. Nice work!</p>
+        </div>
+        {% endif %}
+
+        {% if already_logged %}
+        <div class="card">
+            <h2>Already logged for {{ day_label }}</h2>
+            {% for entry in already_logged %}
+            <div class="logged-row">
+                <span>
+                    <span class="op">{{ entry.rate_card_operation.name }}</span>
+                    <span class="style">{{ entry.rate_card_operation.style.name }}</span>
+                </span>
+                <span class="qty">{{ entry.quantity }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="done-note">Made a mistake? Ask your supervisor — this can't be edited here.</div>
+    </div>
+
+    <script>
+        document.getElementById('datePicker').addEventListener('change', function (e) {
+            if (e.target.value) {
+                window.location.search = '?date=' + e.target.value;
+            }
+        });
+        document.querySelectorAll('.style-card').forEach(function (card) {
+            card.addEventListener('click', function () {
+                document.getElementById('styleSelectCard').hidden = true;
+                document.getElementById('entry-' + card.dataset.styleId).hidden = false;
+            });
+        });
+        document.querySelectorAll('.op-select').forEach(function (select) {
+            var link = document.querySelector('[data-history-for="' + select.id + '"]');
+            if (!link) return;
+            select.addEventListener('change', function () {
+                if (select.value) {
+                    link.href = link.dataset.historyBase.replace('/0/', '/' + select.value + '/');
+                    link.hidden = false;
+                } else {
+                    link.hidden = true;
+                }
+            });
+        });
+        document.querySelectorAll('[data-back]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.entry-card').forEach(function (c) { c.hidden = true; });
+                document.getElementById('styleSelectCard').hidden = false;
+            });
+        });
+    </script>
+
+    <script>
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'en,ta,te,kn',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                autoDisplay: false,
+            }, 'google_translate_element');
+        }
+    </script>
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
+</body>
+</html>

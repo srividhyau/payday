@@ -12,15 +12,21 @@ PRODUCTION_HEAD_GROUP = "Production Head"
 
 # Every URL name under the Piece Rate module — Styles/Templates/Master
 # Operations/the summaries (view-only, no POST branch) plus each style's
-# Rate Card and Production pages (real POST actions).
+# Rate Card and Production pages (real POST actions). piece_rate_operator_entry
+# is the public mobile self-entry page — normally reached signed out
+# entirely (anonymous requests never hit this middleware at all), listed
+# here only so a Production Head who's also logged into their own
+# account doesn't get redirected away from it.
 _PIECE_RATE_GET_URLS = {
     "piece_rate", "piece_rate_templates", "piece_rate_operations",
     "piece_rate_operator_summary", "piece_rate_style_summary", "piece_rate_management_summary",
-    "piece_rate_rate_card", "piece_rate_production",
+    "piece_rate_rate_card", "piece_rate_production", "piece_rate_production_shortcut",
+    "piece_rate_operator_links", "piece_rate_operator_entry", "piece_rate_operator_history",
 }
 _PIECE_RATE_POST_URLS = {
     "piece_rate", "piece_rate_templates", "piece_rate_operations",
     "piece_rate_rate_card", "piece_rate_production",
+    "piece_rate_operator_links", "piece_rate_operator_entry",
 }
 
 # Deny-by-default per role: for each restricted group, the URL names it

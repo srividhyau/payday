@@ -101,9 +101,9 @@
                     <tr class="style-top-row" data-style-id="{{ forloop.counter }}">
                         <td><span class="toggle-arrow">▾</span>{{ row.style_name }}</td>
                         <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
+                        <td class="num">{{ row.order_quantity }}</td>
+                        <td class="num">{{ row.quantity_sum }}</td>
+                        <td class="num">{{ row.rate_sum }}</td>
                         <td class="num">{{ row.total }}</td>
                     </tr>
                     {% for emp in row.employees %}

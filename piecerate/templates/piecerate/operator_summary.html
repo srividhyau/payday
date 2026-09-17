@@ -108,9 +108,9 @@
                     <tr class="employee-row" data-employee-id="{{ row.employee.id }}">
                         <td><span class="toggle-arrow">▾</span>{{ row.employee.name }}</td>
                         <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
+                        <td class="num">{{ row.order_quantity }}</td>
+                        <td class="num">{{ row.quantity_sum }}</td>
+                        <td class="num">{{ row.rate_sum }}</td>
                         <td class="num">{{ row.total }}</td>
                     </tr>
                     {% for style in row.styles %}
