@@ -1,6 +1,10 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<!-- lang="en-GB" (not "en") is deliberate: Chrome renders the native
+     #datePicker input's displayed date using whatever locale this
+     attribute implies, regardless of the phone's own system locale —
+     en-GB gives dd/mm/yyyy, which is what operators expect. -->
+<html lang="en-GB">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
