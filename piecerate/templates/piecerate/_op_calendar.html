@@ -1,0 +1,23 @@
+<div class="op-calendar" data-op-calendar="{{ cal.op_id }}" hidden>
+    <div class="op-cal-header">
+        <span>{{ cal.month_name }} {{ cal.year }}</span>
+        <span class="op-cal-total">Logged so far: <strong>{{ cal.total }}</strong></span>
+    </div>
+    <table class="mini-cal">
+        <thead>
+            <tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr>
+        </thead>
+        <tbody>
+            {% for week in cal.weeks %}
+            <tr>
+                {% for day in week %}
+                <td class="{% if not day.in_month %}out{% endif %}{% if day.quantity %} has-qty{% endif %}{% if day.is_today %} today{% endif %}{% if day.is_selected %} selected{% endif %}">
+                    <span class="d">{{ day.date.day }}</span>
+                    {% if day.quantity %}<span class="q">{{ day.quantity }}</span>{% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

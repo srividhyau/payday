@@ -14,6 +14,5 @@ urlpatterns = [
     path("styles/<int:style_id>/production/", views.production_view, name="piece_rate_production"),
     path("operator-links/", views.operator_links_view, name="piece_rate_operator_links"),
     path("entry/<str:token>/", views.operator_entry_view, name="piece_rate_operator_entry"),
-    path("entry/<str:token>/history/<int:rc_op_id>/", views.operator_history_view, name="piece_rate_operator_history"),
     path("entry/<str:token>/icon-<int:size>.png", views.operator_icon_view, name="piece_rate_operator_icon"),
 ]

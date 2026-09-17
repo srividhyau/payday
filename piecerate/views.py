@@ -1029,6 +1029,48 @@ def operator_entry_view(request, token):
         if ops:
             style_rows.append({"style": style, "ops": ops})
 
+    # One query for every op that needs a calendar — both the unlogged
+    # ones in the picker below and the already-logged ones further
+    # down — instead of one query per operation.
+    op_ids_for_calendars = {op.id for row in style_rows for op in row["ops"]}
+    op_ids_for_calendars.update(e.rate_card_operation_id for e in already_logged)
+    entries_by_op = {}
+    for e in PieceRateEntry.objects.filter(employee=employee, rate_card_operation_id__in=op_ids_for_calendars):
+        entries_by_op.setdefault(e.rate_card_operation_id, {})[e.date] = e.quantity
+
+    weeks_cache = {}
+
+    def _weeks_for(year, month):
+        return weeks_cache.setdefault((year, month), calendar.Calendar(firstweekday=0).monthdatescalendar(year, month))
+
+    def _build_calendar(op, style):
+        qty_map = entries_by_op.get(op.id, {})
+        weeks = [
+            [
+                {
+                    "date": d, "in_month": d.month == style.month, "quantity": qty_map.get(d),
+                    "is_today": d == today, "is_selected": d == entry_date,
+                }
+                for d in week
+            ]
+            for week in _weeks_for(style.year, style.month)
+        ]
+        return {
+            "op_id": op.id, "weeks": weeks, "total": sum(qty_map.values()),
+            "month_name": calendar.month_name[style.month], "year": style.year,
+        }
+
+    for row in style_rows:
+        row["op_calendars"] = [_build_calendar(op, row["style"]) for op in row["ops"]]
+
+    # Keyed by operation id so the template can look one up per
+    # already-logged row — clicking one shows the same kind of
+    # calendar as picking an unlogged operation above does.
+    already_logged_calendars = {
+        e.rate_card_operation_id: _build_calendar(e.rate_card_operation, e.rate_card_operation.style)
+        for e in already_logged
+    }
+
     return render(request, "piecerate/operator_entry.html", {
         "employee": employee,
         "today": today,
@@ -1037,48 +1079,10 @@ def operator_entry_view(request, token):
         "day_label": _day_label(entry_date, today),
         "style_rows": style_rows,
         "already_logged": already_logged,
+        "already_logged_calendars": already_logged_calendars,
         "no_styles_this_month": not style_list,
         "not_started_yet": bool(style_list) and not started_styles,
         "token": token,
     })
 
 
-def operator_history_view(request, token, rc_op_id):
-    """Read-only calendar of one operator's own daily quantities for one
-    operation — reachable from the entry page once an operation is
-    picked, so an operator can see at a glance what they've already
-    logged this month for it without asking a supervisor."""
-    link = get_object_or_404(OperatorLink, token=token)
-    employee = link.employee
-    rc_op = get_object_or_404(RateCardOperation.objects.select_related("style"), id=rc_op_id)
-    style = rc_op.style
-    today = date_cls.today()
-
-    weeks_raw = calendar.Calendar(firstweekday=0).monthdatescalendar(style.year, style.month)
-    qty_map = dict(
-        PieceRateEntry.objects.filter(employee=employee, rate_card_operation=rc_op).values_list("date", "quantity")
-    )
-
-    weeks = [
-        [
-            {
-                "date": d,
-                "in_month": d.month == style.month,
-                "quantity": qty_map.get(d),
-                "is_today": d == today,
-            }
-            for d in week
-        ]
-        for week in weeks_raw
-    ]
-
-    return render(request, "piecerate/operator_history.html", {
-        "employee": employee,
-        "style": style,
-        "op": rc_op,
-        "weeks": weeks,
-        "month_name": calendar.month_name[style.month],
-        "year": style.year,
-        "total": sum(qty_map.values()),
-        "token": token,
-    })

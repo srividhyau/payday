@@ -1,9 +1,15 @@
-{% load static %}
+{% load static piecerate_extras %}
 <!DOCTYPE html>
 <html lang="en-GB">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <!-- interactive-widget=resizes-content: without it, some Android
+         Chrome versions leave the page's layout viewport unchanged when
+         the on-screen keyboard opens and just overlay the keyboard on
+         top instead — covering whatever was near the bottom of the
+         screen (here, the Submit button right below the quantity
+         field) instead of the page reflowing above it. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
     <title>{{ employee.name }} — Payday</title>
     <!-- Android Chrome's "Add to Home Screen" names the shortcut after
          <title> when there's no manifest; iOS Safari uses this meta
@@ -24,7 +30,11 @@
         margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: #0f1b2d; color: #1b2430; min-height: 100vh;
     }
-    .wrap { max-width: 480px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    /* Bottom padding generous enough that the Submit button can always
+       be scrolled clear above an on-screen keyboard (see the focus
+       handler on quantity inputs below), even on browsers that don't
+       honor interactive-widget=resizes-content. */
+    .wrap { max-width: 480px; margin: 0 auto; padding: 1rem 1rem 45vh; }
 
     .header { padding: 1.25rem 0.25rem 1rem; color: #fff; }
     .header .name { font-size: 1.4rem; font-weight: 700; }
@@ -73,17 +83,38 @@
     }
     .entry-card h2 { display: flex; flex-direction: column; }
 
-    .history-link {
-        display: block; text-align: right; font-size: 0.82rem; font-weight: 600;
-        color: #2563eb; text-decoration: none; margin: -0.5rem 0 1rem;
+    /* Shown as soon as an operation is picked in .op-select (see JS) —
+       what the operator has already logged for it this month, right
+       there instead of a separate page to navigate to. */
+    .op-calendar { margin: -0.4rem 0 1rem; background: #f8fafc; border-radius: 10px; padding: 0.6rem; }
+    .op-calendar[hidden] { display: none; }
+    .op-cal-header {
+        display: flex; justify-content: space-between; align-items: baseline;
+        font-size: 0.75rem; color: #4a5468; margin-bottom: 0.4rem;
     }
-    .history-link[hidden] { display: none; }
+    .op-cal-header strong { color: #1e7e34; font-size: 0.9rem; }
+    table.mini-cal { width: 100%; border-collapse: collapse; }
+    table.mini-cal th { font-size: 0.6rem; font-weight: 600; color: #9aa3b2; text-transform: uppercase; padding-bottom: 0.2rem; }
+    table.mini-cal td { text-align: center; padding: 0.15rem 0.05rem; vertical-align: top; height: 2.2rem; width: 14.28%; }
+    table.mini-cal td .d { display: block; font-size: 0.62rem; color: #9aa3b2; }
+    table.mini-cal td .q { display: block; font-size: 0.85rem; font-weight: 700; color: #1e7e34; }
+    table.mini-cal td.out .d { color: #dfe3e9; }
+    table.mini-cal td.has-qty { background: #e6f4ea; border-radius: 6px; }
+    /* Today (the real calendar date) gets its own background — placed
+       after .has-qty so it still shows even on a day with an entry —
+       while the currently selected date (the day picked at the top of
+       the page — usually but not always today) gets a border instead,
+       so the two stay visually distinct when they're different days. */
+    table.mini-cal td.today { background: #fef3c7; border-radius: 6px; }
+    table.mini-cal td.selected { box-shadow: inset 0 0 0 1.5px #0f1b2d; border-radius: 6px; }
 
     .logged-row {
-        display: flex; justify-content: space-between; align-items: baseline;
+        display: flex; justify-content: space-between; align-items: baseline; width: 100%;
         padding: 0.6rem 0; border-bottom: 1px solid #eef0f4; font-size: 0.95rem;
+        background: none; border-left: none; border-right: none; border-top: none;
+        font-family: inherit; text-align: left; cursor: pointer;
     }
-    .logged-row:last-child { border-bottom: none; }
+    button.logged-row:last-of-type { border-bottom: none; }
     .logged-row .op { font-weight: 600; color: #0f1b2d; }
     .logged-row .style { font-size: 0.78rem; color: #8a92a0; display: block; }
     .logged-row .qty { font-weight: 700; color: #1e7e34; font-size: 1.1rem; }
@@ -132,7 +163,7 @@
         width: 100%; border-radius: 10px; border: none; padding: 0 0.7rem; font-size: 0.9rem;
         font-weight: 700; font-family: inherit; color: #0f1b2d; background: #fff; cursor: pointer;
     }
-    #datePicker { position: absolute; inset: 0; opacity: 0; border: none; padding: 0; margin: 0; }
+    #datePicker { position: absolute; inset: 0; opacity: 0; border: none; padding: 0; margin: 0; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -192,7 +223,9 @@
                     {% endfor %}
                 </select>
 
-                <a class="history-link" data-history-for="op-{{ row.style.id }}" data-history-base="{% url 'piece_rate_operator_history' token 0 %}" hidden>See my quantities so far &rarr;</a>
+                {% for cal in row.op_calendars %}
+                {% include "piecerate/_op_calendar.html" with cal=cal %}
+                {% endfor %}
 
                 <label for="qty-{{ row.style.id }}">Quantity</label>
                 <input type="number" name="quantity" id="qty-{{ row.style.id }}" min="1" step="1" inputmode="numeric" required>
@@ -222,13 +255,16 @@
         <div class="card">
             <h2>Already logged for {{ day_label }}</h2>
             {% for entry in already_logged %}
-            <div class="logged-row">
+            <button type="button" class="logged-row" data-toggle-calendar="{{ entry.rate_card_operation_id }}">
                 <span>
                     <span class="op">{{ entry.rate_card_operation.name }}</span>
                     <span class="style">{{ entry.rate_card_operation.style.name }}</span>
                 </span>
                 <span class="qty">{{ entry.quantity }}</span>
-            </div>
+            </button>
+            {% with cal=already_logged_calendars|dict_get:entry.rate_card_operation_id %}
+            {% include "piecerate/_op_calendar.html" with cal=cal %}
+            {% endwith %}
             {% endfor %}
         </div>
         {% endif %}
@@ -237,6 +273,22 @@
     </div>
 
     <script>
+        // Keep the Submit button reachable once the on-screen keyboard
+        // opens for a quantity field — some browsers overlay the
+        // keyboard on top of the page instead of resizing it (see the
+        // viewport meta tag and .wrap padding above), which otherwise
+        // leaves the button sitting behind the keyboard.
+        document.querySelectorAll('input[type=number]').forEach(function (input) {
+            input.addEventListener('focus', function () {
+                var btn = input.closest('form').querySelector('button.submit');
+                if (btn) {
+                    setTimeout(function () {
+                        btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    }, 300);
+                }
+            });
+        });
+
         var datePicker = document.getElementById('datePicker');
         document.getElementById('dateDisplay').addEventListener('click', function () {
             if (datePicker.showPicker) {
@@ -258,14 +310,12 @@
             });
         });
         document.querySelectorAll('.op-select').forEach(function (select) {
-            var link = document.querySelector('[data-history-for="' + select.id + '"]');
-            if (!link) return;
+            var card = select.closest('.entry-card');
             select.addEventListener('change', function () {
+                card.querySelectorAll('.op-calendar').forEach(function (cal) { cal.hidden = true; });
                 if (select.value) {
-                    link.href = link.dataset.historyBase.replace('/0/', '/' + select.value + '/');
-                    link.hidden = false;
-                } else {
-                    link.hidden = true;
+                    var cal = card.querySelector('[data-op-calendar="' + select.value + '"]');
+                    if (cal) cal.hidden = false;
                 }
             });
         });
@@ -273,6 +323,13 @@
             btn.addEventListener('click', function () {
                 document.querySelectorAll('.entry-card').forEach(function (c) { c.hidden = true; });
                 document.getElementById('styleSelectCard').hidden = false;
+            });
+        });
+        document.querySelectorAll('[data-toggle-calendar]').forEach(function (row) {
+            var cal = row.nextElementSibling;
+            if (!cal || !cal.classList.contains('op-calendar')) return;
+            row.addEventListener('click', function () {
+                cal.hidden = !cal.hidden;
             });
         });
     </script>
