@@ -22,6 +22,7 @@ _PIECE_RATE_GET_URLS = {
     "piece_rate_operator_summary", "piece_rate_style_summary", "piece_rate_management_summary",
     "piece_rate_rate_card", "piece_rate_production", "piece_rate_production_shortcut",
     "piece_rate_operator_links", "piece_rate_operator_entry", "piece_rate_operator_history",
+    "piece_rate_operator_icon",
 }
 _PIECE_RATE_POST_URLS = {
     "piece_rate", "piece_rate_templates", "piece_rate_operations",

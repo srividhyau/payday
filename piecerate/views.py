@@ -1,5 +1,6 @@
 import base64
 import calendar
+import hashlib
 import io
 from datetime import date as date_cls
 from datetime import timedelta
@@ -10,9 +11,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.db.models import Sum
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from attendance.models import Employee, SpecialDay
 
@@ -906,6 +908,32 @@ def _day_label(d, today):
     if d == today - timedelta(days=1):
         return "yesterday"
     return d.strftime("%d %b")
+
+
+def operator_icon_view(request, token, size):
+    """A generated home-screen icon for one operator's link — their
+    name's first letter over a color derived from their name (so two
+    operators' shortcuts on the same phone/tablet look different at a
+    glance), instead of every operator sharing the same plain company
+    logo. Public like operator_entry_view since it's just an icon."""
+    link = get_object_or_404(OperatorLink, token=token)
+    name = link.employee.name or "?"
+    initial = name.strip()[:1].upper() or "?"
+
+    size = max(32, min(size, 512))
+    hue = int(hashlib.md5(name.encode()).hexdigest(), 16) % 360
+    color = ImageColor.getrgb(f"hsl({hue}, 45%, 38%)")
+
+    img = Image.new("RGB", (size, size), color)
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.load_default(size=int(size * 0.58))
+    draw.text((size / 2, size / 2 + size * 0.03), initial, font=font, fill="white", anchor="mm")
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    response = HttpResponse(buf.getvalue(), content_type="image/png")
+    response["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 def operator_entry_view(request, token):

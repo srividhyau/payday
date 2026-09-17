@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,10 +9,15 @@
          <title> when there's no manifest; iOS Safari uses this meta
          instead. Both need the operator's name first/alone so each
          operator's own shortcut is labeled with their name, not a
-         generic "Payday" every phone would otherwise share. -->
+         generic "Payday" every phone would otherwise share. No web
+         app manifest here on purpose — one would let Chrome offer a
+         full "Install app" (WebAPK) flow that names the shortcut from
+         the manifest instead of the page title, undoing the
+         per-operator name above. -->
     <meta name="apple-mobile-web-app-title" content="{{ employee.name }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="icon" href="data:,">
+    <link rel="icon" href="{% url 'piece_rate_operator_icon' token 192 %}">
+    <link rel="apple-touch-icon" href="{% url 'piece_rate_operator_icon' token 180 %}">
 <style>
     * { box-sizing: border-box; }
     body {
