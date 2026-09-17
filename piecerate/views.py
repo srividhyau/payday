@@ -879,8 +879,12 @@ def operator_links_view(request):
             messages.success(request, f"Link revoked for {employee.name}.")
         return redirect("piece_rate_operator_links")
 
+    # Same "currently working" rule the Production page's operator
+    # picker uses — someone who's left shouldn't be handed (or keep) a
+    # working link, even if their Employee record is still around.
     employees = list(
         Employee.objects.filter(department__name__iexact="Operator")
+        .active_on(date_cls.today())
         .select_related("piece_rate_link")
         .order_by("name")
     )
