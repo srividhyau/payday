@@ -124,10 +124,19 @@
         display: flex; align-items: center;
     }
     .day-tabs a.active { color: #0f1b2d; background: #f5c400; }
-    .day-tabs input[type=date] {
-        flex: 1; border-radius: 10px; border: none; padding: 0 0.7rem; font-size: 0.9rem;
-        font-weight: 700; font-family: inherit; color: #0f1b2d; background: #fff;
+    /* Native <input type=date> renders its text in whatever format the
+       device/browser locale picks (mm/dd/yyyy on plenty of phones) —
+       not reliably controllable via lang= in practice, so it's kept
+       only as an invisible, exact-sized overlay purely to open the
+       OS's native calendar UI (.showPicker()) and receive the result;
+       #dateDisplay is the only thing actually shown, formatted
+       ourselves as dd/mm/yyyy so it's identical on every device. */
+    .date-field-wrap { position: relative; flex: 1; }
+    #dateDisplay {
+        width: 100%; border-radius: 10px; border: none; padding: 0 0.7rem; font-size: 0.9rem;
+        font-weight: 700; font-family: inherit; color: #0f1b2d; background: #fff; cursor: pointer;
     }
+    #datePicker { position: absolute; inset: 0; opacity: 0; border: none; padding: 0; margin: 0; }
 </style>
 </head>
 <body>
@@ -141,7 +150,10 @@
 
         <div class="day-tabs">
             <a href="?date={{ today|date:'Y-m-d' }}" class="{% if entry_date == today %}active{% endif %}">Today</a>
-            <input type="date" id="datePicker" value="{{ entry_date|date:'Y-m-d' }}" min="{{ min_date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+            <div class="date-field-wrap">
+                <button type="button" id="dateDisplay">{{ entry_date|date:'d/m/Y' }}</button>
+                <input type="date" id="datePicker" tabindex="-1" value="{{ entry_date|date:'Y-m-d' }}" min="{{ min_date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+            </div>
         </div>
 
         {% for message in messages %}
