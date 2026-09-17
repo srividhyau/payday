@@ -1,9 +1,5 @@
 {% load static %}
 <!DOCTYPE html>
-<!-- lang="en-GB" (not "en") is deliberate: Chrome renders the native
-     #datePicker input's displayed date using whatever locale this
-     attribute implies, regardless of the phone's own system locale —
-     en-GB gives dd/mm/yyyy, which is what operators expect. -->
 <html lang="en-GB">
 <head>
     <meta charset="UTF-8">
@@ -241,7 +237,16 @@
     </div>
 
     <script>
-        document.getElementById('datePicker').addEventListener('change', function (e) {
+        var datePicker = document.getElementById('datePicker');
+        document.getElementById('dateDisplay').addEventListener('click', function () {
+            if (datePicker.showPicker) {
+                datePicker.showPicker();
+            } else {
+                datePicker.focus();
+                datePicker.click();
+            }
+        });
+        datePicker.addEventListener('change', function (e) {
             if (e.target.value) {
                 window.location.search = '?date=' + e.target.value;
             }
