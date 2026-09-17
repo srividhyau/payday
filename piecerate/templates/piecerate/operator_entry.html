@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>Payday — Log Production</title>
+    <title>{{ employee.name }} — Payday</title>
+    <!-- Android Chrome's "Add to Home Screen" names the shortcut after
+         <title> when there's no manifest; iOS Safari uses this meta
+         instead. Both need the operator's name first/alone so each
+         operator's own shortcut is labeled with their name, not a
+         generic "Payday" every phone would otherwise share. -->
+    <meta name="apple-mobile-web-app-title" content="{{ employee.name }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="icon" href="data:,">
 <style>
     * { box-sizing: border-box; }
