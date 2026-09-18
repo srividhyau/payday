@@ -101,10 +101,45 @@ class PieceRateEntry(models.Model):
     Production page, which groups these by operation and compares their
     sum for the month against RateCardOperation.order_quantity."""
 
+    ENTERED_BY_OPERATOR = "operator"
+    ENTERED_BY_SUPERVISOR = "supervisor"
+    ENTERED_BY_CHOICES = [
+        (ENTERED_BY_OPERATOR, "Operator"),
+        (ENTERED_BY_SUPERVISOR, "Supervisor"),
+    ]
+
     rate_card_operation = models.ForeignKey(RateCardOperation, on_delete=models.CASCADE, related_name="entries")
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="piece_rate_entries")
     date = models.DateField()
     quantity = models.PositiveIntegerField(default=0)
+    # When this row was actually submitted — distinct from `date`
+    # (which day it's logged against). The operator mobile entry page
+    # lets an operator revise an entry only while created_at is still
+    # today, regardless of which date it targets (e.g. a backdated
+    # entry for the 20th, added just now, is still fixable right now).
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    # Which channel most recently wrote this value — the mobile
+    # operator entry page always sets "operator", the desktop
+    # Production page's cell editor always sets "supervisor". A row a
+    # supervisor corrects flips to "supervisor" even if an operator
+    # originally added it, since that's who's now responsible for the
+    # value on screen. Every entry that predates this field (and every
+    # one from before the mobile page even existed) is genuinely
+    # "supervisor" — the desktop page was the only way in.
+    entered_by = models.CharField(max_length=10, choices=ENTERED_BY_CHOICES, default=ENTERED_BY_SUPERVISOR)
+    # Once true, stays true forever — unlike entered_by (which only
+    # reflects the *current* value's source), this remembers that an
+    # operator touched this row at some point even after a supervisor
+    # later overwrites it, so the Production page can show "this used
+    # to be the operator's, now corrected" instead of that correction
+    # looking identical to a cell that was always the supervisor's own.
+    was_operator_entered = models.BooleanField(default=False)
+    # The last value an operator themselves entered — set only by the
+    # mobile entry page, never touched by a desktop correction, so
+    # "what the operator said" survives being overwritten. Powers the
+    # Production page's "operator entered X, corrected to Y" popup on
+    # a corrected cell's dot.
+    operator_quantity = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ["date"]

@@ -1,6 +1,6 @@
-<div class="op-calendar" data-op-calendar="{{ cal.op_id }}" hidden>
+<div class="op-calendar" data-op-calendar="{{ cal.op_id }}" {% if selectable %}data-default-date="{{ cal.default_date }}" data-default-qty="{{ cal.default_qty }}" data-order-qty="{{ cal.order_quantity }}"{% endif %} hidden>
     <div class="op-cal-header">
-        <span>{{ cal.month_name }} {{ cal.year }}</span>
+        <span>{{ cal.month_label }}</span>
         <span class="op-cal-total">Logged so far: <strong>{{ cal.total }}</strong></span>
     </div>
     <table class="mini-cal">
@@ -11,8 +11,9 @@
             {% for week in cal.weeks %}
             <tr>
                 {% for day in week %}
-                <td class="{% if not day.in_month %}out{% endif %}{% if day.quantity %} has-qty{% endif %}{% if day.is_today %} today{% endif %}{% if day.is_selected %} selected{% endif %}">
-                    <span class="d">{{ day.date.day }}</span>
+                <td class="{% if not day.in_month %}out{% endif %}{% if day.quantity %} has-qty{% endif %}{% if day.is_today %} today{% endif %}{% if day.other_month %} other-month{% endif %}{% if selectable and day.clickable %} clickable{% endif %}{% if selectable and day.is_selected %} selected{% endif %}{% if day.added_today %} added-today{% endif %}"
+                    {% if selectable and day.clickable %}data-date="{{ day.date|date:'Y-m-d' }}" data-qty="{{ day.quantity|default:'' }}"{% endif %}>
+                    <span class="d">{{ day.date.day }}{% if day.other_month %}<span class="mo">{{ day.date|date:"M" }}</span>{% endif %}</span>
                     {% if day.quantity %}<span class="q">{{ day.quantity }}</span>{% endif %}
                 </td>
                 {% endfor %}

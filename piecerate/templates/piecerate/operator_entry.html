@@ -1,4 +1,4 @@
-{% load static piecerate_extras %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en-GB">
 <head>
@@ -48,12 +48,33 @@
     .msg.error { background: #fdecea; color: #b3261e; }
 
     label { display: block; font-size: 0.85rem; font-weight: 600; color: #4a5468; margin-bottom: 0.35rem; }
+    .order-qty-hint { font-weight: 400; color: #6b7280; }
 
-    select, input[type=number] {
+    select, input[type=number], input[type=text].op-search {
         width: 100%; font-size: 1.15rem; padding: 0.85rem 0.7rem; border-radius: 10px;
         border: 1.5px solid #c9d0dc; margin-bottom: 1rem; font-family: inherit; background: #fff;
     }
-    select:focus, input[type=number]:focus { outline: none; border-color: #0f1b2d; }
+    select:focus, input[type=number]:focus, input[type=text].op-search:focus { outline: none; border-color: #0f1b2d; }
+
+    /* Searchable, section-grouped operation picker — a plain text
+       input plus a floating filtered list, instead of a native
+       <select> (which can't do either of those things), backed by a
+       hidden field that holds the actual picked operation id. */
+    .op-picker { position: relative; }
+    .op-picker-list {
+        position: absolute; top: calc(100% - 0.6rem); left: 0; right: 0; z-index: 20;
+        max-height: 45vh; overflow-y: auto; background: #fff; border: 1.5px solid #c9d0dc;
+        border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+    }
+    .op-picker-list[hidden] { display: none; }
+    .op-group-label {
+        position: sticky; top: 0; background: #fff; font-size: 0.68rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.03em; color: #8a92a0;
+        padding: 0.5rem 0.7rem 0.25rem;
+    }
+    .op-item { padding: 0.65rem 0.7rem; font-size: 0.95rem; color: #0f1b2d; cursor: pointer; }
+    .op-item:active { background: #f5f7fa; }
+    .op-item[hidden], .op-group-label[hidden] { display: none; }
 
     button.submit {
         width: 100%; font-size: 1.15rem; font-weight: 700; padding: 0.95rem; border-radius: 10px;
@@ -81,7 +102,13 @@
         background: none; border: none; color: #4a5468; font-size: 0.9rem; font-weight: 600;
         cursor: pointer; font-family: inherit; padding: 0 0 0.7rem; margin: 0;
     }
-    .entry-card h2 { display: flex; flex-direction: column; }
+    .entry-card h2 { display: flex; flex-direction: column; margin: 0; }
+    .entry-card-heading { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.8rem; }
+    .entry-style-img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+    .entry-style-img-placeholder {
+        width: 44px; height: 44px; border-radius: 8px; background: #eef1f5; font-size: 1.3rem;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
 
     /* Shown as soon as an operation is picked in .op-select (see JS) —
        what the operator has already logged for it this month, right
@@ -89,24 +116,40 @@
     .op-calendar { margin: -0.4rem 0 1rem; background: #f8fafc; border-radius: 10px; padding: 0.6rem; }
     .op-calendar[hidden] { display: none; }
     .op-cal-header {
-        display: flex; justify-content: space-between; align-items: baseline;
+        display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.5rem;
         font-size: 0.75rem; color: #4a5468; margin-bottom: 0.4rem;
     }
-    .op-cal-header strong { color: #1e7e34; font-size: 0.9rem; }
+    .op-cal-total strong { color: #1e7e34; font-size: 0.9rem; }
     table.mini-cal { width: 100%; border-collapse: collapse; }
     table.mini-cal th { font-size: 0.6rem; font-weight: 600; color: #9aa3b2; text-transform: uppercase; padding-bottom: 0.2rem; }
     table.mini-cal td { text-align: center; padding: 0.15rem 0.05rem; vertical-align: top; height: 2.2rem; width: 14.28%; }
-    table.mini-cal td .d { display: block; font-size: 0.62rem; color: #9aa3b2; }
+    table.mini-cal td .d { display: block; font-size: 0.72rem; font-weight: 600; color: #334155; }
     table.mini-cal td .q { display: block; font-size: 0.85rem; font-weight: 700; color: #1e7e34; }
-    table.mini-cal td.out .d { color: #dfe3e9; }
+    table.mini-cal td.out .d { color: #b6bcc6; font-weight: 400; }
     table.mini-cal td.has-qty { background: #e6f4ea; border-radius: 6px; }
     /* Today (the real calendar date) gets its own background — placed
        after .has-qty so it still shows even on a day with an entry —
-       while the currently selected date (the day picked at the top of
-       the page — usually but not always today) gets a border instead,
-       so the two stay visually distinct when they're different days. */
+       while the currently selected date (the day that'll actually be
+       logged against if you hit Submit — tap any other clickable day
+       to change it) gets a border instead, so the two stay visually
+       distinct when they're different days. */
     table.mini-cal td.today { background: #fef3c7; border-radius: 6px; }
     table.mini-cal td.selected { box-shadow: inset 0 0 0 1.5px #0f1b2d; border-radius: 6px; }
+    table.mini-cal td.clickable { cursor: pointer; }
+    table.mini-cal td.clickable:active { background: #eef1f5; }
+    /* Any entry added today, whichever date it's actually logged
+       against — a heavier dark border than the plain .selected one,
+       placed after it in source order so it wins when a day is both
+       (today defaults to selected). Distinguishes "added today,
+       still freely editable" from an older, locked entry. */
+    table.mini-cal td.added-today { box-shadow: inset 0 0 0 2px #111827; border-radius: 6px; }
+    /* Days from before the style's own calendar month (e.g. the 20th
+       of the prior month, when Style.start_date reaches back that
+       far) — tinted so they read as "a different month" at a glance,
+       with a small month label next to the day number since e.g. both
+       months can have a 20th. */
+    table.mini-cal td.other-month:not(.out):not(.has-qty):not(.today) { background: #fff3e0; border-radius: 6px; }
+    table.mini-cal td .mo { font-size: 0.52rem; font-weight: 700; color: #b45309; text-transform: uppercase; margin-left: 1px; }
 
     .logged-row {
         display: flex; justify-content: space-between; align-items: baseline; width: 100%;
@@ -143,27 +186,6 @@
        what's targeted instead of the class name. */
     iframe[id$=".container"] { display: none !important; }
     body { top: 0 !important; }
-
-    .day-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: stretch; }
-    .day-tabs a {
-        text-align: center; padding: 0.6rem 0.9rem; border-radius: 10px; font-size: 0.9rem;
-        font-weight: 700; text-decoration: none; color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.08);
-        display: flex; align-items: center;
-    }
-    .day-tabs a.active { color: #0f1b2d; background: #f5c400; }
-    /* Native <input type=date> renders its text in whatever format the
-       device/browser locale picks (mm/dd/yyyy on plenty of phones) —
-       not reliably controllable via lang= in practice, so it's kept
-       only as an invisible, exact-sized overlay purely to open the
-       OS's native calendar UI (.showPicker()) and receive the result;
-       #dateDisplay is the only thing actually shown, formatted
-       ourselves as dd/mm/yyyy so it's identical on every device. */
-    .date-field-wrap { position: relative; flex: 1; }
-    #dateDisplay {
-        width: 100%; border-radius: 10px; border: none; padding: 0 0.7rem; font-size: 0.9rem;
-        font-weight: 700; font-family: inherit; color: #0f1b2d; background: #fff; cursor: pointer;
-    }
-    #datePicker { position: absolute; inset: 0; opacity: 0; border: none; padding: 0; margin: 0; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -172,15 +194,7 @@
 
         <div class="header">
             <div class="name">{{ employee.name }}</div>
-            <div class="date">{{ entry_date|date:"l, d M Y" }}</div>
-        </div>
-
-        <div class="day-tabs">
-            <a href="?date={{ today|date:'Y-m-d' }}" class="{% if entry_date == today %}active{% endif %}">Today</a>
-            <div class="date-field-wrap">
-                <button type="button" id="dateDisplay">{{ entry_date|date:'d/m/Y' }}</button>
-                <input type="date" id="datePicker" tabindex="-1" value="{{ entry_date|date:'Y-m-d' }}" min="{{ min_date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
-            </div>
+            <div class="date">{{ today|date:"l, d M Y" }}</div>
         </div>
 
         {% for message in messages %}
@@ -209,26 +223,39 @@
         {% for row in style_rows %}
         <div class="card entry-card" id="entry-{{ row.style.id }}" hidden>
             <button type="button" class="back-btn" data-back>&larr; Change style</button>
-            <h2>
-                <span class="en">{{ row.style.name }}</span>
-            </h2>
+            <div class="entry-card-heading">
+                {% if row.style.image %}
+                <img src="{{ row.style.image.url }}" alt="" class="entry-style-img">
+                {% else %}
+                <span class="entry-style-img-placeholder">👕</span>
+                {% endif %}
+                <h2>
+                    <span class="en">{{ row.style.name }}</span>
+                </h2>
+            </div>
             <form method="post">
                 {% csrf_token %}
-                <input type="hidden" name="date" value="{{ entry_date|date:'Y-m-d' }}">
-                <label for="op-{{ row.style.id }}">Operation</label>
-                <select name="rate_card_operation_id" id="op-{{ row.style.id }}" class="op-select" required>
-                    <option value="" disabled selected>Select operation</option>
-                    {% for op in row.ops %}
-                    <option value="{{ op.id }}">{{ op.op_code }} — {{ op.name }}</option>
-                    {% endfor %}
-                </select>
+                <input type="hidden" name="date" class="entry-date-input" value="">
+                <label for="op-search-{{ row.style.id }}">Operation</label>
+                <div class="op-picker">
+                    <input type="text" id="op-search-{{ row.style.id }}" class="op-search" placeholder="Search operation…" autocomplete="off">
+                    <input type="hidden" name="rate_card_operation_id" class="op-select-value" required>
+                    <div class="op-picker-list" hidden>
+                        {% for group in row.sections %}
+                        <div class="op-group-label">{{ group.name }}</div>
+                        {% for op in group.ops %}
+                        <div class="op-item" data-id="{{ op.id }}" data-label="{{ op.op_code }} — {{ op.name }}">{{ op.op_code }} — {{ op.name }}</div>
+                        {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
 
                 {% for cal in row.op_calendars %}
-                {% include "piecerate/_op_calendar.html" with cal=cal %}
+                {% include "piecerate/_op_calendar.html" with cal=cal selectable=True %}
                 {% endfor %}
 
-                <label for="qty-{{ row.style.id }}">Quantity</label>
-                <input type="number" name="quantity" id="qty-{{ row.style.id }}" min="1" step="1" inputmode="numeric" required>
+                <label for="qty-{{ row.style.id }}">Pieces <span class="order-qty-hint"></span></label>
+                <input type="number" name="quantity" id="qty-{{ row.style.id }}" class="qty-input" min="1" step="1" inputmode="numeric" required>
 
                 <button type="submit" class="submit">Submit</button>
             </form>
@@ -242,29 +269,26 @@
         {% elif not_started_yet %}
         <div class="card">
             <h2>Log production</h2>
-            <p class="empty">No style had started running yet on {{ day_label }}.</p>
+            <p class="empty">No style has started running yet.</p>
         </div>
         {% else %}
         <div class="card">
             <h2>Log production</h2>
-            <p class="empty">Everything's logged for {{ day_label }}. Nice work!</p>
+            <p class="empty">Nothing to log right now.</p>
         </div>
         {% endif %}
 
-        {% if already_logged %}
+        {% if logged_ops %}
         <div class="card">
-            <h2>Already logged for {{ day_label }}</h2>
-            {% for entry in already_logged %}
-            <button type="button" class="logged-row" data-toggle-calendar="{{ entry.rate_card_operation_id }}">
+            <h2>Logged this month</h2>
+            {% for row in logged_ops %}
+            <button type="button" class="logged-row" data-open-op data-style-id="{{ row.style.id }}" data-op-id="{{ row.op.id }}">
                 <span>
-                    <span class="op">{{ entry.rate_card_operation.name }}</span>
-                    <span class="style">{{ entry.rate_card_operation.style.name }}</span>
+                    <span class="op">{{ row.op.name }}</span>
+                    <span class="style">{{ row.style.name }}</span>
                 </span>
-                <span class="qty">{{ entry.quantity }}</span>
+                <span class="qty">{{ row.total }}</span>
             </button>
-            {% with cal=already_logged_calendars|dict_get:entry.rate_card_operation_id %}
-            {% include "piecerate/_op_calendar.html" with cal=cal %}
-            {% endwith %}
             {% endfor %}
         </div>
         {% endif %}
@@ -289,33 +313,127 @@
             });
         });
 
-        var datePicker = document.getElementById('datePicker');
-        document.getElementById('dateDisplay').addEventListener('click', function () {
-            if (datePicker.showPicker) {
-                datePicker.showPicker();
-            } else {
-                datePicker.focus();
-                datePicker.click();
-            }
-        });
-        datePicker.addEventListener('change', function (e) {
-            if (e.target.value) {
-                window.location.search = '?date=' + e.target.value;
-            }
-        });
+        // Pre-fills the quantity field from an existing entry (editing
+        // a recent day) or clears it (a fresh day), switches the
+        // Submit button's label to match — so it's obvious which one
+        // is about to happen before it happens — and shows that
+        // operation's Order Qty next to the Pieces label.
+        function setQuantityAndLabel(card, qty, orderQty) {
+            var qtyInput = card.querySelector('.qty-input');
+            var btn = card.querySelector('button.submit');
+            var hint = card.querySelector('.order-qty-hint');
+            if (qtyInput) qtyInput.value = qty;
+            if (btn) btn.textContent = qty ? 'Update' : 'Submit';
+            if (hint) hint.textContent = orderQty ? '(Order Qty: ' + orderQty + ')' : '';
+        }
+
         document.querySelectorAll('.style-card').forEach(function (card) {
             card.addEventListener('click', function () {
                 document.getElementById('styleSelectCard').hidden = true;
                 document.getElementById('entry-' + card.dataset.styleId).hidden = false;
             });
         });
-        document.querySelectorAll('.op-select').forEach(function (select) {
-            var card = select.closest('.entry-card');
-            select.addEventListener('change', function () {
-                card.querySelectorAll('.op-calendar').forEach(function (cal) { cal.hidden = true; });
-                if (select.value) {
-                    var cal = card.querySelector('[data-op-calendar="' + select.value + '"]');
-                    if (cal) cal.hidden = false;
+        // Searchable, section-grouped operation picker. Picking an
+        // operation shows its calendar and, if today is still open
+        // for it, pre-fills the hidden date field with today so the
+        // common case (log today, submit) needs no extra tap —
+        // otherwise the field stays empty until a day is tapped in
+        // the calendar itself (see the click handler below).
+        document.querySelectorAll('.op-picker').forEach(function (picker) {
+            var card = picker.closest('.entry-card');
+            var search = picker.querySelector('.op-search');
+            var valueInput = picker.querySelector('.op-select-value');
+            var list = picker.querySelector('.op-picker-list');
+            var dateInput = card.querySelector('.entry-date-input');
+            var items = Array.prototype.slice.call(picker.querySelectorAll('.op-item'));
+            var groupLabels = Array.prototype.slice.call(picker.querySelectorAll('.op-group-label'));
+
+            function filterList() {
+                var q = search.value.trim().toLowerCase();
+                items.forEach(function (item) {
+                    item.hidden = !!q && item.dataset.label.toLowerCase().indexOf(q) === -1;
+                });
+                groupLabels.forEach(function (label) {
+                    var next = label.nextElementSibling;
+                    var anyVisible = false;
+                    while (next && next.classList.contains('op-item')) {
+                        if (!next.hidden) anyVisible = true;
+                        next = next.nextElementSibling;
+                    }
+                    label.hidden = !anyVisible;
+                });
+            }
+
+            items.forEach(function (item) {
+                item.addEventListener('click', function () {
+                    valueInput.value = item.dataset.id;
+                    search.value = item.dataset.label;
+                    list.hidden = true;
+                    card.querySelectorAll('.op-calendar').forEach(function (cal) { cal.hidden = true; });
+                    dateInput.value = '';
+                    setQuantityAndLabel(card, '');
+                    var cal = card.querySelector('[data-op-calendar="' + item.dataset.id + '"]');
+                    if (cal) {
+                        cal.hidden = false;
+                        dateInput.value = cal.dataset.defaultDate || '';
+                        setQuantityAndLabel(card, cal.dataset.defaultQty || '', cal.dataset.orderQty || '');
+                    }
+                });
+            });
+
+            search.addEventListener('focus', function () {
+                list.hidden = false;
+                // Re-opening after something's already picked shouldn't
+                // filter against that leftover full label (it won't
+                // match anything else, so the list would look empty) —
+                // show everything, and select the text so the very next
+                // keystroke starts a fresh search instead of appending
+                // to the old one.
+                items.forEach(function (item) { item.hidden = false; });
+                groupLabels.forEach(function (label) { label.hidden = false; });
+                search.select();
+            });
+            search.addEventListener('input', function () {
+                valueInput.value = '';
+                list.hidden = false;
+                filterList();
+            });
+        });
+        document.addEventListener('click', function (e) {
+            document.querySelectorAll('.op-picker-list').forEach(function (list) {
+                if (!list.closest('.op-picker').contains(e.target)) list.hidden = true;
+            });
+        });
+        // Tapping any clickable day in a calendar sets that as the date
+        // a submission will log against — this is what replaces the
+        // separate page-level date picker.
+        document.querySelectorAll('.op-calendar td.clickable').forEach(function (cell) {
+            cell.addEventListener('click', function () {
+                var cal = cell.closest('.op-calendar');
+                cal.querySelectorAll('td.selected').forEach(function (c) { c.classList.remove('selected'); });
+                cell.classList.add('selected');
+                var card = cell.closest('.entry-card');
+                var dateInput = card.querySelector('.entry-date-input');
+                if (dateInput) dateInput.value = cell.dataset.date;
+                // A logged day is only ever clickable within the edit
+                // window (see the server side) — its qty (if any) gets
+                // pre-filled so Submit becomes "Update" on a known
+                // starting value instead of blindly overwriting it.
+                setQuantityAndLabel(card, cell.dataset.qty || '', cal.dataset.orderQty || '');
+            });
+        });
+        document.querySelectorAll('.entry-card form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                var opInput = form.querySelector('.op-select-value');
+                var dateInput = form.querySelector('.entry-date-input');
+                if (!opInput.value) {
+                    e.preventDefault();
+                    alert('Search and pick an operation first.');
+                    return;
+                }
+                if (!dateInput.value) {
+                    e.preventDefault();
+                    alert('Tap a day in the calendar above first.');
                 }
             });
         });
@@ -325,11 +443,20 @@
                 document.getElementById('styleSelectCard').hidden = false;
             });
         });
-        document.querySelectorAll('[data-toggle-calendar]').forEach(function (row) {
-            var cal = row.nextElementSibling;
-            if (!cal || !cal.classList.contains('op-calendar')) return;
-            row.addEventListener('click', function () {
-                cal.hidden = !cal.hidden;
+        // "Already logged today" rows don't have their own calendar —
+        // clicking one opens that style's picker above and selects the
+        // same operation there, reusing its one interactive calendar
+        // instead of showing a second, separate read-only copy of it.
+        document.querySelectorAll('[data-open-op]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var card = document.getElementById('entry-' + btn.dataset.styleId);
+                if (!card) return;
+                document.querySelectorAll('.entry-card').forEach(function (c) { c.hidden = true; });
+                document.getElementById('styleSelectCard').hidden = true;
+                card.hidden = false;
+                var item = card.querySelector('.op-item[data-id="' + btn.dataset.opId + '"]');
+                if (item) item.click();
+                card.scrollIntoView({ block: 'start', behavior: 'smooth' });
             });
         });
     </script>

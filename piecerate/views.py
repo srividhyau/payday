@@ -474,7 +474,7 @@ def production_view(request, style_id):
         if quantity > 0:
             PieceRateEntry.objects.update_or_create(
                 rate_card_operation=rc_op, employee=employee, date=entry_date,
-                defaults={"quantity": quantity},
+                defaults={"quantity": quantity, "entered_by": PieceRateEntry.ENTERED_BY_SUPERVISOR},
             )
         else:
             PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee, date=entry_date).delete()
@@ -535,18 +535,39 @@ def production_view(request, style_id):
     employees_by_id = {e.id: e for e in all_employees}
 
     entries_by_op = {}
+    source_by_op = {}
+    operator_qty_by_op = {}
     for e in PieceRateEntry.objects.filter(rate_card_operation__in=rc_ops):
         entries_by_op.setdefault(e.rate_card_operation_id, {}).setdefault(e.employee_id, {})[e.date.isoformat()] = e.quantity
+        if e.entered_by == PieceRateEntry.ENTERED_BY_OPERATOR:
+            source_class = "entered-operator"
+        elif e.was_operator_entered:
+            # Currently the supervisor's value, but an operator had
+            # their own entry here at some point — a dot rather than
+            # the full operator fill, so "still theirs" and "used to
+            # be theirs, now corrected" don't look identical.
+            source_class = "corrected"
+        else:
+            source_class = ""
+        source_by_op.setdefault(e.rate_card_operation_id, {}).setdefault(e.employee_id, {})[e.date.isoformat()] = source_class
+        if source_class == "corrected":
+            operator_qty_by_op.setdefault(e.rate_card_operation_id, {}).setdefault(e.employee_id, {})[e.date.isoformat()] = e.operator_quantity
 
     op_rows = []
     for op in rc_ops:
         op_entries = entries_by_op.get(op.id, {})
+        op_source = source_by_op.get(op.id, {})
+        op_operator_qty = operator_qty_by_op.get(op.id, {})
         rows = []
         for emp_id, day_map in op_entries.items():
             employee = employees_by_id.get(emp_id)
             if not employee:
                 continue
-            rows.append({"employee": employee, "days": day_map, "total": sum(day_map.values())})
+            rows.append({
+                "employee": employee, "days": day_map, "total": sum(day_map.values()),
+                "source_class": op_source.get(emp_id, {}),
+                "operator_qty": op_operator_qty.get(emp_id, {}),
+            })
         rows.sort(key=lambda r: r["employee"].name)
 
         op_total = sum(r["total"] for r in rows)
@@ -900,6 +921,8 @@ def operator_links_view(request):
     return render(request, "piecerate/operator_links.html", {"rows": rows})
 
 
+
+
 def _style_start(style):
     """The first day operators may log against this style — the
     explicit start_date if set, else the 1st of its own year/month."""
@@ -912,6 +935,20 @@ def _day_label(d, today):
     if d == today - timedelta(days=1):
         return "yesterday"
     return d.strftime("%d %b")
+
+
+def _group_ops_by_section(ops):
+    """Operations grouped by their rate-card section, for the operator
+    entry page's searchable operation picker — sorted alphabetically,
+    with unsectioned operations pushed into an "Other" group at the
+    end rather than sorted in among named sections."""
+    groups = {}
+    for op in ops:
+        groups.setdefault(op.section or "Other", []).append(op)
+    return [
+        {"name": name, "ops": groups[name]}
+        for name in sorted(groups, key=lambda s: (s == "Other", s))
+    ]
 
 
 def operator_icon_view(request, token, size):
@@ -949,13 +986,14 @@ def operator_entry_view(request, token):
     uniqueness constraint as the backstop. Corrections happen on the
     desktop Production page, which still has full edit rights.
 
-    Operators can log for any date the style has actually been running
-    (Style.start_date, or the 1st of its month if that isn't set) up
-    through today — a date picker bounded by that range, not an
-    open-ended backdating tool. The picker's min is the earliest start
-    date among this month's styles; the exact-per-style bound is
-    re-checked on submit since different styles can start on different
-    days."""
+    There's no separate page-level date picker — the page itself always
+    reflects today. Backdating happens by tapping a day directly inside
+    an operation's own calendar (any date the style has actually been
+    running — Style.start_date, or the 1st of its month if that isn't
+    set — through today, and not already logged for that operation),
+    which is what actually sets the date a submission logs against;
+    re-checked server-side on submit regardless of what the calendar
+    let you tap, same as every other rule here."""
     link = get_object_or_404(OperatorLink, token=token)
     employee = link.employee
     today = date_cls.today()
@@ -965,46 +1003,43 @@ def operator_entry_view(request, token):
     ).prefetch_related("operations")
     style_list = list(styles)
 
-    min_date = min((_style_start(s) for s in style_list), default=today)
-    min_date = min(min_date, today)
-
-    date_param = request.POST.get("date") if request.method == "POST" else request.GET.get("date")
-    entry_date = today
-    if date_param:
-        try:
-            entry_date = date_cls.fromisoformat(date_param)
-        except ValueError:
-            entry_date = today
-    entry_date = max(min_date, min(entry_date, today))
-
     def own_url():
-        return f"{reverse('piece_rate_operator_entry', args=[token])}?date={entry_date.isoformat()}"
-
-    already_logged = list(
-        PieceRateEntry.objects.filter(employee=employee, date=entry_date)
-        .select_related("rate_card_operation", "rate_card_operation__style")
-    )
-    logged_op_ids = {e.rate_card_operation_id for e in already_logged}
+        return reverse("piece_rate_operator_entry", args=[token])
 
     if request.method == "POST":
         rc_op = get_object_or_404(RateCardOperation, id=request.POST.get("rate_card_operation_id"), style__in=styles)
         quantity = _parse_int(request.POST.get("quantity"))
+        try:
+            entry_date = date_cls.fromisoformat(request.POST.get("date", ""))
+        except ValueError:
+            messages.error(request, "Pick a date in the calendar first.")
+            return redirect(own_url())
         day_label = _day_label(entry_date, today)
 
-        if entry_date < _style_start(rc_op.style):
+        if entry_date > today or entry_date < _style_start(rc_op.style):
             messages.error(request, f"{rc_op.style.name} wasn't running yet on {day_label}.")
-            return redirect(own_url())
-        if rc_op.id in logged_op_ids:
-            messages.error(request, f"You already logged this for {day_label} — ask your supervisor if it needs to change.")
             return redirect(own_url())
         if not quantity:
             messages.error(request, "Enter how many pieces you made.")
             return redirect(own_url())
 
+        # Add-only past this point — except for a row an operator
+        # added earlier *today*, which they can still revise without a
+        # supervisor, no matter which date it's actually logged
+        # against (e.g. a backdated entry for the 20th, added just
+        # now, is still fixable right now). Once today ends, it locks
+        # like everything else.
+        existing = PieceRateEntry.objects.filter(
+            rate_card_operation=rc_op, employee=employee, date=entry_date,
+        ).first()
+        if existing and existing.created_at.date() != today:
+            messages.error(request, f"You already logged this for {day_label} — ask your supervisor if it needs to change.")
+            return redirect(own_url())
+
         if rc_op.order_quantity:
-            other_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).aggregate(
-                total=Sum("quantity")
-            )["total"] or 0
+            other_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).exclude(
+                employee=employee, date=entry_date,
+            ).aggregate(total=Sum("quantity"))["total"] or 0
             if other_total + quantity > rc_op.order_quantity:
                 messages.error(
                     request,
@@ -1013,8 +1048,21 @@ def operator_entry_view(request, token):
                 )
                 return redirect(own_url())
 
+        if existing:
+            existing.quantity = quantity
+            existing.entered_by = PieceRateEntry.ENTERED_BY_OPERATOR
+            existing.was_operator_entered = True
+            existing.operator_quantity = quantity
+            existing.save(update_fields=["quantity", "entered_by", "was_operator_entered", "operator_quantity"])
+            messages.success(request, f"Updated {rc_op.name} for {day_label} to {quantity}.")
+            return redirect(own_url())
+
         try:
-            PieceRateEntry.objects.create(rate_card_operation=rc_op, employee=employee, date=entry_date, quantity=quantity)
+            PieceRateEntry.objects.create(
+                rate_card_operation=rc_op, employee=employee, date=entry_date, quantity=quantity,
+                entered_by=PieceRateEntry.ENTERED_BY_OPERATOR, was_operator_entered=True,
+                operator_quantity=quantity,
+            )
         except IntegrityError:
             messages.error(request, f"You already logged this for {day_label}.")
             return redirect(own_url())
@@ -1022,64 +1070,118 @@ def operator_entry_view(request, token):
         messages.success(request, f"Logged {quantity} for {rc_op.name}.")
         return redirect(own_url())
 
-    started_styles = [s for s in style_list if entry_date >= _style_start(s)]
-    style_rows = []
-    for style in started_styles:
-        ops = [op for op in style.operations.all() if op.id not in logged_op_ids]
-        if ops:
-            style_rows.append({"style": style, "ops": ops})
+    started_styles = [s for s in style_list if today >= _style_start(s)]
+    style_rows = [{"style": style, "ops": list(style.operations.all())} for style in started_styles]
+    style_rows = [row for row in style_rows if row["ops"]]
+    for row in style_rows:
+        row["sections"] = _group_ops_by_section(row["ops"])
 
-    # One query for every op that needs a calendar — both the unlogged
-    # ones in the picker below and the already-logged ones further
-    # down — instead of one query per operation.
+    # One query for every op that needs a calendar, instead of one
+    # query per operation.
     op_ids_for_calendars = {op.id for row in style_rows for op in row["ops"]}
-    op_ids_for_calendars.update(e.rate_card_operation_id for e in already_logged)
     entries_by_op = {}
+    added_today_by_op = {}
+    corrected_by_op = {}
+    operator_qty_by_op = {}
     for e in PieceRateEntry.objects.filter(employee=employee, rate_card_operation_id__in=op_ids_for_calendars):
         entries_by_op.setdefault(e.rate_card_operation_id, {})[e.date] = e.quantity
+        if e.created_at.date() == today:
+            added_today_by_op.setdefault(e.rate_card_operation_id, set()).add(e.date)
+        # A supervisor changed a value the operator themselves entered
+        # — surfaced here too (not just the desktop page) so an
+        # operator can see their own number was corrected, and to
+        # what, without having to ask.
+        if e.entered_by == PieceRateEntry.ENTERED_BY_SUPERVISOR and e.was_operator_entered:
+            corrected_by_op.setdefault(e.rate_card_operation_id, {})[e.date] = e.operator_quantity
 
     weeks_cache = {}
 
-    def _weeks_for(year, month):
-        return weeks_cache.setdefault((year, month), calendar.Calendar(firstweekday=0).monthdatescalendar(year, month))
+    def _weeks_for(style):
+        # A style that started before the 1st of its own month (e.g.
+        # the 20th of the prior month) needs those earlier days in the
+        # grid too, so a plain single-month calendar() call won't do —
+        # this snaps out to full weeks covering [style_start, month
+        # end] instead, however far back that reaches.
+        style_start = _style_start(style)
+        num_days_in_month = calendar.monthrange(style.year, style.month)[1]
+        month_start = date_cls(style.year, style.month, 1)
+        month_end = date_cls(style.year, style.month, num_days_in_month)
+        range_start = min(style_start, month_start)
+        key = (range_start, month_end)
+        if key not in weeks_cache:
+            grid_start = range_start - timedelta(days=range_start.weekday())
+            grid_end = month_end + timedelta(days=6 - month_end.weekday())
+            all_days = [grid_start + timedelta(n) for n in range((grid_end - grid_start).days + 1)]
+            weeks = [all_days[i:i + 7] for i in range(0, len(all_days), 7)]
+            weeks_cache[key] = (weeks, range_start, month_end)
+        return weeks_cache[key]
 
     def _build_calendar(op, style):
         qty_map = entries_by_op.get(op.id, {})
-        weeks = [
-            [
-                {
-                    "date": d, "in_month": d.month == style.month, "quantity": qty_map.get(d),
-                    "is_today": d == today, "is_selected": d == entry_date,
-                }
-                for d in week
-            ]
-            for week in _weeks_for(style.year, style.month)
-        ]
+        added_today_dates = added_today_by_op.get(op.id, set())
+        corrected_dates = corrected_by_op.get(op.id, {})
+        style_start = _style_start(style)
+        weeks_raw, range_start, month_end = _weeks_for(style)
+        default_date = None
+        weeks = []
+        for week in weeks_raw:
+            days = []
+            for d in week:
+                has_qty = d in qty_map
+                added_today = d in added_today_dates
+                # A logged day stays open to tapping — for an edit, not
+                # a second add — only if it was itself added earlier
+                # today, whatever date it's actually logged against;
+                # anything added on an earlier day is add-only.
+                clickable = style_start <= d <= today and (not has_qty or added_today)
+                if d == today and clickable:
+                    default_date = d
+                days.append({
+                    "date": d, "in_month": range_start <= d <= month_end, "quantity": qty_map.get(d),
+                    "is_today": d == today, "clickable": clickable,
+                    # Any day whose entry was added today — regardless
+                    # of which date it's logged against — reads as
+                    # visually distinct: it's still freely editable
+                    # right now, unlike an older logged day.
+                    "added_today": added_today,
+                    # A supervisor changed this day's value from what
+                    # the operator themselves originally entered.
+                    "is_corrected": d in corrected_dates,
+                    "operator_qty": corrected_dates.get(d),
+                    # A grid spanning two months repeats day-of-month
+                    # numbers (both months can have a 20th) — flag the
+                    # earlier month's days so the template can label
+                    # them (e.g. "20 Aug") instead of a bare, ambiguous
+                    # "20".
+                    "other_month": d.month != style.month,
+                })
+            weeks.append(days)
+        for week in weeks:
+            for day in week:
+                day["is_selected"] = day["date"] == default_date
+        if range_start.month == style.month:
+            month_label = f"{calendar.month_name[style.month]} {style.year}"
+        else:
+            month_label = f"{calendar.month_abbr[range_start.month]}–{calendar.month_abbr[style.month]} {style.year}"
         return {
-            "op_id": op.id, "weeks": weeks, "total": sum(qty_map.values()),
-            "month_name": calendar.month_name[style.month], "year": style.year,
+            "op_id": op.id, "weeks": weeks, "total": sum(qty_map.values()), "month_label": month_label,
+            "order_quantity": op.order_quantity,
+            "default_date": default_date.isoformat() if default_date else "",
+            "default_qty": qty_map.get(default_date, "") if default_date else "",
         }
 
+    logged_ops = []
     for row in style_rows:
         row["op_calendars"] = [_build_calendar(op, row["style"]) for op in row["ops"]]
-
-    # Keyed by operation id so the template can look one up per
-    # already-logged row — clicking one shows the same kind of
-    # calendar as picking an unlogged operation above does.
-    already_logged_calendars = {
-        e.rate_card_operation_id: _build_calendar(e.rate_card_operation, e.rate_card_operation.style)
-        for e in already_logged
-    }
+        for op, cal in zip(row["ops"], row["op_calendars"]):
+            if cal["total"]:
+                logged_ops.append({"op": op, "style": row["style"], "total": cal["total"]})
 
     return render(request, "piecerate/operator_entry.html", {
         "employee": employee,
         "today": today,
-        "min_date": min_date,
-        "entry_date": entry_date,
-        "day_label": _day_label(entry_date, today),
         "style_rows": style_rows,
-        "already_logged": already_logged,
-        "already_logged_calendars": already_logged_calendars,
+        "logged_ops": logged_ops,
         "no_styles_this_month": not style_list,
         "not_started_yet": bool(style_list) and not started_styles,
         "token": token,

@@ -101,6 +101,28 @@
     }
     .day-input::-webkit-outer-spin-button, .day-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .day-input:focus { outline: none; border-color: var(--navy); }
+    /* A box the operator logged themselves (via their mobile link)
+       gets a light blue background — anything left plain came in
+       through this desktop grid instead, same as always. Saving a
+       box here (see saveCell's JS) always clears it, since that's
+       now the supervisor's value regardless of who first entered it.
+       Placed before .saving/.save-error/.qty-invalid below so those
+       still win (same specificity, later wins) whenever they're the
+       more urgent, active state. */
+    .day-input.entered-operator { background: #dbeafe; }
+    /* A box that USED to be the operator's own value, before a
+       supervisor corrected it here — a small clickable dot on the
+       cell instead of the full fill, so a correction reads
+       differently from a cell that was always the supervisor's.
+       Tapping it shows what the operator originally entered vs the
+       current value (see the popup JS). A real element rather than
+       ::after so it can carry its own click handler. */
+    td.corrected { position: relative; }
+    .corrected-dot {
+        position: absolute; top: 2px; right: 2px; width: 8px; height: 8px;
+        border-radius: 50%; background: #2563eb; cursor: pointer; z-index: 5;
+    }
+    .corrected-dot:hover { width: 10px; height: 10px; top: 1px; right: 1px; }
     .day-input.saving { border-color: var(--navy); }
     .day-input.save-error { border-color: #b3261e; background: #fdecea; }
     .day-input.qty-invalid, .day-input.qty-invalid:focus {
@@ -114,9 +136,24 @@
         border: 1px solid var(--border); border-radius: 8px; padding: 0.15rem 0.5rem; background: var(--surface);
     }
 
+    /* Base .edit-modal/.edit-actions were missing from this page (each
+       page defines its own per the shared .edit-overlay mechanics in
+       app.css) — the add-operator popup below was relying on this
+       gap without it being noticed; added now since the correction
+       popup needs it too. */
+    .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+    .edit-modal h3 { margin: 0 0 1rem; font-size: 1.05rem; color: var(--navy); }
+    .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.4rem; }
+    .edit-actions button { padding: 0.5rem 1.1rem; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 0.85rem; font-family: inherit; }
+    .edit-actions button:hover { background: var(--bg); }
+
     .edit-modal.add-operator-modal { max-width: 340px; }
     .edit-modal.add-operator-modal h3 { font-size: 0.95rem; }
     #addOperatorInput { width: 100%; margin-bottom: 1rem; box-sizing: border-box; }
+
+    .edit-modal.correction-modal { max-width: 300px; }
+    .correction-row { font-size: 0.9rem; color: #4a5468; margin: 0.5rem 0; }
+    .correction-row strong { color: var(--navy); font-size: 1.1rem; }
 </style>
 </head>
 <body>
@@ -144,6 +181,8 @@
                     <span><span class="swatch-dot" style="background:#a400a4"></span>More than Order Qty</span>
                     <span><span class="swatch-dot" style="background:#b3261e"></span>Less than Order Qty</span>
                     <span><span class="swatch-dot" style="background:#1e7e34"></span>Balanced</span>
+                    <span><span class="swatch" style="background:#dbeafe"></span>Entered by operator</span>
+                    <span><span class="swatch-dot" style="background:#2563eb"></span>Corrected here (was the operator's)</span>
                 </div>
             </div>
             <a href="{% url 'piece_rate_rate_card' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Rate Card</a>
@@ -201,11 +240,13 @@
                         </td>
                         <td class="col-total row-total-cell">{{ r.total }}</td>
                         {% for d in days %}
-                        <td class="{% if special_days|dict_get:d.isoformat %}special-{{ special_days|dict_get:d.isoformat }}{% endif %}{% if d in carried_over_dates %} carried-over{% endif %}"><input type="number" min="0" step="1" class="day-input"
+                        {% with source=r.source_class|dict_get:d.isoformat %}
+                        <td class="{% if special_days|dict_get:d.isoformat %}special-{{ special_days|dict_get:d.isoformat }}{% endif %}{% if d in carried_over_dates %} carried-over{% endif %} {{ source }}"><input type="number" min="0" step="1" class="day-input {{ source }}"
                             data-rate-card-operation-id="{{ row.op.id }}"
                             data-employee-id="{{ r.employee.id }}"
                             data-date="{{ d.isoformat }}"
-                            value="{{ r.days|dict_get:d.isoformat|default_if_none:'' }}"></td>
+                            value="{{ r.days|dict_get:d.isoformat|default_if_none:'' }}">{% if source == "corrected" %}<span class="corrected-dot" data-operator-qty="{{ r.operator_qty|dict_get:d.isoformat }}" data-current-qty="{{ r.days|dict_get:d.isoformat }}" data-employee="{{ r.employee.name|escapejs }}" data-op="{{ row.op.name|escapejs }}"></span>{% endif %}</td>
+                        {% endwith %}
                         {% endfor %}
                     </tr>
                     {% endfor %}
@@ -224,6 +265,17 @@
             <input type="text" id="addOperatorInput" placeholder="Search operator…" autocomplete="off" class="search-input">
             <div class="edit-actions">
                 <button type="button" id="addOperatorCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="edit-overlay" id="correctionOverlay">
+        <div class="edit-modal correction-modal">
+            <h3 id="correctionTitle">Correction</h3>
+            <p class="correction-row">Operator entered <strong id="correctionOperatorQty"></strong></p>
+            <p class="correction-row">Supervisor <strong id="correctionCurrentQty"></strong></p>
+            <div class="edit-actions">
+                <button type="button" id="correctionClose">Close</button>
             </div>
         </div>
     </div>
@@ -321,7 +373,35 @@
                         tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
                         updateOpTotal(input.dataset.rateCardOperationId);
                     } else {
+                        var td = input.closest('td');
+                        var existingDot = td.querySelector('.corrected-dot');
                         input.dataset.lastGoodValue = input.value;
+                        // Saving here always makes this a supervisor
+                        // value now — if it was the operator's own
+                        // (the full blue fill), it becomes a
+                        // correction (a dot, carrying what the
+                        // operator's value actually was) instead;
+                        // already-plain cells don't change, and an
+                        // already-corrected cell just gets its dot's
+                        // "current" value refreshed.
+                        if (input.classList.contains('entered-operator')) {
+                            input.classList.remove('entered-operator');
+                            td.classList.add('corrected');
+                            var opRow = input.closest('table').querySelector(
+                                'tr.op-row[data-op-id="' + input.dataset.rateCardOperationId + '"] .op-name-text'
+                            );
+                            var nameSpan = input.closest('tr').querySelector('.operator-name-row span');
+                            var dot = document.createElement('span');
+                            dot.className = 'corrected-dot';
+                            dot.dataset.operatorQty = previousValue;
+                            dot.dataset.currentQty = input.value;
+                            dot.dataset.employee = nameSpan ? nameSpan.textContent : '';
+                            dot.dataset.op = opRow ? opRow.textContent : '';
+                            attachCorrectionDot(dot);
+                            td.appendChild(dot);
+                        } else if (existingDot) {
+                            existingDot.dataset.currentQty = input.value;
+                        }
                     }
                 })
                 .catch(function () {
@@ -552,6 +632,31 @@
         document.getElementById('addOperatorCancel').addEventListener('click', closeAddOperatorPopup);
         addOperatorOverlay.addEventListener('click', function (e) {
             if (e.target === addOperatorOverlay) closeAddOperatorPopup();
+        });
+
+        // "Corrected" dot popup — shows what the operator originally
+        // entered vs the current (supervisor) value. Attached to both
+        // the server-rendered dots and any created dynamically below
+        // when a live edit turns an operator cell into a correction.
+        var correctionOverlay = document.getElementById('correctionOverlay');
+        function openCorrectionPopup(dot) {
+            document.getElementById('correctionTitle').textContent = dot.dataset.employee + ' — ' + dot.dataset.op;
+            document.getElementById('correctionOperatorQty').textContent = dot.dataset.operatorQty;
+            document.getElementById('correctionCurrentQty').textContent = dot.dataset.currentQty;
+            correctionOverlay.classList.add('open');
+        }
+        function attachCorrectionDot(dot) {
+            dot.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openCorrectionPopup(dot);
+            });
+        }
+        document.querySelectorAll('.corrected-dot').forEach(attachCorrectionDot);
+        document.getElementById('correctionClose').addEventListener('click', function () {
+            correctionOverlay.classList.remove('open');
+        });
+        correctionOverlay.addEventListener('click', function (e) {
+            if (e.target === correctionOverlay) correctionOverlay.classList.remove('open');
         });
     </script>
 </body>
