@@ -156,6 +156,12 @@
         <div class="view-toggle">
             <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}">Day view</a>
             <a href="#" class="active">Month view</a>
+            {% if dept and table_rows %}
+            <button type="button" class="icon-btn" id="sendWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
+            </button>
+            <span id="sendWhatsappStatus" class="report-status"></span>
+            {% endif %}
         </div>
 
         {% for message in messages %}
@@ -361,6 +367,60 @@
                         'Day: ' + (dayResult.ok ? 'sent' : 'failed (' + (dayResult.error || 'error') + ')') +
                         ' — Month: ' + (monthResult.ok ? 'sent' : 'failed (' + (monthResult.error || 'error') + ')');
                     statusEl.className = 'report-status ' + (ok ? 'success' : 'error');
+                });
+        });
+
+        // "Send to WhatsApp" — same month-table screenshot as "Send
+        // Report" above (rotated to landscape the same way), posted to
+        // the WhatsApp endpoint instead. No day-level text message here
+        // since WhatsApp sending (see _whatsapp_send_image) is
+        // image-only, unlike Telegram's HTML-formatted text messages.
+        document.getElementById('sendWhatsappBtn')?.addEventListener('click', function () {
+            var btn = document.getElementById('sendWhatsappBtn');
+            var statusEl = document.getElementById('sendWhatsappStatus');
+            var table = document.getElementById('monthTable');
+
+            btn.disabled = true;
+            statusEl.className = 'report-status';
+            statusEl.textContent = 'Capturing month…';
+            document.body.classList.add('capturing');
+
+            html2canvas(table, { backgroundColor: '#ffffff', scale: 2 })
+                .then(function (canvas) {
+                    document.body.classList.remove('capturing');
+                    statusEl.textContent = 'Sending…';
+                    var finalCanvas = rotateToLandscape(canvas);
+                    return new Promise(function (resolve) {
+                        finalCanvas.toBlob(function (blob) {
+                            var formData = new FormData();
+                            formData.append('image', blob, 'month-attendance.png');
+                            formData.append(
+                                'caption',
+                                'Month Attendance — {{ dept.name|escapejs }} — {{ month_name|escapejs }} {{ year|escapejs }}'
+                            );
+                            fetch('{% url "send_whatsapp_report" %}', {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                                body: formData,
+                            })
+                                .then(function (r) { return r.json(); })
+                                .then(resolve)
+                                .catch(function () {
+                                    resolve({ ok: false, error: 'Failed to reach the server.' });
+                                });
+                        }, 'image/png');
+                    });
+                })
+                .catch(function (err) {
+                    document.body.classList.remove('capturing');
+                    var msg = (err && err.message) || String(err);
+                    reportClientError(msg, 'month-view: whatsapp capture/send');
+                    return { ok: false, error: 'Failed to capture the table: ' + msg };
+                })
+                .then(function (result) {
+                    btn.disabled = false;
+                    statusEl.textContent = result.ok ? 'Sent' : 'Failed (' + (result.error || 'error') + ')';
+                    statusEl.className = 'report-status ' + (result.ok ? 'success' : 'error');
                 });
         });
     </script>

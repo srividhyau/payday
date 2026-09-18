@@ -1403,6 +1403,7 @@ def _whatsapp_send_image(image_bytes: bytes, filename: str, caption: str = "") -
         logger.exception("WhatsApp media upload failed unexpectedly: %s", exc)
         return False, str(exc)
 
+    sent = []
     errors = []
     for recipient in recipients:
         if settings.WHATSAPP_USE_TEMPLATE:
@@ -1436,30 +1437,49 @@ def _whatsapp_send_image(image_bytes: bytes, filename: str, caption: str = "") -
         )
         try:
             urllib.request.urlopen(send_req, timeout=20)
+            sent.append(recipient)
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")
             logger.warning("WhatsApp send to %s failed: %s", recipient, detail)
-            errors.append(f"{recipient}: {detail}")
+            errors.append((recipient, _whatsapp_error_summary(detail)))
         except Exception as exc:  # noqa: BLE001
             logger.exception("WhatsApp send to %s failed unexpectedly: %s", recipient, exc)
-            errors.append(f"{recipient}: {exc}")
+            errors.append((recipient, str(exc)))
 
     if errors:
-        return False, "; ".join(errors)
+        # One bad recipient (wrong number, opted out, etc.) shouldn't
+        # read as a total failure when the others actually went
+        # through — say exactly who failed and why instead of just
+        # "failed", so this doesn't have to be chased through the logs.
+        failed_desc = "; ".join(f"{r} ({msg})" for r, msg in errors)
+        if sent:
+            return False, f"sent to {len(sent)}/{len(recipients)} — failed: {failed_desc}"
+        return False, f"failed for all recipients: {failed_desc}"
     logger.info("WhatsApp image sent to %s.", recipients)
     return True, ""
 
 
+def _whatsapp_error_summary(detail: str) -> str:
+    """Meta's error responses are a JSON blob with an fbtrace_id and
+    other noise around the one line anyone actually needs — pull just
+    error.message out of it, falling back to the raw text if it isn't
+    the shape we expect."""
+    try:
+        return json.loads(detail)["error"]["message"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return detail
+
+
 def _pick_department(request, departments):
     """Shared default-department resolution for the Mark Attendance flow —
-    the explicit request param wins, else "Operators" (this flow's main
+    the explicit request param wins, else "Operator" (this flow's main
     use case), else whatever department happens to exist first."""
     dept_id = request.GET.get("department") or request.POST.get("department")
     if dept_id:
         dept = Department.objects.filter(id=dept_id).first()
         if dept:
             return dept
-    return Department.objects.filter(name__iexact="Operators").first() or (departments[0] if departments else None)
+    return Department.objects.filter(name__iexact="Operator").first() or (departments[0] if departments else None)
 
 
 def _build_simple_month_grid(dept, year: int, month: int) -> dict:
@@ -1597,7 +1617,14 @@ def mark_attendance_view(request):
                 f"🗓 Attendance marked — {dept.name} — {target_date:%d %b %Y}\n{saved} employee(s): {breakdown}",
                 topic_id=settings.TELEGRAM_TOPIC_ID_ATTENDANCE,
             )
-        return redirect(redirect_url)
+        # After a successful save, jump straight to the Month view (same
+        # department/month) instead of staying on Day view — Month view
+        # is where you'd naturally check the day just marked against the
+        # rest of the month.
+        month_url = f"{reverse('mark_attendance_month')}?date={target_date.isoformat()}"
+        if dept:
+            month_url += f"&department={dept.id}"
+        return redirect(month_url)
 
     employees = (
         Employee.objects.filter(department=dept).active_on(target_date).order_by("name")
