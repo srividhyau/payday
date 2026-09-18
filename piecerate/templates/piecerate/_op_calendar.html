@@ -11,10 +11,11 @@
             {% for week in cal.weeks %}
             <tr>
                 {% for day in week %}
-                <td class="{% if not day.in_month %}out{% endif %}{% if day.quantity %} has-qty{% endif %}{% if day.is_today %} today{% endif %}{% if day.other_month %} other-month{% endif %}{% if selectable and day.clickable %} clickable{% endif %}{% if selectable and day.is_selected %} selected{% endif %}{% if day.added_today %} added-today{% endif %}"
+                <td class="{% if not day.in_month %}out{% endif %}{% if day.quantity %} has-qty{% endif %}{% if day.is_today %} today{% endif %}{% if day.other_month %} other-month{% endif %}{% if selectable and day.clickable %} clickable{% endif %}{% if selectable and day.is_selected %} selected{% endif %}{% if day.added_today %} added-today{% endif %}{% if day.is_corrected %} corrected{% endif %}"
                     {% if selectable and day.clickable %}data-date="{{ day.date|date:'Y-m-d' }}" data-qty="{{ day.quantity|default:'' }}"{% endif %}>
                     <span class="d">{{ day.date.day }}{% if day.other_month %}<span class="mo">{{ day.date|date:"M" }}</span>{% endif %}</span>
                     {% if day.quantity %}<span class="q">{{ day.quantity }}</span>{% endif %}
+                    {% if day.is_corrected %}<span class="corrected-dot" data-operator-qty="{{ day.operator_qty }}" data-current-qty="{{ day.quantity }}"></span>{% endif %}
                 </td>
                 {% endfor %}
             </tr>

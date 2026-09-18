@@ -143,6 +143,14 @@
        (today defaults to selected). Distinguishes "added today,
        still freely editable" from an older, locked entry. */
     table.mini-cal td.added-today { box-shadow: inset 0 0 0 2px #111827; border-radius: 6px; }
+    /* A day a supervisor corrected after the operator originally
+       logged it — a small tappable dot, so it's visible their own
+       number was changed, without needing to ask. */
+    table.mini-cal td.corrected { position: relative; }
+    .corrected-dot {
+        position: absolute; top: 2px; right: 2px; width: 8px; height: 8px;
+        border-radius: 50%; background: #2563eb; z-index: 5;
+    }
     /* Days from before the style's own calendar month (e.g. the 20th
        of the prior month, when Style.start_date reaches back that
        far) — tinted so they read as "a different month" at a glance,
@@ -163,6 +171,15 @@
     .logged-row .qty { font-weight: 700; color: #1e7e34; font-size: 1.1rem; }
 
     .done-note { text-align: center; color: rgba(255,255,255,0.75); font-size: 0.85rem; padding: 0.5rem 0 0; }
+
+    .correction-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 2000;
+        display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .correction-overlay[hidden] { display: none; }
+    .correction-modal { max-width: 300px; width: 100%; margin: 0; }
+    .correction-row { font-size: 0.95rem; color: #4a5468; margin: 0.6rem 0; }
+    .correction-row strong { color: #0f1b2d; font-size: 1.15rem; }
 
     /* Google Translate widget — see the two <script> tags near the end
        of <body>. #google_translate_element is where it mounts itself;
@@ -294,6 +311,15 @@
         {% endif %}
 
         <div class="done-note">Made a mistake? Ask your supervisor — this can't be edited here.</div>
+    </div>
+
+    <div class="correction-overlay" id="correctionOverlay" hidden>
+        <div class="card correction-modal">
+            <h2>Corrected</h2>
+            <p class="correction-row">You entered <strong id="correctionOperatorQty"></strong></p>
+            <p class="correction-row">Supervisor <strong id="correctionCurrentQty"></strong></p>
+            <button type="button" class="submit" id="correctionClose">Close</button>
+        </div>
     </div>
 
     <script>
@@ -458,6 +484,23 @@
                 if (item) item.click();
                 card.scrollIntoView({ block: 'start', behavior: 'smooth' });
             });
+        });
+        // Tapping a corrected day's dot shows what the operator
+        // originally entered vs what the supervisor changed it to.
+        var correctionOverlay = document.getElementById('correctionOverlay');
+        document.querySelectorAll('.corrected-dot').forEach(function (dot) {
+            dot.addEventListener('click', function (e) {
+                e.stopPropagation();
+                document.getElementById('correctionOperatorQty').textContent = dot.dataset.operatorQty;
+                document.getElementById('correctionCurrentQty').textContent = dot.dataset.currentQty;
+                correctionOverlay.hidden = false;
+            });
+        });
+        document.getElementById('correctionClose').addEventListener('click', function () {
+            correctionOverlay.hidden = true;
+        });
+        correctionOverlay.addEventListener('click', function (e) {
+            if (e.target === correctionOverlay) correctionOverlay.hidden = true;
         });
     </script>
 
