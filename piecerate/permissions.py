@@ -1,4 +1,4 @@
-from attendance.middleware import PRODUCTION_HEAD_GROUP
+from attendance.middleware import OPERATOR_LINK_REVOKER_GROUP, PRODUCTION_HEAD_GROUP
 
 PIECE_RATE_EDITOR_GROUP = "Piece Rate Editor"
 
@@ -17,3 +17,13 @@ def can_edit_piece_rate(user):
         user.is_superuser
         or user.groups.filter(name__in=[PIECE_RATE_EDITOR_GROUP, PRODUCTION_HEAD_GROUP]).exists()
     )
+
+
+def can_revoke_operator_links(user):
+    """Anyone who can edit Piece Rate (which includes generating and
+    regenerating operator links), plus members of "Operator Link
+    Revoker" — a narrower role that can only revoke, and never sees the
+    links themselves."""
+    if not (user and user.is_authenticated):
+        return False
+    return can_edit_piece_rate(user) or user.groups.filter(name=OPERATOR_LINK_REVOKER_GROUP).exists()

@@ -36,6 +36,7 @@
         <div class="page-header-row">
             <h1>Operator Links</h1>
         </div>
+        {% if can_manage %}
         <p class="empty-state" style="padding-top:0;">
             Each link is a private URL for one operator's phone — no username or password.
             Generate a link, then have the operator open it once and add it to their phone's
@@ -43,6 +44,12 @@
             once per operation and can't edit or delete it afterward — corrections still happen
             on the desktop Production page.
         </p>
+        {% else %}
+        <p class="empty-state" style="padding-top:0;">
+            Revoke an operator's link if their phone is lost or they've left — it stops
+            working immediately.
+        </p>
+        {% endif %}
 
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
@@ -62,7 +69,9 @@
                     <tr>
                         <td>{{ row.employee.name }}</td>
                         <td>
-                            {% if row.link %}
+                            {% if row.link and not can_manage %}
+                            <span class="no-link">Link active</span>
+                            {% elif row.link %}
                             <div class="link-cell">
                                 <img src="{{ row.qr_data_uri }}" alt="QR code for {{ row.employee.name }}'s link">
                                 <span class="link-url">{{ row.url }}</span>
@@ -74,19 +83,21 @@
                         <td>
                             <div class="actions">
                                 {% if row.link %}
+                                {% if can_manage %}
                                 <form method="post" onsubmit="return confirm('Regenerate the link for {{ row.employee.name|escapejs }}? The old link/QR code will stop working immediately.');">
                                     {% csrf_token %}
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <input type="hidden" name="action" value="regenerate">
                                     <button type="submit" class="btn">Regenerate</button>
                                 </form>
+                                {% endif %}
                                 <form method="post" onsubmit="return confirm('Revoke the link for {{ row.employee.name|escapejs }}? They will no longer be able to log production from their phone until a new link is generated.');">
                                     {% csrf_token %}
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <input type="hidden" name="action" value="revoke">
                                     <button type="submit" class="btn danger">Revoke</button>
                                 </form>
-                                {% else %}
+                                {% elif can_manage %}
                                 <form method="post">
                                     {% csrf_token %}
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">

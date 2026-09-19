@@ -9,6 +9,7 @@ from django.urls import Resolver404, resolve
 SALARY_VIEWER_GROUP = "Salary Viewer"
 EMPLOYEE_EDIT_GROUP = "Employee Edit"
 PRODUCTION_HEAD_GROUP = "Production Head"
+OPERATOR_LINK_REVOKER_GROUP = "Operator Link Revoker"
 
 # Every URL name under the Piece Rate module — Styles/Templates/Master
 # Operations/the summaries (view-only, no POST branch) plus each style's
@@ -58,6 +59,13 @@ _ROLE_ACCESS = {
         "get": _PIECE_RATE_GET_URLS | {"login", "logout"},
         "post": _PIECE_RATE_POST_URLS | {"login", "logout"},
     },
+    # Confined to the Operator Links page — the view itself limits them
+    # to the Revoke action (and hides the links/QR codes), see
+    # piecerate.permissions.can_revoke_operator_links.
+    OPERATOR_LINK_REVOKER_GROUP: {
+        "get": {"piece_rate_operator_links", "login", "logout"},
+        "post": {"piece_rate_operator_links", "login", "logout"},
+    },
 }
 
 # Where an over-reach redirects to, per role — the first page that role is
@@ -66,6 +74,7 @@ _ROLE_HOME = {
     SALARY_VIEWER_GROUP: "salary",
     EMPLOYEE_EDIT_GROUP: "employee_list",
     PRODUCTION_HEAD_GROUP: "piece_rate",
+    OPERATOR_LINK_REVOKER_GROUP: "piece_rate_operator_links",
 }
 
 

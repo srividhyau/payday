@@ -26,7 +26,7 @@ from attendance.models import Employee, SpecialDay
 from .models import (
     PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, OperatorLink, PieceRateEntry, RateCardOperation, Style,
 )
-from .permissions import can_edit_piece_rate
+from .permissions import can_edit_piece_rate, can_revoke_operator_links
 
 
 def _require_piece_rate_editor(request, redirect_to=None):
@@ -883,16 +883,23 @@ def _qr_data_uri(data):
 @login_required
 def operator_links_view(request):
     """Generate/manage each operator's private mobile entry link (see
-    OperatorLink and operator_entry_view) — gated the same way as Master
-    Operations/Templates, since handing one out is effectively granting
-    daily production-entry access."""
-    denied = _require_piece_rate_editor(request)
-    if denied:
-        return denied
+    OperatorLink and operator_entry_view) — generating/regenerating is
+    gated the same way as Master Operations/Templates, since handing one
+    out is effectively granting daily production-entry access. Revoking
+    is open to the narrower "Operator Link Revoker" role too, who never
+    see the links themselves (a link IS the operator's identity)."""
+    can_manage = can_edit_piece_rate(request.user)
+    if not can_revoke_operator_links(request.user):
+        messages.error(request, "You don't have permission to edit this.")
+        return redirect("home")
 
     if request.method == "POST":
         employee = get_object_or_404(Employee, id=request.POST.get("employee_id"))
         action = request.POST.get("action", "")
+        if action != "revoke":
+            denied = _require_piece_rate_editor(request)
+            if denied:
+                return denied
         if action == "generate":
             OperatorLink.objects.get_or_create(employee=employee)
             messages.success(request, f"Link created for {employee.name}.")
@@ -918,12 +925,12 @@ def operator_links_view(request):
     for employee in employees:
         link = getattr(employee, "piece_rate_link", None)
         url = qr_data_uri = None
-        if link:
+        if link and can_manage:
             url = request.build_absolute_uri(reverse("piece_rate_operator_entry", args=[link.token]))
             qr_data_uri = _qr_data_uri(url)
         rows.append({"employee": employee, "link": link, "url": url, "qr_data_uri": qr_data_uri})
 
-    return render(request, "piecerate/operator_links.html", {"rows": rows})
+    return render(request, "piecerate/operator_links.html", {"rows": rows, "can_manage": can_manage})
 
 
 

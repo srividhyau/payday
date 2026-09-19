@@ -1,11 +1,11 @@
 {% load static %}
 <header class="topbar">
-    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% elif is_production_head %}{% url 'piece_rate' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
+    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% elif is_production_head %}{% url 'piece_rate' %}{% elif is_operator_link_revoker %}{% url 'piece_rate_operator_links' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
         <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
         Payday
     </a>
     <nav>
-        {% if not is_salary_viewer and not is_employee_editor and not is_production_head %}
+        {% if not is_salary_viewer and not is_employee_editor and not is_production_head and not is_operator_link_revoker %}
         <details class="nav-dropdown">
             <summary{% if current == "mark_attendance" or current == "dashboard" or current == "upload" or current == "calendar" %} class="current"{% endif %}>Attendance</summary>
             <div class="nav-dropdown-menu">
@@ -16,7 +16,7 @@
             </div>
         </details>
         {% endif %}
-        {% if not is_production_head %}
+        {% if not is_production_head and not is_operator_link_revoker %}
         {% if is_salary_viewer or not is_employee_editor %}
         <details class="nav-dropdown">
             <summary{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} class="current"{% endif %}>Payroll</summary>
@@ -41,15 +41,19 @@
         <details class="nav-dropdown">
             <summary{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" %} class="current"{% endif %}>Piece Rate</summary>
             <div class="nav-dropdown-menu">
+                {% if not is_operator_link_revoker %}
                 <div class="nav-dropdown-group">
                     <a href="{% url 'piece_rate' %}"{% if current == "piece_rate_styles" %} class="current"{% endif %}>Styles</a>
                     <a href="{% url 'piece_rate_production_shortcut' %}"{% if current == "piece_rate_production" %} class="current"{% endif %}>Production</a>
                     <a href="{% url 'piece_rate_operator_summary' %}"{% if current == "piece_rate_operator_summary" %} class="current"{% endif %}>Summary</a>
                 </div>
                 <div class="nav-dropdown-divider"></div>
+                {% endif %}
                 <div class="nav-dropdown-group nav-dropdown-group-alt">
+                    {% if not is_operator_link_revoker %}
                     <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
                     <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
+                    {% endif %}
                     <a href="{% url 'piece_rate_operator_links' %}"{% if current == "piece_rate_operator_links" %} class="current"{% endif %}>Operator Links</a>
                 </div>
             </div>

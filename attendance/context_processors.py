@@ -1,6 +1,8 @@
 from piecerate.permissions import can_edit_piece_rate
 
-from .middleware import EMPLOYEE_EDIT_GROUP, PRODUCTION_HEAD_GROUP, SALARY_VIEWER_GROUP
+from .middleware import (
+    EMPLOYEE_EDIT_GROUP, OPERATOR_LINK_REVOKER_GROUP, PRODUCTION_HEAD_GROUP, SALARY_VIEWER_GROUP,
+)
 
 
 def role_flags(request):
@@ -18,7 +20,11 @@ def role_flags(request):
     is_salary_viewer = authenticated_non_super and user.groups.filter(name=SALARY_VIEWER_GROUP).exists()
     is_employee_editor = authenticated_non_super and user.groups.filter(name=EMPLOYEE_EDIT_GROUP).exists()
     is_production_head = authenticated_non_super and user.groups.filter(name=PRODUCTION_HEAD_GROUP).exists()
+    is_operator_link_revoker = (
+        authenticated_non_super and user.groups.filter(name=OPERATOR_LINK_REVOKER_GROUP).exists()
+    )
     return {
+        "is_operator_link_revoker": is_operator_link_revoker,
         "is_salary_viewer": is_salary_viewer,
         "is_employee_editor": is_employee_editor,
         "is_production_head": is_production_head,
