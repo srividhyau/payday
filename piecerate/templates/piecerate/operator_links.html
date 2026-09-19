@@ -91,12 +91,14 @@
                                     <button type="submit" class="btn">Regenerate</button>
                                 </form>
                                 {% endif %}
+                                {% if can_revoke %}
                                 <form method="post" onsubmit="return confirm('Revoke the link for {{ row.employee.name|escapejs }}? They will no longer be able to log production from their phone until a new link is generated.');">
                                     {% csrf_token %}
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <input type="hidden" name="action" value="revoke">
                                     <button type="submit" class="btn danger">Revoke</button>
                                 </form>
+                                {% endif %}
                                 {% elif can_manage %}
                                 <form method="post">
                                     {% csrf_token %}

@@ -889,14 +889,19 @@ def operator_links_view(request):
     is open to the narrower "Operator Link Revoker" role too, who never
     see the links themselves (a link IS the operator's identity)."""
     can_manage = can_edit_piece_rate(request.user)
-    if not can_revoke_operator_links(request.user):
+    can_revoke = can_revoke_operator_links(request.user)
+    if not (can_manage or can_revoke):
         messages.error(request, "You don't have permission to edit this.")
         return redirect("home")
 
     if request.method == "POST":
         employee = get_object_or_404(Employee, id=request.POST.get("employee_id"))
         action = request.POST.get("action", "")
-        if action != "revoke":
+        if action == "revoke":
+            if not can_revoke:
+                messages.error(request, "You don't have permission to revoke links.")
+                return redirect("piece_rate_operator_links")
+        else:
             denied = _require_piece_rate_editor(request)
             if denied:
                 return denied
@@ -930,7 +935,7 @@ def operator_links_view(request):
             qr_data_uri = _qr_data_uri(url)
         rows.append({"employee": employee, "link": link, "url": url, "qr_data_uri": qr_data_uri})
 
-    return render(request, "piecerate/operator_links.html", {"rows": rows, "can_manage": can_manage})
+    return render(request, "piecerate/operator_links.html", {"rows": rows, "can_manage": can_manage, "can_revoke": can_revoke})
 
 
 
