@@ -20,10 +20,11 @@ def can_edit_piece_rate(user):
 
 
 def can_revoke_operator_links(user):
-    """Superusers and members of "Operator Link Revoker" — deliberately
-    not everyone who can edit Piece Rate, so revoking stays a separate,
-    explicitly granted permission (an editor who isn't in the group can
-    generate/regenerate links but never sees a Revoke button)."""
+    """Only members of "Operator Link Revoker" — strictly the group, so
+    revoking is a separate, explicitly granted permission that not even
+    a superuser or Piece Rate Editor has by default (they can
+    generate/regenerate links but see no Revoke button until added to
+    the group)."""
     if not (user and user.is_authenticated):
         return False
-    return bool(user.is_superuser or user.groups.filter(name=OPERATOR_LINK_REVOKER_GROUP).exists())
+    return user.groups.filter(name=OPERATOR_LINK_REVOKER_GROUP).exists()
