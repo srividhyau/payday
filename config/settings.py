@@ -232,6 +232,18 @@ TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
+# Only the operator entry page is translated (see operator_entry_view,
+# which activates the operator's chosen language itself) — there's no
+# LocaleMiddleware, so every other page stays English regardless of
+# headers/cookies. Names are each language's own, never translated.
+LANGUAGES = [
+    ('en', 'English'),
+    ('ta', 'தமிழ்'),
+    ('te', 'తెలుగు'),
+    ('kn', 'ಕನ್ನಡ'),
+]
+LOCALE_PATHS = [BASE_DIR / 'locale']
+
 USE_TZ = True
 
 

@@ -1,0 +1,1548 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: payday\n"
+"Language: kn\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Select style"
+msgstr "ಸ್ಟೈಲ್ ಆಯ್ಕೆಮಾಡಿ"
+
+msgid "Change style"
+msgstr "ಸ್ಟೈಲ್ ಬದಲಾಯಿಸಿ"
+
+msgid "Operation"
+msgstr "ಆಪರೇಷನ್"
+
+msgid "Search operation…"
+msgstr "ಆಪರೇಷನ್ ಹುಡುಕಿ…"
+
+msgid "Pieces"
+msgstr "ಪೀಸ್‌ಗಳು"
+
+#, python-format
+msgid "(Order Qty: %(qty)s)"
+msgstr "(ಆರ್ಡರ್ ಪ್ರಮಾಣ: %(qty)s)"
+
+msgid "Submit"
+msgstr "ಸಲ್ಲಿಸಿ"
+
+msgid "Update"
+msgstr "ಅಪ್‌ಡೇಟ್"
+
+msgid "Log production"
+msgstr "ಉತ್ಪಾದನೆಯನ್ನು ದಾಖಲಿಸಿ"
+
+msgid ""
+"No production has been set up for this month yet — check with your "
+"supervisor."
+msgstr ""
+"ಈ ತಿಂಗಳಿಗೆ ಉತ್ಪಾದನೆಯನ್ನು ಇನ್ನೂ ಸೆಟ್ ಮಾಡಿಲ್ಲ — ನಿಮ್ಮ ಸೂಪರ್‌ವೈಸರ್ ಅವರನ್ನು "
+"ಕೇಳಿ."
+
+msgid "No style has started running yet."
+msgstr "ಯಾವ ಸ್ಟೈಲ್ ಕೂಡ ಇನ್ನೂ ಪ್ರಾರಂಭವಾಗಿಲ್ಲ."
+
+msgid "Nothing to log right now."
+msgstr "ಈಗ ದಾಖಲಿಸಲು ಏನೂ ಇಲ್ಲ."
+
+msgid "Logged this month"
+msgstr "ಈ ತಿಂಗಳು ದಾಖಲಿಸಿದವು"
+
+msgid "Made a mistake? Ask your supervisor — this can't be edited here."
+msgstr ""
+"ತಪ್ಪಾಯಿತೇ? ನಿಮ್ಮ ಸೂಪರ್‌ವೈಸರ್ ಅವರನ್ನು ಕೇಳಿ — ಇಲ್ಲಿ ಬದಲಾಯಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."
+
+msgid "Corrected"
+msgstr "ಸರಿಪಡಿಸಲಾಗಿದೆ"
+
+msgid "You entered"
+msgstr "ನೀವು ಹಾಕಿದ್ದು"
+
+msgid "Supervisor"
+msgstr "ಸೂಪರ್‌ವೈಸರ್"
+
+msgid "Close"
+msgstr "ಮುಚ್ಚಿ"
+
+msgid "Logged so far:"
+msgstr "ಇಲ್ಲಿಯವರೆಗೆ ದಾಖಲಾದದ್ದು:"
+
+msgid "Search and pick an operation first."
+msgstr "ಮೊದಲು ಆಪರೇಷನ್ ಹುಡುಕಿ ಆಯ್ಕೆಮಾಡಿ."
+
+msgid "Tap a day in the calendar above first."
+msgstr "ಮೊದಲು ಮೇಲಿನ ಕ್ಯಾಲೆಂಡರ್‌ನಲ್ಲಿ ಒಂದು ದಿನವನ್ನು ಒತ್ತಿ."
+
+msgid "Front"
+msgstr "ಫ್ರಂಟ್"
+
+msgid "Bow"
+msgstr "ಬೋ"
+
+msgid "Assembly"
+msgstr "ಅಸೆಂಬ್ಲಿ"
+
+msgid "Back"
+msgstr "ಬ್ಯಾಕ್"
+
+msgid "Other"
+msgstr "ಇತರೆ"
+
+msgid "today"
+msgstr "ಇಂದು"
+
+msgid "yesterday"
+msgstr "ನಿನ್ನೆ"
+
+msgid "Pick a date in the calendar first."
+msgstr "ಮೊದಲು ಕ್ಯಾಲೆಂಡರ್‌ನಲ್ಲಿ ದಿನಾಂಕವನ್ನು ಆಯ್ಕೆಮಾಡಿ."
+
+#, python-format
+msgid "%(style)s wasn't running yet on %(day)s."
+msgstr "%(day)s ರಂದು %(style)s ಇನ್ನೂ ನಡೆಯುತ್ತಿರಲಿಲ್ಲ."
+
+msgid "Enter how many pieces you made."
+msgstr "ನೀವು ಎಷ್ಟು ಪೀಸ್ ಮಾಡಿದ್ದೀರಿ ಎಂದು ನಮೂದಿಸಿ."
+
+#, python-format
+msgid ""
+"You already logged this for %(day)s — ask your supervisor if it needs to "
+"change."
+msgstr ""
+"%(day)s ಕ್ಕೆ ಇದನ್ನು ಈಗಾಗಲೇ ದಾಖಲಿಸಿದ್ದೀರಿ — ಬದಲಾಯಿಸಬೇಕಾದರೆ ನಿಮ್ಮ ಸೂಪರ್‌ವೈಸರ್ "
+"ಅವರನ್ನು ಕೇಳಿ."
+
+#, python-format
+msgid ""
+"That would bring the total to %(total)s, more than the %(planned)s planned "
+"for this. Check with your supervisor."
+msgstr ""
+"ಇದರಿಂದ ಒಟ್ಟು %(total)s ಆಗುತ್ತದೆ, ಇದು ಯೋಜಿಸಿದ %(planned)s ಗಿಂತ ಹೆಚ್ಚು. ನಿಮ್ಮ "
+"ಸೂಪರ್‌ವೈಸರ್ ಅವರನ್ನು ಕೇಳಿ."
+
+#, python-format
+msgid "Updated %(op)s for %(day)s to %(qty)s."
+msgstr "%(day)s ಕ್ಕೆ %(op)s ಅನ್ನು %(qty)s ಗೆ ಅಪ್‌ಡೇಟ್ ಮಾಡಲಾಗಿದೆ."
+
+#, python-format
+msgid "You already logged this for %(day)s."
+msgstr "%(day)s ಕ್ಕೆ ಇದನ್ನು ಈಗಾಗಲೇ ದಾಖಲಿಸಿದ್ದೀರಿ."
+
+#, python-format
+msgid "Logged %(qty)s for %(op)s."
+msgstr "%(op)s ಗೆ %(qty)s ದಾಖಲಿಸಲಾಗಿದೆ."
+
+#. Operation name
+msgid "Back Bottom Lining Kinnari"
+msgstr "ಬ್ಯಾಕ್ ಬಾಟಮ್ ಲೈನಿಂಗ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Back Bottom Shell & Lining Attach"
+msgstr "ಬ್ಯಾಕ್ ಬಾಟಮ್ ಶೆಲ್ & ಲೈನಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Dart Attach"
+msgstr "ಬ್ಯಾಕ್ ಡಾರ್ಟ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Dart Iron"
+msgstr "ಬ್ಯಾಕ್ ಡಾರ್ಟ್ ಐರನ್"
+
+#. Operation name
+msgid "Back Dart Mark"
+msgstr "ಬ್ಯಾಕ್ ಡಾರ್ಟ್ ಮಾರ್ಕ್"
+
+#. Operation name
+msgid "Back Harmole Attach L"
+msgstr "ಬ್ಯಾಕ್ ಹಾರ್ಮೋಲ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Back Harmole Attach R"
+msgstr "ಬ್ಯಾಕ್ ಹಾರ್ಮೋಲ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Back Harmole Kinnari L"
+msgstr "ಬ್ಯಾಕ್ ಹಾರ್ಮೋಲ್ ಕಿನ್ನರಿ L"
+
+#. Operation name
+msgid "Back Harmole Kinnari R"
+msgstr "ಬ್ಯಾಕ್ ಹಾರ್ಮೋಲ್ ಕಿನ್ನರಿ R"
+
+#. Operation name
+msgid "Back Lining Dart Attach (2)"
+msgstr "ಬ್ಯಾಕ್ ಲೈನಿಂಗ್ ಡಾರ್ಟ್ ಅಟ್ಯಾಚ್ (2)"
+
+#. Operation name
+msgid "Back Main & Washcare Label Attach"
+msgstr "ಬ್ಯಾಕ್ ಮೇನ್ & ವಾಶ್ ಕೇರ್ ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Neck Attach Shell & Lining Attach"
+msgstr "ಬ್ಯಾಕ್ ನೆಕ್ ಅಟ್ಯಾಚ್ ಶೆಲ್ & ಲೈನಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Neck Kinnari Lining"
+msgstr "ಬ್ಯಾಕ್ ನೆಕ್ ಕಿನ್ನರಿ ಲೈನಿಂಗ್"
+
+#. Operation name
+msgid "Back Pocket Attach L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Back Pocket Attach R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Back Pocket Bag Edge Cutter L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಎಡ್ಜ್ ಕಟ್ಟರ್ L"
+
+#. Operation name
+msgid "Back Pocket Bag Edge Cutter R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಎಡ್ಜ್ ಕಟ್ಟರ್ R"
+
+#. Operation name
+msgid "Back Pocket Door L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಡೋರ್ L"
+
+#. Operation name
+msgid "Back Pocket Door R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಡೋರ್ R"
+
+#. Operation name
+msgid "Back Pocket Dummy Stitch L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಡಮ್ಮಿ ಸ್ಟಿಚ್ L"
+
+#. Operation name
+msgid "Back Pocket Dummy Stitch R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಡಮ್ಮಿ ಸ್ಟಿಚ್ R"
+
+#. Operation name
+msgid "Back Pocket Iron L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಐರನ್ L"
+
+#. Operation name
+msgid "Back Pocket Iron R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಐರನ್ R"
+
+#. Operation name
+msgid "Back Pocket Marking L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಮಾರ್ಕಿಂಗ್ L"
+
+#. Operation name
+msgid "Back Pocket Marking R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಮಾರ್ಕಿಂಗ್ R"
+
+#. Operation name
+msgid "Back Pocket Pointed L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಪಾಯಿಂಟೆಡ್ L"
+
+#. Operation name
+msgid "Back Pocket Pointed Mark L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಪಾಯಿಂಟೆಡ್ ಮಾರ್ಕ್ L"
+
+#. Operation name
+msgid "Back Pocket Pointed Mark R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಪಾಯಿಂಟೆಡ್ ಮಾರ್ಕ್ R"
+
+#. Operation name
+msgid "Back Pocket Pointed R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಪಾಯಿಂಟೆಡ್ R"
+
+#. Operation name
+msgid "Back Pocket Setting"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Back Pocket Show Stitch Attach L"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಶೋ ಸ್ಟಿಚ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Back Pocket Show Stitch Attach R"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಶೋ ಸ್ಟಿಚ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Back Pocket Show Stitch Mark"
+msgstr "ಬ್ಯಾಕ್ ಪಾಕೆಟ್ ಶೋ ಸ್ಟಿಚ್ ಮಾರ್ಕ್"
+
+#. Operation name
+msgid "Back Rise Attach"
+msgstr "ಬ್ಯಾಕ್ ರೈಸ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Rise D/N"
+msgstr "ಬ್ಯಾಕ್ ರೈಸ್ D/N"
+
+#. Operation name
+msgid "Back Rise Feedaform"
+msgstr "ಬ್ಯಾಕ್ ರೈಸ್ ಫೀಡಾ ಫಾರ್ಮ್"
+
+#. Operation name
+msgid "Back Rise O/L"
+msgstr "ಬ್ಯಾಕ್ ರೈಸ್ O/L"
+
+#. Operation name
+msgid "Back Rise Pointed"
+msgstr "ಬ್ಯಾಕ್ ರೈಸ್ ಪಾಯಿಂಟೆಡ್"
+
+#. Operation name
+msgid "Back Shell Dart Attach (2)"
+msgstr "ಬ್ಯಾಕ್ ಶೆಲ್ ಡಾರ್ಟ್ ಅಟ್ಯಾಚ್ (2)"
+
+#. Operation name
+msgid "Back Size Label Attach"
+msgstr "ಬ್ಯಾಕ್ ಸೈಜ್ ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Size Label Ready"
+msgstr "ಬ್ಯಾಕ್ ಸೈಜ್ ಲೇಬಲ್ ರೆಡಿ"
+
+#. Operation name
+msgid "Back Slit Attach L"
+msgstr "ಬ್ಯಾಕ್ ಸ್ಲಿಟ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Back Slit Attach R"
+msgstr "ಬ್ಯಾಕ್ ಸ್ಲಿಟ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Back Welt Attach L"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Back Welt Attach R"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Back Welt Down Facing Attach"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಡೌನ್ ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Welt Down Kinnari"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಡೌನ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Back Welt End Tucking L"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಎಂಡ್ ಟಕ್ಕಿಂಗ್ L"
+
+#. Operation name
+msgid "Back Welt End Tucking R"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಎಂಡ್ ಟಕ್ಕಿಂಗ್ R"
+
+#. Operation name
+msgid "Back Welt Iron"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಐರನ್"
+
+#. Operation name
+msgid "Back Welt Top Facing Attach"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಟಾಪ್ ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Welt Top Kinnari"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಟಾಪ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Back Welt Turning"
+msgstr "ಬ್ಯಾಕ್ ವೆಲ್ಟ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Back Yoke Attach"
+msgstr "ಬ್ಯಾಕ್ ಯೋಕ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Back Yoke D/N L"
+msgstr "ಬ್ಯಾಕ್ ಯೋಕ್ D/N L"
+
+#. Operation name
+msgid "Back Yoke D/N R"
+msgstr "ಬ್ಯಾಕ್ ಯೋಕ್ D/N R"
+
+#. Operation name
+msgid "Big & Small Bow Center Rapping"
+msgstr "ಬಿಗ್ & ಸ್ಮಾಲ್ ಬೋ ಸೆಂಟರ್ ರ್ಯಾಪಿಂಗ್"
+
+#. Operation name
+msgid "Big Bow Center Tucking"
+msgstr "ಬಿಗ್ ಬೋ ಸೆಂಟರ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Big Bow Left Tucking"
+msgstr "ಬಿಗ್ ಬೋ ಲೆಫ್ಟ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Big Bow Right Tucking"
+msgstr "ಬಿಗ್ ಬೋ ರೈಟ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Big Bow Turning"
+msgstr "ಬಿಗ್ ಬೋ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Bottom"
+msgstr "ಬಾಟಮ್"
+
+#. Operation name
+msgid "Bottom & Cuff Katcha Cutting"
+msgstr "ಬಾಟಮ್ & ಕಫ್ ಕಚ್ಚಾ ಕಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Bottom Hemming / Finish"
+msgstr "ಬಾಟಮ್ ಹೆಮ್ಮಿಂಗ್ / ಫಿನಿಶ್"
+
+#. Operation name
+msgid "Bottom Iron"
+msgstr "ಬಾಟಮ್ ಐರನ್"
+
+#. Operation name
+msgid "Bottom Panal Attach L"
+msgstr "ಬಾಟಮ್ ಪ್ಯಾನಲ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Bottom Panal Attach R"
+msgstr "ಬಾಟಮ್ ಪ್ಯಾನಲ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Bottom Panal Finish( L)"
+msgstr "ಬಾಟಮ್ ಪ್ಯಾನಲ್ ಫಿನಿಶ್( L)"
+
+#. Operation name
+msgid "Bottom Panal Finish( R)"
+msgstr "ಬಾಟಮ್ ಪ್ಯಾನಲ್ ಫಿನಿಶ್( R)"
+
+#. Operation name
+msgid "Bottom Panal Piping Attach L"
+msgstr "ಬಾಟಮ್ ಪ್ಯಾನಲ್ ಪೈಪಿಂಗ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Bottom Panal Piping Attach R"
+msgstr "ಬಾಟಮ್ ಪ್ಯಾನಲ್ ಪೈಪಿಂಗ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Bottom Panal Setting"
+msgstr "ಬಾಟಮ್ ಪ್ಯಾನಲ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Bottom Tucking( L&R)"
+msgstr "ಬಾಟಮ್ ಟಕ್ಕಿಂಗ್( L&R)"
+
+#. Operation name
+msgid "Bow & Tie Tucking L"
+msgstr "ಬೋ & ಟೈ ಟಕ್ಕಿಂಗ್ L"
+
+#. Operation name
+msgid "Bow & Tie Tucking R"
+msgstr "ಬೋ & ಟೈ ಟಕ್ಕಿಂಗ್ R"
+
+#. Operation name
+msgid "Bow Center Patch Attach"
+msgstr "ಬೋ ಸೆಂಟರ್ ಪ್ಯಾಚ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Bow Center Patch Ready"
+msgstr "ಬೋ ಸೆಂಟರ್ ಪ್ಯಾಚ್ ರೆಡಿ"
+
+#. Operation name
+msgid "Bow Label Attach"
+msgstr "ಬೋ ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Checking"
+msgstr "ಚೆಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Collar &Neck Band Setting"
+msgstr "ಕಾಲರ್ &ನೆಕ್ ಬ್ಯಾಂಡ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Collar Attach"
+msgstr "ಕಾಲರ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Collar Finishing"
+msgstr "ಕಾಲರ್ ಫಿನಿಶಿಂಗ್"
+
+#. Operation name
+msgid "Collar Kinnari"
+msgstr "ಕಾಲರ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Collar Middle Marking"
+msgstr "ಕಾಲರ್ ಮಿಡಲ್ ಮಾರ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Collar Neckband Pipeing Attach"
+msgstr "ಕಾಲರ್ ನೆಕ್‌ಬ್ಯಾಂಡ್ ಪೈಪಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Collar Neckband Pipeing Iron"
+msgstr "ಕಾಲರ್ ನೆಕ್‌ಬ್ಯಾಂಡ್ ಪೈಪಿಂಗ್ ಐರನ್"
+
+#. Operation name
+msgid "Collar Neckband Pipeing Joint"
+msgstr "ಕಾಲರ್ ನೆಕ್‌ಬ್ಯಾಂಡ್ ಪೈಪಿಂಗ್ ಜಾಯಿಂಟ್"
+
+#. Operation name
+msgid "Collar Pick Iron"
+msgstr "ಕಾಲರ್ ಪಿಕ್ ಐರನ್"
+
+#. Operation name
+msgid "Collar Pick Ready"
+msgstr "ಕಾಲರ್ ಪಿಕ್ ರೆಡಿ"
+
+#. Operation name
+msgid "Collar Pick Turning"
+msgstr "ಕಾಲರ್ ಪಿಕ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Collar Ready Cut"
+msgstr "ಕಾಲರ್ ರೆಡಿ ಕಟ್"
+
+#. Operation name
+msgid "Collar Setting"
+msgstr "ಕಾಲರ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Collar Top Marking"
+msgstr "ಕಾಲರ್ ಟಾಪ್ ಮಾರ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Collar Top Ready Stitch"
+msgstr "ಕಾಲರ್ ಟಾಪ್ ರೆಡಿ ಸ್ಟಿಚ್"
+
+#. Operation name
+msgid "Collar Turning"
+msgstr "ಕಾಲರ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Cuff Door"
+msgstr "ಕಫ್ ಡೋರ್"
+
+#. Operation name
+msgid "Cuff Finishing L"
+msgstr "ಕಫ್ ಫಿನಿಶಿಂಗ್ L"
+
+#. Operation name
+msgid "Cuff Finishing R"
+msgstr "ಕಫ್ ಫಿನಿಶಿಂಗ್ R"
+
+#. Operation name
+msgid "Cuff Fleet Attach"
+msgstr "ಕಫ್ ಫ್ಲೀಟ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Cuff Iron"
+msgstr "ಕಫ್ ಐರನ್"
+
+#. Operation name
+msgid "Cuff Marking"
+msgstr "ಕಫ್ ಮಾರ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Cuff Pointed"
+msgstr "ಕಫ್ ಪಾಯಿಂಟೆಡ್"
+
+#. Operation name
+msgid "Cuff Ready"
+msgstr "ಕಫ್ ರೆಡಿ"
+
+#. Operation name
+msgid "Cuff Setting"
+msgstr "ಕಫ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Cuff Turning"
+msgstr "ಕಫ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Drawcord Center Tucking"
+msgstr "ಡ್ರಾ ಕಾರ್ಡ್ ಸೆಂಟರ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Drawcord End Tucking"
+msgstr "ಡ್ರಾ ಕಾರ್ಡ್ ಎಂಡ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Drawcord Ready"
+msgstr "ಡ್ರಾ ಕಾರ್ಡ್ ರೆಡಿ"
+
+#. Operation name
+msgid "Drawcord W/B Center Tucking"
+msgstr "ಡ್ರಾ ಕಾರ್ಡ್ W/B ಸೆಂಟರ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Elastic Cut"
+msgstr "ಎಲಾಸ್ಟಿಕ್ ಕಟ್"
+
+#. Operation name
+msgid "Elastic Mark"
+msgstr "ಎಲಾಸ್ಟಿಕ್ ಮಾರ್ಕ್"
+
+#. Operation name
+msgid "Elastic Mark & Setting"
+msgstr "ಎಲಾಸ್ಟಿಕ್ ಮಾರ್ಕ್ & ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Elastic Tucking 4"
+msgstr "ಎಲಾಸ್ಟಿಕ್ ಟಕ್ಕಿಂಗ್ 4"
+
+#. Operation name
+msgid "F/B Setting"
+msgstr "F/B ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Finishing Bartack (12)"
+msgstr "ಫಿನಿಶಿಂಗ್ ಬಾರ್‌ಟ್ಯಾಕ್ (12)"
+
+#. Operation name
+msgid "Finishing Ironing"
+msgstr "ಫಿನಿಶಿಂಗ್ ಐರನಿಂಗ್"
+
+#. Operation name
+msgid "Front & Back Setting"
+msgstr "ಫ್ರಂಟ್ & ಬ್ಯಾಕ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Front & Facing Katcha Cutting"
+msgstr "ಫ್ರಂಟ್ & ಫೇಸಿಂಗ್ ಕಚ್ಚಾ ಕಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Front & Lining Turning"
+msgstr "ಫ್ರಂಟ್ & ಲೈನಿಂಗ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Front &Facing Attach L (2 Corner Thread Insert ) L"
+msgstr "ಫ್ರಂಟ್ &ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್ L (2 ಕಾರ್ನರ್ ಥ್ರೆಡ್ ಇನ್ಸರ್ಟ್ ) L"
+
+#. Operation name
+msgid "Front &Facing Attach R (2Corner Thread Insert ) R"
+msgstr "ಫ್ರಂಟ್ &ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್ R (2ಕಾರ್ನರ್ ಥ್ರೆಡ್ ಇನ್ಸರ್ಟ್ ) R"
+
+#. Operation name
+msgid "Front &Facing Attach Setting"
+msgstr "ಫ್ರಂಟ್ &ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Front &Facing Bottom Closing (2Th Thread) L"
+msgstr "ಫ್ರಂಟ್ &ಫೇಸಿಂಗ್ ಬಾಟಮ್ ಕ್ಲೋಸಿಂಗ್ (2Th ಥ್ರೆಡ್) L"
+
+#. Operation name
+msgid "Front &Facing Bottom Closing (2Th Thread) R"
+msgstr "ಫ್ರಂಟ್ &ಫೇಸಿಂಗ್ ಬಾಟಮ್ ಕ್ಲೋಸಿಂಗ್ (2Th ಥ್ರೆಡ್) R"
+
+#. Operation name
+msgid "Front And Back Setting"
+msgstr "ಫ್ರಂಟ್ ಅಂಡ್ ಬ್ಯಾಕ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Front Bottom Lining Kinnari L"
+msgstr "ಫ್ರಂಟ್ ಬಾಟಮ್ ಲೈನಿಂಗ್ ಕಿನ್ನರಿ L"
+
+#. Operation name
+msgid "Front Bottom Lining Kinnari R"
+msgstr "ಫ್ರಂಟ್ ಬಾಟಮ್ ಲೈನಿಂಗ್ ಕಿನ್ನರಿ R"
+
+#. Operation name
+msgid "Front Button Flacket Tucking Top &Down"
+msgstr "ಫ್ರಂಟ್ ಬಟನ್ ಫ್ಲಾಕೆಟ್ ಟಕ್ಕಿಂಗ್ ಟಾಪ್ &ಡೌನ್"
+
+#. Operation name
+msgid "Front Coin Pocket Attach"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Coin Pocket Door"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಡೋರ್"
+
+#. Operation name
+msgid "Front Coin Pocket Dummy Stitch"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಡಮ್ಮಿ ಸ್ಟಿಚ್"
+
+#. Operation name
+msgid "Front Coin Pocket Facing Big Attach"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಫೇಸಿಂಗ್ ಬಿಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Coin Pocket Facing Down Attach"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಫೇಸಿಂಗ್ ಡೌನ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Coin Pocket Facing Down O/L L"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಫೇಸಿಂಗ್ ಡೌನ್ O/L L"
+
+#. Operation name
+msgid "Front Coin Pocket Facing Down O/L R"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಫೇಸಿಂಗ್ ಡೌನ್ O/L R"
+
+#. Operation name
+msgid "Front Coin Pocket Facing O/L Inside"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಫೇಸಿಂಗ್ O/L ಇನ್‌ಸೈಡ್"
+
+#. Operation name
+msgid "Front Coin Pocket Facing Top O/L L"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಫೇಸಿಂಗ್ ಟಾಪ್ O/L L"
+
+#. Operation name
+msgid "Front Coin Pocket Facing Top O/L R"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಫೇಸಿಂಗ್ ಟಾಪ್ O/L R"
+
+#. Operation name
+msgid "Front Coin Pocket Kinnari"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Front Coin Pocket Marking"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಮಾರ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Front Coin Pocket Pointed"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಪಾಯಿಂಟೆಡ್"
+
+#. Operation name
+msgid "Front Coin Pocket Ready"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ರೆಡಿ"
+
+#. Operation name
+msgid "Front Coin Pocket Top Facing Iron"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಟಾಪ್ ಫೇಸಿಂಗ್ ಐರನ್"
+
+#. Operation name
+msgid "Front Coin Pocket Top Facing Kinnari"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಟಾಪ್ ಫೇಸಿಂಗ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Front Coin Pocket Top Facing Pointed"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಟಾಪ್ ಫೇಸಿಂಗ್ ಪಾಯಿಂಟೆಡ್"
+
+#. Operation name
+msgid "Front Coin Pocket Tucking Top & Down"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಟಕ್ಕಿಂಗ್ ಟಾಪ್ & ಡೌನ್"
+
+#. Operation name
+msgid "Front Coin Pocket Turning"
+msgstr "ಫ್ರಂಟ್ ಕಾಯಿನ್ ಪಾಕೆಟ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Front Dart Attach (Lining) 2"
+msgstr "ಫ್ರಂಟ್ ಡಾರ್ಟ್ ಅಟ್ಯಾಚ್ (ಲೈನಿಂಗ್) 2"
+
+#. Operation name
+msgid "Front Dart Attach (Shell) 2"
+msgstr "ಫ್ರಂಟ್ ಡಾರ್ಟ್ ಅಟ್ಯಾಚ್ (ಶೆಲ್) 2"
+
+#. Operation name
+msgid "Front Dart Iron 2"
+msgstr "ಫ್ರಂಟ್ ಡಾರ್ಟ್ ಐರನ್ 2"
+
+#. Operation name
+msgid "Front Dart Marking (Shell) 2"
+msgstr "ಫ್ರಂಟ್ ಡಾರ್ಟ್ ಮಾರ್ಕಿಂಗ್ (ಶೆಲ್) 2"
+
+#. Operation name
+msgid "Front Double Fly Attach"
+msgstr "ಫ್ರಂಟ್ ಡಬಲ್ ಫ್ಲೈ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Double Fly Kinnari"
+msgstr "ಫ್ರಂಟ್ ಡಬಲ್ ಫ್ಲೈ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Front Double Fly Making"
+msgstr "ಫ್ರಂಟ್ ಡಬಲ್ ಫ್ಲೈ ಮೇಕಿಂಗ್"
+
+#. Operation name
+msgid "Front Double Fly O/L"
+msgstr "ಫ್ರಂಟ್ ಡಬಲ್ ಫ್ಲೈ O/L"
+
+#. Operation name
+msgid "Front Doublefly & Singlefly Piping Attach"
+msgstr "ಫ್ರಂಟ್ ಡಬಲ್ ಫ್ಲೈ & ಸಿಂಗಲ್ ಫ್ಲೈ ಪೈಪಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Doublefly Attach"
+msgstr "ಫ್ರಂಟ್ ಡಬಲ್ ಫ್ಲೈ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Doublefly Kinnari"
+msgstr "ಫ್ರಂಟ್ ಡಬಲ್ ಫ್ಲೈ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Front Downfly Kinnari"
+msgstr "ಫ್ರಂಟ್ ಡೌನ್ ಫ್ಲೈ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Front Downfly Ready"
+msgstr "ಫ್ರಂಟ್ ಡೌನ್ ಫ್ಲೈ ರೆಡಿ"
+
+#. Operation name
+msgid "Front Flacket Iron"
+msgstr "ಫ್ರಂಟ್ ಫ್ಲಾಕೆಟ್ ಐರನ್"
+
+#. Operation name
+msgid "Front Fly Label Attach"
+msgstr "ಫ್ರಂಟ್ ಫ್ಲೈ ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Harmole Attach R"
+msgstr "ಫ್ರಂಟ್ ಹಾರ್ಮೋಲ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Front Harmole Kinnari L"
+msgstr "ಫ್ರಂಟ್ ಹಾರ್ಮೋಲ್ ಕಿನ್ನರಿ L"
+
+#. Operation name
+msgid "Front Harmole Kinnari R"
+msgstr "ಫ್ರಂಟ್ ಹಾರ್ಮೋಲ್ ಕಿನ್ನರಿ R"
+
+#. Operation name
+msgid "Front Harmole Turning"
+msgstr "ಫ್ರಂಟ್ ಹಾರ್ಮೋಲ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Front Insert For Right Side Attach"
+msgstr "ಫ್ರಂಟ್ ಇನ್ಸರ್ಟ್ ಫಾರ್ ರೈಟ್ ಸೈಡ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Insidefly Show Stitch"
+msgstr "ಫ್ರಂಟ್ ಇನ್‌ಸೈಡ್ ಫ್ಲೈ ಶೋ ಸ್ಟಿಚ್"
+
+#. Operation name
+msgid "Front J Stitch"
+msgstr "ಫ್ರಂಟ್ J ಸ್ಟಿಚ್"
+
+#. Operation name
+msgid "Front Kaja Flacket Tucking Top &Down"
+msgstr "ಫ್ರಂಟ್ ಕಾಜಾ ಫ್ಲಾಕೆಟ್ ಟಕ್ಕಿಂಗ್ ಟಾಪ್ &ಡೌನ್"
+
+#. Operation name
+msgid "Front Lining & Facing Attach L"
+msgstr "ಫ್ರಂಟ್ ಲೈನಿಂಗ್ & ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Front Lining & Facing Attach R"
+msgstr "ಫ್ರಂಟ್ ಲೈನಿಂಗ್ & ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Front Pick Folding Attach L"
+msgstr "ಫ್ರಂಟ್ ಪಿಕ್ ಫೋಲ್ಡಿಂಗ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Front Pick Folding Attach R"
+msgstr "ಫ್ರಂಟ್ ಪಿಕ್ ಫೋಲ್ಡಿಂಗ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Front Pick Marking"
+msgstr "ಫ್ರಂಟ್ ಪಿಕ್ ಮಾರ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Front Pick Shape Marking L"
+msgstr "ಫ್ರಂಟ್ ಪಿಕ್ ಶೇಪ್ ಮಾರ್ಕಿಂಗ್ L"
+
+#. Operation name
+msgid "Front Pick Shape Marking R"
+msgstr "ಫ್ರಂಟ್ ಪಿಕ್ ಶೇಪ್ ಮಾರ್ಕಿಂಗ್ R"
+
+#. Operation name
+msgid "Front Pick Shape Snatch L"
+msgstr "ಫ್ರಂಟ್ ಪಿಕ್ ಶೇಪ್ ಸ್ನ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Front Pick Shape Snatch R"
+msgstr "ಫ್ರಂಟ್ ಪಿಕ್ ಶೇಪ್ ಸ್ನ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Front Pocket Attach L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Front Pocket Attach R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Front Pocket Bag Edge Cutter L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಎಡ್ಜ್ ಕಟ್ಟರ್ L"
+
+#. Operation name
+msgid "Front Pocket Bag Edge Cutter R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಎಡ್ಜ್ ಕಟ್ಟರ್ R"
+
+#. Operation name
+msgid "Front Pocket Bag O/L L,R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ O/L L,R"
+
+#. Operation name
+msgid "Front Pocket Bag Pointed L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಪಾಯಿಂಟೆಡ್ L"
+
+#. Operation name
+msgid "Front Pocket Bag Pointed R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಪಾಯಿಂಟೆಡ್ R"
+
+#. Operation name
+msgid "Front Pocket Bag Setting"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Front Pocket Bag Tucking Down"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಟಕ್ಕಿಂಗ್ ಡೌನ್"
+
+#. Operation name
+msgid "Front Pocket Bag Tucking Top"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಟಕ್ಕಿಂಗ್ ಟಾಪ್"
+
+#. Operation name
+msgid "Front Pocket Big Facing Attach"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಬಿಗ್ ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Pocket D/N L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ D/N L"
+
+#. Operation name
+msgid "Front Pocket D/N R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ D/N R"
+
+#. Operation name
+msgid "Front Pocket Inside O/L L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಇನ್‌ಸೈಡ್ O/L L"
+
+#. Operation name
+msgid "Front Pocket Inside O/L R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಇನ್‌ಸೈಡ್ O/L R"
+
+#. Operation name
+msgid "Front Pocket Kinnari L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಕಿನ್ನರಿ L"
+
+#. Operation name
+msgid "Front Pocket Kinnari R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಕಿನ್ನರಿ R"
+
+#. Operation name
+msgid "Front Pocket Natch L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ನಾಚ್ L"
+
+#. Operation name
+msgid "Front Pocket Natch R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ನಾಚ್ R"
+
+#. Operation name
+msgid "Front Pocket O/L L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ O/L L"
+
+#. Operation name
+msgid "Front Pocket O/L R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ O/L R"
+
+#. Operation name
+msgid "Front Pocket Pointed L"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಪಾಯಿಂಟೆಡ್ L"
+
+#. Operation name
+msgid "Front Pocket Pointed R"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಪಾಯಿಂಟೆಡ್ R"
+
+#. Operation name
+msgid "Front Pocket Setting"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Front Pocket Small Facing Attach"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಸ್ಮಾಲ್ ಫೇಸಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Pocket Tucking Down"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಟಕ್ಕಿಂಗ್ ಡೌನ್"
+
+#. Operation name
+msgid "Front Pocket Tucking Top"
+msgstr "ಫ್ರಂಟ್ ಪಾಕೆಟ್ ಟಕ್ಕಿಂಗ್ ಟಾಪ್"
+
+#. Operation name
+msgid "Front Right Front Attach"
+msgstr "ಫ್ರಂಟ್ ರೈಟ್ ಫ್ರಂಟ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Rise Attach"
+msgstr "ಫ್ರಂಟ್ ರೈಸ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Rise D/N"
+msgstr "ಫ್ರಂಟ್ ರೈಸ್ D/N"
+
+#. Operation name
+msgid "Front Rise Kinnari"
+msgstr "ಫ್ರಂಟ್ ರೈಸ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Front Rise O/L"
+msgstr "ಫ್ರಂಟ್ ರೈಸ್ O/L"
+
+#. Operation name
+msgid "Front Single Fly Attach"
+msgstr "ಫ್ರಂಟ್ ಸಿಂಗಲ್ ಫ್ಲೈ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Single Fly Kinnari"
+msgstr "ಫ್ರಂಟ್ ಸಿಂಗಲ್ ಫ್ಲೈ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Front Single Fly O/L"
+msgstr "ಫ್ರಂಟ್ ಸಿಂಗಲ್ ಫ್ಲೈ O/L"
+
+#. Operation name
+msgid "Front Singlefly Attach"
+msgstr "ಫ್ರಂಟ್ ಸಿಂಗಲ್ ಫ್ಲೈ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Front Singlefly Kinnari"
+msgstr "ಫ್ರಂಟ್ ಸಿಂಗಲ್ ಫ್ಲೈ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Front Slit Attach L"
+msgstr "ಫ್ರಂಟ್ ಸ್ಲಿಟ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Front Slit Attach R"
+msgstr "ಫ್ರಂಟ್ ಸ್ಲಿಟ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Front Slit Snatch & Mark"
+msgstr "ಫ್ರಂಟ್ ಸ್ಲಿಟ್ ಸ್ನ್ಯಾಚ್ & ಮಾರ್ಕ್"
+
+#. Operation name
+msgid "Front Snatch Attach L"
+msgstr "ಫ್ರಂಟ್ ಸ್ನ್ಯಾಚ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Front Snatch Attach R"
+msgstr "ಫ್ರಂಟ್ ಸ್ನ್ಯಾಚ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Front Washcare Label Attach With Pouch"
+msgstr "ಫ್ರಂಟ್ ವಾಶ್ ಕೇರ್ ಲೇಬಲ್ ಅಟ್ಯಾಚ್ ವಿತ್ ಪೌಚ್"
+
+#. Operation name
+msgid "Front Washcare Label Ready"
+msgstr "ಫ್ರಂಟ್ ವಾಶ್ ಕೇರ್ ಲೇಬಲ್ ರೆಡಿ"
+
+#. Operation name
+msgid "Front Welt Attach L"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Front Welt Attach R"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Front Welt Down Closing L"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಡೌನ್ ಕ್ಲೋಸಿಂಗ್ L"
+
+#. Operation name
+msgid "Front Welt Down Closing R"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಡೌನ್ ಕ್ಲೋಸಿಂಗ್ R"
+
+#. Operation name
+msgid "Front Welt End Tucking L"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಎಂಡ್ ಟಕ್ಕಿಂಗ್ L"
+
+#. Operation name
+msgid "Front Welt End Tucking R"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಎಂಡ್ ಟಕ್ಕಿಂಗ್ R"
+
+#. Operation name
+msgid "Front Welt Iron"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಐರನ್"
+
+#. Operation name
+msgid "Front Welt Top Closing L"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಟಾಪ್ ಕ್ಲೋಸಿಂಗ್ L"
+
+#. Operation name
+msgid "Front Welt Top Closing R"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಟಾಪ್ ಕ್ಲೋಸಿಂಗ್ R"
+
+#. Operation name
+msgid "Front Welt Turning"
+msgstr "ಫ್ರಂಟ್ ವೆಲ್ಟ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Front Zip Attach"
+msgstr "ಫ್ರಂಟ್ ಜಿಪ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Hanger Loop Attach"
+msgstr "ಹ್ಯಾಂಗರ್ ಲೂಪ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Harmole Attach L"
+msgstr "ಹಾರ್ಮೋಲ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Harmole Iron"
+msgstr "ಹಾರ್ಮೋಲ್ ಐರನ್"
+
+#. Operation name
+msgid "Inseam Folder"
+msgstr "ಇನ್‌ಸೀಮ್ ಫೋಲ್ಡರ್"
+
+#. Operation name
+msgid "Inseam O/L"
+msgstr "ಇನ್‌ಸೀಮ್ O/L"
+
+#. Operation name
+msgid "Kaja Attach"
+msgstr "ಕಾಜಾ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Kaja Mark"
+msgstr "ಕಾಜಾ ಮಾರ್ಕ್"
+
+#. Operation name
+msgid "Kaja Patti Button Patti Katcha Cutting"
+msgstr "ಕಾಜಾ ಪಟ್ಟಿ ಬಟನ್ ಪಟ್ಟಿ ಕಚ್ಚಾ ಕಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Kansai"
+msgstr "ಕಾನ್ಸಾಯ್"
+
+#. Operation name
+msgid "Kansai End Tucking"
+msgstr "ಕಾನ್ಸಾಯ್ ಎಂಡ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Label Attach"
+msgstr "ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Label Cutting"
+msgstr "ಲೇಬಲ್ ಕಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Leather Patch Attach"
+msgstr "ಲೆದರ್ ಪ್ಯಾಚ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Left Print Dummy Stitch Side"
+msgstr "ಲೆಫ್ಟ್ ಪ್ರಿಂಟ್ ಡಮ್ಮಿ ಸ್ಟಿಚ್ ಸೈಡ್"
+
+#. Operation name
+msgid "Left Side Attach Lining"
+msgstr "ಲೆಫ್ಟ್ ಸೈಡ್ ಅಟ್ಯಾಚ್ ಲೈನಿಂಗ್"
+
+#. Operation name
+msgid "Left Side Attach Shell"
+msgstr "ಲೆಫ್ಟ್ ಸೈಡ್ ಅಟ್ಯಾಚ್ ಶೆಲ್"
+
+#. Operation name
+msgid "Left Side Attach Turning"
+msgstr "ಲೆಫ್ಟ್ ಸೈಡ್ ಅಟ್ಯಾಚ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Lining & Body Tucking"
+msgstr "ಲೈನಿಂಗ್ & ಬಾಡಿ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Lining Inside Kinnari"
+msgstr "ಲೈನಿಂಗ್ ಇನ್‌ಸೈಡ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Loop Attach"
+msgstr "ಲೂಪ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Loop Attach H Cutting"
+msgstr "ಲೂಪ್ ಅಟ್ಯಾಚ್ H ಕಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Loop Cut"
+msgstr "ಲೂಪ್ ಕಟ್"
+
+#. Operation name
+msgid "Loop Mark"
+msgstr "ಲೂಪ್ ಮಾರ್ಕ್"
+
+#. Operation name
+msgid "Loop Marking"
+msgstr "ಲೂಪ್ ಮಾರ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Loop Ready"
+msgstr "ಲೂಪ್ ರೆಡಿ"
+
+#. Operation name
+msgid "Main & Washcare Label"
+msgstr "ಮೇನ್ & ವಾಶ್ ಕೇರ್ ಲೇಬಲ್"
+
+#. Operation name
+msgid "Main Label Attach"
+msgstr "ಮೇನ್ ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Main Label Ready With Size Label"
+msgstr "ಮೇನ್ ಲೇಬಲ್ ರೆಡಿ ವಿತ್ ಸೈಜ್ ಲೇಬಲ್"
+
+#. Operation name
+msgid "Mobilan Tape Attach Mesh Lining L"
+msgstr "ಮೊಬಿಲಾನ್ ಟೇಪ್ ಅಟ್ಯಾಚ್ ಮೆಷ್ ಲೈನಿಂಗ್ L"
+
+#. Operation name
+msgid "Mobilan Tape Attach Mesh Lining R"
+msgstr "ಮೊಬಿಲಾನ್ ಟೇಪ್ ಅಟ್ಯಾಚ್ ಮೆಷ್ ಲೈನಿಂಗ್ R"
+
+#. Operation name
+msgid "Moon Patch Attach"
+msgstr "ಮೂನ್ ಪ್ಯಾಚ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Moon Patch Snatch"
+msgstr "ಮೂನ್ ಪ್ಯಾಚ್ ಸ್ನ್ಯಾಚ್"
+
+#. Operation name
+msgid "Neck Band Iron"
+msgstr "ನೆಕ್ ಬ್ಯಾಂಡ್ ಐರನ್"
+
+#. Operation name
+msgid "Peack Attach (L&R)"
+msgstr "ಪೀಕ್ ಅಟ್ಯಾಚ್ (L&R)"
+
+#. Operation name
+msgid "Pocket O/L End Tucking"
+msgstr "ಪಾಕೆಟ್ O/L ಎಂಡ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Pocket Tucking For Kansai"
+msgstr "ಪಾಕೆಟ್ ಟಕ್ಕಿಂಗ್ ಫಾರ್ ಕಾನ್ಸಾಯ್"
+
+#. Operation name
+msgid "Right Front Attach"
+msgstr "ರೈಟ್ ಫ್ರಂಟ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Right Side Attach Lining"
+msgstr "ರೈಟ್ ಸೈಡ್ ಅಟ್ಯಾಚ್ ಲೈನಿಂಗ್"
+
+#. Operation name
+msgid "Right Side Attach Shell"
+msgstr "ರೈಟ್ ಸೈಡ್ ಅಟ್ಯಾಚ್ ಶೆಲ್"
+
+#. Operation name
+msgid "Right Side Attach Turning"
+msgstr "ರೈಟ್ ಸೈಡ್ ಅಟ್ಯಾಚ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Shoulder Attach Lining"
+msgstr "ಶೋಲ್ಡರ್ ಅಟ್ಯಾಚ್ ಲೈನಿಂಗ್"
+
+#. Operation name
+msgid "Shoulder Attach Shell"
+msgstr "ಶೋಲ್ಡರ್ ಅಟ್ಯಾಚ್ ಶೆಲ್"
+
+#. Operation name
+msgid "Shoulder Kinnari"
+msgstr "ಶೋಲ್ಡರ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Shoulder O/L"
+msgstr "ಶೋಲ್ಡರ್ O/L"
+
+#. Operation name
+msgid "Side 5Th O/L L"
+msgstr "ಸೈಡ್ 5Th O/L L"
+
+#. Operation name
+msgid "Side 5Th O/L R"
+msgstr "ಸೈಡ್ 5Th O/L R"
+
+#. Operation name
+msgid "Side Attach L"
+msgstr "ಸೈಡ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Side Attach R"
+msgstr "ಸೈಡ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Side D/N L"
+msgstr "ಸೈಡ್ D/N L"
+
+#. Operation name
+msgid "Side D/N R"
+msgstr "ಸೈಡ್ D/N R"
+
+#. Operation name
+msgid "Side Kinnari L"
+msgstr "ಸೈಡ್ ಕಿನ್ನರಿ L"
+
+#. Operation name
+msgid "Side Kinnari R"
+msgstr "ಸೈಡ್ ಕಿನ್ನರಿ R"
+
+#. Operation name
+msgid "Side O/L & Inseam O/L Mesh Lining"
+msgstr "ಸೈಡ್ O/L & ಇನ್‌ಸೀಮ್ O/L ಮೆಷ್ ಲೈನಿಂಗ್"
+
+#. Operation name
+msgid "Side O/L 5Th L"
+msgstr "ಸೈಡ್ O/L 5Th L"
+
+#. Operation name
+msgid "Side O/L 5Th R"
+msgstr "ಸೈಡ್ O/L 5Th R"
+
+#. Operation name
+msgid "Side O/L L"
+msgstr "ಸೈಡ್ O/L L"
+
+#. Operation name
+msgid "Side O/L R"
+msgstr "ಸೈಡ್ O/L R"
+
+#. Operation name
+msgid "Side Overlock L"
+msgstr "ಸೈಡ್ ಓವರ್‌ಲಾಕ್ L"
+
+#. Operation name
+msgid "Side Overlock R"
+msgstr "ಸೈಡ್ ಓವರ್‌ಲಾಕ್ R"
+
+#. Operation name
+msgid "Side Pointed L"
+msgstr "ಸೈಡ್ ಪಾಯಿಂಟೆಡ್ L"
+
+#. Operation name
+msgid "Side Pointed R"
+msgstr "ಸೈಡ್ ಪಾಯಿಂಟೆಡ್ R"
+
+#. Operation name
+msgid "Side Up & Down Marking L"
+msgstr "ಸೈಡ್ ಅಪ್ & ಡೌನ್ ಮಾರ್ಕಿಂಗ್ L"
+
+#. Operation name
+msgid "Side Up & Down Marking R"
+msgstr "ಸೈಡ್ ಅಪ್ & ಡೌನ್ ಮಾರ್ಕಿಂಗ್ R"
+
+#. Operation name
+msgid "Sleeve 3 Th O/L L"
+msgstr "ಸ್ಲೀವ್ 3 Th O/L L"
+
+#. Operation name
+msgid "Sleeve 3 Th O/L R"
+msgstr "ಸ್ಲೀವ್ 3 Th O/L R"
+
+#. Operation name
+msgid "Sleeve Armhole Pointed L"
+msgstr "ಸ್ಲೀವ್ ಆರ್ಮ್‌ಹೋಲ್ ಪಾಯಿಂಟೆಡ್ L"
+
+#. Operation name
+msgid "Sleeve Armhole Pointed R"
+msgstr "ಸ್ಲೀವ್ ಆರ್ಮ್‌ಹೋಲ್ ಪಾಯಿಂಟೆಡ್ R"
+
+#. Operation name
+msgid "Sleeve Armhole Snatch"
+msgstr "ಸ್ಲೀವ್ ಆರ್ಮ್‌ಹೋಲ್ ಸ್ನ್ಯಾಚ್"
+
+#. Operation name
+msgid "Sleeve Attach L"
+msgstr "ಸ್ಲೀವ್ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Sleeve Attach R"
+msgstr "ಸ್ಲೀವ್ ಅಟ್ಯಾಚ್ R"
+
+#. Operation name
+msgid "Sleeve Flacket Pipeing Joint"
+msgstr "ಸ್ಲೀವ್ ಫ್ಲಾಕೆಟ್ ಪೈಪಿಂಗ್ ಜಾಯಿಂಟ್"
+
+#. Operation name
+msgid "Sleeve Flacket Tucking"
+msgstr "ಸ್ಲೀವ್ ಫ್ಲಾಕೆಟ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Sleeve Folder"
+msgstr "ಸ್ಲೀವ್ ಫೋಲ್ಡರ್"
+
+#. Operation name
+msgid "Sleeve Setting"
+msgstr "ಸ್ಲೀವ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Small Bow Center Tucking"
+msgstr "ಸ್ಮಾಲ್ ಬೋ ಸೆಂಟರ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Small Bow Left Tucking"
+msgstr "ಸ್ಮಾಲ್ ಬೋ ಲೆಫ್ಟ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Small Bow Right Tucking"
+msgstr "ಸ್ಮಾಲ್ ಬೋ ರೈಟ್ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Small Bow Turning"
+msgstr "ಸ್ಮಾಲ್ ಬೋ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "Tie Folder"
+msgstr "ಟೈ ಫೋಲ್ಡರ್"
+
+#. Operation name
+msgid "Tie Joint"
+msgstr "ಟೈ ಜಾಯಿಂಟ್"
+
+#. Operation name
+msgid "Tie Kinnari L"
+msgstr "ಟೈ ಕಿನ್ನರಿ L"
+
+#. Operation name
+msgid "Tie Kinnari R"
+msgstr "ಟೈ ಕಿನ್ನರಿ R"
+
+#. Operation name
+msgid "Total Garment Turning"
+msgstr "ಟೋಟಲ್ ಗಾರ್ಮೆಂಟ್ ಟರ್ನಿಂಗ್"
+
+#. Operation name
+msgid "W/B Setting"
+msgstr "W/B ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Attach"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Waist Band Cutting & Mark"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಕಟ್ಟಿಂಗ್ & ಮಾರ್ಕ್"
+
+#. Operation name
+msgid "Waist Band Down Folder (Fuseing)"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಡೌನ್ ಫೋಲ್ಡರ್ (ಫ್ಯೂಸಿಂಗ್)"
+
+#. Operation name
+msgid "Waist Band Down Folder Tucking For Fusing"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಡೌನ್ ಫೋಲ್ಡರ್ ಟಕ್ಕಿಂಗ್ ಫಾರ್ ಫ್ಯೂಸಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Down Kinnari"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಡೌನ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Waist Band Dummy Tucking"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಡಮ್ಮಿ ಟಕ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Elastic Joint"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಎಲಾಸ್ಟಿಕ್ ಜಾಯಿಂಟ್"
+
+#. Operation name
+msgid "Waist Band Elastic Tucking (4)"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಎಲಾಸ್ಟಿಕ್ ಟಕ್ಕಿಂಗ್ (4)"
+
+#. Operation name
+msgid "Waist Band End Closing L"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಎಂಡ್ ಕ್ಲೋಸಿಂಗ್ L"
+
+#. Operation name
+msgid "Waist Band End Closing R"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಎಂಡ್ ಕ್ಲೋಸಿಂಗ್ R"
+
+#. Operation name
+msgid "Waist Band Fit &Main Label Marking"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಫಿಟ್ &ಮೇನ್ ಲೇಬಲ್ ಮಾರ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Fit Label Attach"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಫಿಟ್ ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Waist Band Iron"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಐರನ್"
+
+#. Operation name
+msgid "Waist Band Joint"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಜಾಯಿಂಟ್"
+
+#. Operation name
+msgid "Waist Band Kansai"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಕಾನ್ಸಾಯ್"
+
+#. Operation name
+msgid "Waist Band Main Label Attach"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಮೇನ್ ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Waist Band Mesh Lining & Body O/L"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಮೆಷ್ ಲೈನಿಂಗ್ & ಬಾಡಿ O/L"
+
+#. Operation name
+msgid "Waist Band Mesh Lining Attach"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಮೆಷ್ ಲೈನಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Waist Band Mouth Cutting"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಮೌತ್ ಕಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Mouth Finishing Cutting"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಮೌತ್ ಫಿನಿಶಿಂಗ್ ಕಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Mouth Finishing L"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಮೌತ್ ಫಿನಿಶಿಂಗ್ L"
+
+#. Operation name
+msgid "Waist Band Mouth Finishing Marking"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಮೌತ್ ಫಿನಿಶಿಂಗ್ ಮಾರ್ಕಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Mouth Finishing R"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಮೌತ್ ಫಿನಿಶಿಂಗ್ R"
+
+#. Operation name
+msgid "Waist Band Piping Attach"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಪೈಪಿಂಗ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Waist Band Pocket Bag Tucking (2)"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಪಾಕೆಟ್ ಬ್ಯಾಗ್ ಟಕ್ಕಿಂಗ್ (2)"
+
+#. Operation name
+msgid "Waist Band Ready Stitch"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ರೆಡಿ ಸ್ಟಿಚ್"
+
+#. Operation name
+msgid "Waist Band Reinforcement Attach"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ರೀಇನ್‌ಫೋರ್ಸ್‌ಮೆಂಟ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Waist Band Size Setting"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಸೈಜ್ ಸೆಟ್ಟಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Top Folder (Fuseing)"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಟಾಪ್ ಫೋಲ್ಡರ್ (ಫ್ಯೂಸಿಂಗ್)"
+
+#. Operation name
+msgid "Waist Band Top Folder Tucking For Fusing"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಟಾಪ್ ಫೋಲ್ಡರ್ ಟಕ್ಕಿಂಗ್ ಫಾರ್ ಫ್ಯೂಸಿಂಗ್"
+
+#. Operation name
+msgid "Waist Band Top Kinnari"
+msgstr "ವೇಸ್ಟ್ ಬ್ಯಾಂಡ್ ಟಾಪ್ ಕಿನ್ನರಿ"
+
+#. Operation name
+msgid "Wash Care Label Attach With Pouch"
+msgstr "ವಾಶ್ ಕೇರ್ ಲೇಬಲ್ ಅಟ್ಯಾಚ್ ವಿತ್ ಪೌಚ್"
+
+#. Operation name
+msgid "Washcare Label Attach"
+msgstr "ವಾಶ್ ಕೇರ್ ಲೇಬಲ್ ಅಟ್ಯಾಚ್"
+
+#. Operation name
+msgid "Welcrow Attach L"
+msgstr "ವೆಲ್ಕ್ರೋ ಅಟ್ಯಾಚ್ L"
+
+#. Operation name
+msgid "Welcrow Attach R"
+msgstr "ವೆಲ್ಕ್ರೋ ಅಟ್ಯಾಚ್ R"

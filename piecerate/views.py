@@ -1,12 +1,14 @@
 import base64
 import calendar
 import hashlib
+import functools
 import io
 from datetime import date as date_cls
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 import qrcode
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
@@ -14,6 +16,9 @@ from django.db.models import Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import translation
+from django.utils.formats import date_format
+from django.utils.translation import gettext as _
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from attendance.models import Employee, SpecialDay
@@ -931,10 +936,10 @@ def _style_start(style):
 
 def _day_label(d, today):
     if d == today:
-        return "today"
+        return _("today")
     if d == today - timedelta(days=1):
-        return "yesterday"
-    return d.strftime("%d %b")
+        return _("yesterday")
+    return date_format(d, "d M")
 
 
 def _group_ops_by_section(ops):
@@ -977,6 +982,40 @@ def operator_icon_view(request, token, size):
     return response
 
 
+OPERATOR_LANG_COOKIE = "op_lang"
+
+
+def _op_display_name(rc_op):
+    """The operation's name in the active language, looked up in the
+    locale catalog (locale/<lang>/LC_MESSAGES/django.po) with the
+    English name as the msgid — so a name with no entry there just
+    shows in English."""
+    return _(rc_op.name)
+
+
+def operator_language(view):
+    """Runs the operator entry page in the operator's chosen language
+    (?lang= to switch, remembered in a cookie so the phone keeps it) —
+    activated here instead of via LocaleMiddleware so no other page in
+    the app is affected. Wraps the POST too, since the flash messages
+    are translated at the moment they're created."""
+    @functools.wraps(view)
+    def wrapper(request, *args, **kwargs):
+        supported = dict(settings.LANGUAGES)
+        requested = request.GET.get("lang")
+        lang = requested if requested in supported else request.COOKIES.get(OPERATOR_LANG_COOKIE, "en")
+        if lang not in supported:
+            lang = "en"
+        request.operator_lang = lang
+        with translation.override(lang):
+            response = view(request, *args, **kwargs)
+        if requested in supported:
+            response.set_cookie(OPERATOR_LANG_COOKIE, lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        return response
+    return wrapper
+
+
+@operator_language
 def operator_entry_view(request, token):
     """The mobile self-entry page — no login, the token in the URL IS
     the identity, so a phone with this link bookmarked stays linked to
@@ -1012,15 +1051,15 @@ def operator_entry_view(request, token):
         try:
             entry_date = date_cls.fromisoformat(request.POST.get("date", ""))
         except ValueError:
-            messages.error(request, "Pick a date in the calendar first.")
+            messages.error(request, _("Pick a date in the calendar first."))
             return redirect(own_url())
         day_label = _day_label(entry_date, today)
 
         if entry_date > today or entry_date < _style_start(rc_op.style):
-            messages.error(request, f"{rc_op.style.name} wasn't running yet on {day_label}.")
+            messages.error(request, _("%(style)s wasn't running yet on %(day)s.") % {"style": rc_op.style.name, "day": day_label})
             return redirect(own_url())
         if not quantity:
-            messages.error(request, "Enter how many pieces you made.")
+            messages.error(request, _("Enter how many pieces you made."))
             return redirect(own_url())
 
         # Add-only past this point — except for a row an operator
@@ -1033,7 +1072,7 @@ def operator_entry_view(request, token):
             rate_card_operation=rc_op, employee=employee, date=entry_date,
         ).first()
         if existing and existing.created_at.date() != today:
-            messages.error(request, f"You already logged this for {day_label} — ask your supervisor if it needs to change.")
+            messages.error(request, _("You already logged this for %(day)s — ask your supervisor if it needs to change.") % {"day": day_label})
             return redirect(own_url())
 
         if rc_op.order_quantity:
@@ -1043,8 +1082,8 @@ def operator_entry_view(request, token):
             if other_total + quantity > rc_op.order_quantity:
                 messages.error(
                     request,
-                    f"That would bring the total to {other_total + quantity}, more than the "
-                    f"{rc_op.order_quantity} planned for this. Check with your supervisor.",
+                    _("That would bring the total to %(total)s, more than the %(planned)s planned for this. Check with your supervisor.")
+                    % {"total": other_total + quantity, "planned": rc_op.order_quantity},
                 )
                 return redirect(own_url())
 
@@ -1054,7 +1093,7 @@ def operator_entry_view(request, token):
             existing.was_operator_entered = True
             existing.operator_quantity = quantity
             existing.save(update_fields=["quantity", "entered_by", "was_operator_entered", "operator_quantity"])
-            messages.success(request, f"Updated {rc_op.name} for {day_label} to {quantity}.")
+            messages.success(request, _("Updated %(op)s for %(day)s to %(qty)s.") % {"op": _op_display_name(rc_op), "day": day_label, "qty": quantity})
             return redirect(own_url())
 
         try:
@@ -1064,16 +1103,18 @@ def operator_entry_view(request, token):
                 operator_quantity=quantity,
             )
         except IntegrityError:
-            messages.error(request, f"You already logged this for {day_label}.")
+            messages.error(request, _("You already logged this for %(day)s.") % {"day": day_label})
             return redirect(own_url())
 
-        messages.success(request, f"Logged {quantity} for {rc_op.name}.")
+        messages.success(request, _("Logged %(qty)s for %(op)s.") % {"qty": quantity, "op": _op_display_name(rc_op)})
         return redirect(own_url())
 
     started_styles = [s for s in style_list if today >= _style_start(s)]
     style_rows = [{"style": style, "ops": list(style.operations.all())} for style in started_styles]
     style_rows = [row for row in style_rows if row["ops"]]
     for row in style_rows:
+        for op in row["ops"]:
+            op.display_name = _op_display_name(op)
         row["sections"] = _group_ops_by_section(row["ops"])
 
     # One query for every op that needs a calendar, instead of one
@@ -1160,9 +1201,9 @@ def operator_entry_view(request, token):
             for day in week:
                 day["is_selected"] = day["date"] == default_date
         if range_start.month == style.month:
-            month_label = f"{calendar.month_name[style.month]} {style.year}"
+            month_label = f"{date_format(range_start, 'F')} {style.year}"
         else:
-            month_label = f"{calendar.month_abbr[range_start.month]}–{calendar.month_abbr[style.month]} {style.year}"
+            month_label = f"{date_format(range_start, 'M')}–{date_format(date_cls(style.year, style.month, 1), 'M')} {style.year}"
         return {
             "op_id": op.id, "weeks": weeks, "total": sum(qty_map.values()), "month_label": month_label,
             "order_quantity": op.order_quantity,
@@ -1185,6 +1226,8 @@ def operator_entry_view(request, token):
         "no_styles_this_month": not style_list,
         "not_started_yet": bool(style_list) and not started_styles,
         "token": token,
+        "languages": settings.LANGUAGES,
+        "current_lang": request.operator_lang,
     })
 
 

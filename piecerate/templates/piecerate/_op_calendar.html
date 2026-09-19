@@ -1,7 +1,7 @@
-<div class="op-calendar" data-op-calendar="{{ cal.op_id }}" {% if selectable %}data-default-date="{{ cal.default_date }}" data-default-qty="{{ cal.default_qty }}" data-order-qty="{{ cal.order_quantity }}"{% endif %} hidden>
+{% load i18n %}<div class="op-calendar" data-op-calendar="{{ cal.op_id }}" {% if selectable %}data-default-date="{{ cal.default_date }}" data-default-qty="{{ cal.default_qty }}" data-order-qty="{{ cal.order_quantity }}"{% endif %} hidden>
     <div class="op-cal-header">
         <span>{{ cal.month_label }}</span>
-        <span class="op-cal-total">Logged so far: <strong>{{ cal.total }}</strong></span>
+        <span class="op-cal-total">{% trans "Logged so far:" %} <strong>{{ cal.total }}</strong></span>
     </div>
     <table class="mini-cal">
         <thead>
