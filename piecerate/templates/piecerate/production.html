@@ -131,6 +131,14 @@
 
     .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
 
+    .filter-bar { display: flex; gap: 1.1rem; align-items: center; margin: 0.9rem 0 1rem; flex-wrap: wrap; }
+    .filter-bar label { font-size: 0.78rem; font-weight: 600; color: #444; }
+    .filter-bar input[type=text] {
+        border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.6rem;
+        font-size: 0.8rem; font-family: inherit; width: 200px; box-sizing: border-box;
+    }
+    .filter-bar input[type=text]:focus { outline: none; border-color: var(--navy); }
+
     #styleSwitcher {
         font-size: inherit; font-weight: inherit; font-family: inherit; color: var(--navy);
         border: 1px solid var(--border); border-radius: 8px; padding: 0.15rem 0.5rem; background: var(--surface);
@@ -174,6 +182,8 @@
                     {{ style.name }}
                     {% endif %}
                 </h1>
+                <a href="{% url 'piece_rate_rate_card' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Rate Card</a>
+                <a href="{% url 'piece_rate_production_mobile' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Mobile view</a>
                 <div class="legend">
                     <span><span class="swatch" style="background:#ececec"></span>Holiday</span>
                     <span><span class="swatch" style="background:#d3ece9"></span>Paid Holiday</span>
@@ -185,7 +195,6 @@
                     <span><span class="swatch-dot" style="background:#2563eb"></span>Corrected here (was the operator's)</span>
                 </div>
             </div>
-            <a href="{% url 'piece_rate_rate_card' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Rate Card</a>
         </div>
 
         {% for message in messages %}
@@ -193,6 +202,12 @@
         {% endfor %}
 
         {% if op_rows %}
+        <div class="filter-bar">
+            <label for="operationSearch">Operation</label>
+            <input type="text" id="operationSearch" placeholder="Search operation…" autocomplete="off">
+            <label for="operatorSearch">Operator</label>
+            <input type="text" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
+        </div>
         <div class="table-wrap fit-content">
             <table class="simple">
                 <thead>
@@ -251,6 +266,9 @@
                     </tr>
                     {% endfor %}
                     {% endfor %}
+                    <tr id="noResultsRow" style="display:none;">
+                        <td colspan="{{ days|length|add:4 }}" class="empty-state">No operations match your search.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -297,6 +315,52 @@
 
         var csrfToken = document.cookie.split('; ').find(function (row) { return row.startsWith('csrftoken='); });
         csrfToken = csrfToken ? csrfToken.split('=')[1] : '';
+
+        // Operation search matches an operation's own code/section/name;
+        // operator search matches any operator logged against it. A search
+        // never hides individual operator rows within a matching operation
+        // — filtering by operator shows every OTHER operator on the same
+        // operation too, since the point is "what is this operation doing"
+        // once you've found it through one person's name.
+        var operationSearchInput = document.getElementById('operationSearch');
+        var operatorSearchInput = document.getElementById('operatorSearch');
+        var noResultsRow = document.getElementById('noResultsRow');
+
+        function opSearchText(opRow) {
+            var opcode = opRow.querySelector('.col-opcode');
+            var section = opRow.querySelector('.col-section');
+            var name = opRow.querySelector('.op-name-text');
+            return [
+                opcode ? opcode.textContent : '',
+                section ? section.textContent : '',
+                name ? name.textContent : '',
+            ].join(' ').toLowerCase();
+        }
+
+        function applyFilters() {
+            var opQuery = operationSearchInput.value.trim().toLowerCase();
+            var operatorQuery = operatorSearchInput.value.trim().toLowerCase();
+            var anyVisible = false;
+            document.querySelectorAll('tr.op-row').forEach(function (opRow) {
+                var opId = opRow.dataset.opId;
+                var operatorRows = document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"]');
+                var opMatches = !opQuery || opSearchText(opRow).indexOf(opQuery) !== -1;
+                var operatorMatches = !operatorQuery || Array.prototype.some.call(operatorRows, function (tr) {
+                    var nameSpan = tr.querySelector('.operator-name-row span');
+                    return nameSpan && nameSpan.textContent.toLowerCase().indexOf(operatorQuery) !== -1;
+                });
+                var visible = opMatches && operatorMatches;
+                if (visible) anyVisible = true;
+                opRow.style.display = visible ? '' : 'none';
+                operatorRows.forEach(function (tr) { tr.style.display = visible ? '' : 'none'; });
+            });
+            if (noResultsRow) noResultsRow.style.display = anyVisible ? 'none' : '';
+        }
+
+        if (operationSearchInput && operatorSearchInput) {
+            operationSearchInput.addEventListener('input', applyFilters);
+            operatorSearchInput.addEventListener('input', applyFilters);
+        }
 
         function rowTotal(tr) {
             var sum = 0;
@@ -539,6 +603,7 @@
             });
 
             afterRow.parentNode.insertBefore(newRow, afterRow.nextSibling);
+            if (operationSearchInput) applyFilters();
         }
 
         // Removing an operator deletes every entry they have on this
@@ -580,6 +645,7 @@
                         datalist.appendChild(opt);
                         var addBtn = document.querySelector('.add-operator-btn[data-op-id="' + opId + '"]');
                         if (addBtn) addBtn.style.display = '';
+                        if (operationSearchInput) applyFilters();
                     })
                     .catch(function () {
                         alert('Could not remove — please try again.');

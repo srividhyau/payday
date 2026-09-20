@@ -100,4 +100,17 @@
             if (!details.contains(e.target)) details.open = false;
         });
     });
+
+    // Up/Down arrow keys normally step a number input's value up/down —
+    // easy to trigger by accident (e.g. tabbing/arrowing between cells in
+    // a grid) and silently change a saved figure. Delegated here since
+    // this partial is on every page, so it covers every number input
+    // app-wide, including ones added to the DOM later; typing digits is
+    // unaffected.
+    document.addEventListener('keydown', function (e) {
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+            e.target.tagName === 'INPUT' && e.target.type === 'number') {
+            e.preventDefault();
+        }
+    });
 </script>

@@ -12,6 +12,7 @@ urlpatterns = [
     path("production/", views.production_shortcut_view, name="piece_rate_production_shortcut"),
     path("styles/<int:style_id>/", views.rate_card_view, name="piece_rate_rate_card"),
     path("styles/<int:style_id>/production/", views.production_view, name="piece_rate_production"),
+    path("styles/<int:style_id>/production/mobile/", views.production_mobile_view, name="piece_rate_production_mobile"),
     path("operator-links/", views.operator_links_view, name="piece_rate_operator_links"),
     path("entry/<str:token>/", views.operator_entry_view, name="piece_rate_operator_entry"),
     path("entry/<str:token>/icon-<int:size>.png", views.operator_icon_view, name="piece_rate_operator_icon"),

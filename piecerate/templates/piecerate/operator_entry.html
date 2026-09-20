@@ -331,6 +331,11 @@
                     }, 300);
                 }
             });
+            // Up/Down arrow keys normally step the value up/down — easy
+            // to trigger by accident; typing digits still works.
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+            });
         });
 
         // Pre-fills the quantity field from an existing entry (editing

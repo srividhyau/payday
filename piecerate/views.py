@@ -434,59 +434,54 @@ def master_operations_view(request):
 
 
 @login_required
-def production_view(request, style_id):
-    """Per-style daily production entry. One grid, scoped to the style's
-    own month: every operator who has logged against an operation gets a
-    row, one column per day of that month. An operation's order_quantity
-    (set on the Rate Card page) is the total every operator's entries for
-    it should sum to across the month — op_total vs order_quantity is
-    what drives the match/mismatch coloring client-side expects.
+def _save_production_cell(request, style):
+    """One day's (operation, operator) quantity, from either Production
+    template's AJAX cell-save call — same endpoint, same rules,
+    regardless of which UI is driving it."""
+    rc_op = get_object_or_404(RateCardOperation, id=request.POST.get("rate_card_operation_id"), style=style)
+    employee = get_object_or_404(Employee, id=request.POST.get("employee_id"))
 
-    A cell save is a single day's (operation, operator) quantity — POST
-    here is AJAX-only (see the fetch call in production.html), not a
-    full-page form submit, since the grid can have far too many cells
-    for one big multi-row submit to be practical."""
-    style = get_object_or_404(Style, id=style_id, is_template=False)
+    if request.POST.get("action") == "remove_operator":
+        PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee).delete()
+        return JsonResponse({"ok": True})
 
-    if request.method == "POST":
-        rc_op = get_object_or_404(RateCardOperation, id=request.POST.get("rate_card_operation_id"), style=style)
-        employee = get_object_or_404(Employee, id=request.POST.get("employee_id"))
+    try:
+        entry_date = date_cls.fromisoformat(request.POST.get("date", ""))
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "Invalid date."}, status=400)
+    quantity = _parse_int(request.POST.get("quantity"))
 
-        if request.POST.get("action") == "remove_operator":
-            PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee).delete()
-            return JsonResponse({"ok": True})
+    if rc_op.order_quantity:
+        other_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).exclude(
+            employee=employee, date=entry_date
+        ).aggregate(total=Sum("quantity"))["total"] or 0
+        hypothetical = other_total + quantity
+        if hypothetical > rc_op.order_quantity:
+            return JsonResponse({
+                "ok": False,
+                "error": (
+                    f"This would bring the total to {hypothetical}, which exceeds "
+                    f"the Order Qty of {rc_op.order_quantity}. Reduce the quantity."
+                ),
+            }, status=400)
 
-        try:
-            entry_date = date_cls.fromisoformat(request.POST.get("date", ""))
-        except ValueError:
-            return JsonResponse({"ok": False, "error": "Invalid date."}, status=400)
-        quantity = _parse_int(request.POST.get("quantity"))
+    if quantity > 0:
+        PieceRateEntry.objects.update_or_create(
+            rate_card_operation=rc_op, employee=employee, date=entry_date,
+            defaults={"quantity": quantity, "entered_by": PieceRateEntry.ENTERED_BY_SUPERVISOR},
+        )
+    else:
+        PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee, date=entry_date).delete()
 
-        if rc_op.order_quantity:
-            other_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).exclude(
-                employee=employee, date=entry_date
-            ).aggregate(total=Sum("quantity"))["total"] or 0
-            hypothetical = other_total + quantity
-            if hypothetical > rc_op.order_quantity:
-                return JsonResponse({
-                    "ok": False,
-                    "error": (
-                        f"This would bring the total to {hypothetical}, which exceeds "
-                        f"the Order Qty of {rc_op.order_quantity}. Reduce the quantity."
-                    ),
-                }, status=400)
+    op_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).aggregate(total=Sum("quantity"))["total"] or 0
+    return JsonResponse({"ok": True, "op_total": op_total})
 
-        if quantity > 0:
-            PieceRateEntry.objects.update_or_create(
-                rate_card_operation=rc_op, employee=employee, date=entry_date,
-                defaults={"quantity": quantity, "entered_by": PieceRateEntry.ENTERED_BY_SUPERVISOR},
-            )
-        else:
-            PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee, date=entry_date).delete()
 
-        op_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).aggregate(total=Sum("quantity"))["total"] or 0
-        return JsonResponse({"ok": True, "op_total": op_total})
-
+def _build_production_context(style):
+    """Everything both Production templates (desktop grid, mobile
+    cards) need to render the same style — one place computing it so
+    the two UIs can never quietly drift apart on what a cell's color,
+    total, or availability actually means."""
     num_days_in_month = calendar.monthrange(style.year, style.month)[1]
     month_start = date_cls(style.year, style.month, 1)
     month_end = date_cls(style.year, style.month, num_days_in_month)
@@ -598,7 +593,7 @@ def production_view(request, style_id):
 
     sibling_styles = Style.objects.filter(year=style.year, month=style.month, is_template=False).order_by("name")
 
-    return render(request, "piecerate/production.html", {
+    return {
         "style": style,
         "days": days,
         "op_rows": op_rows,
@@ -606,7 +601,36 @@ def production_view(request, style_id):
         "day_headers": day_headers,
         "carried_over_dates": sorted(carried_over_dates),
         "sibling_styles": sibling_styles,
-    })
+        "today": date_cls.today(),
+    }
+
+
+def production_view(request, style_id):
+    """Per-style daily production entry — the desktop grid, one column
+    per day of the style's own month, every operator who has logged
+    against an operation getting a row. An operation's order_quantity
+    (set on the Rate Card page) is the total every operator's entries
+    for it should sum to across the month — op_total vs order_quantity
+    is what drives the match/mismatch coloring client-side expects.
+    See production_mobile_view for the phone-friendly alternative,
+    sharing this same data and the same cell-save endpoint."""
+    style = get_object_or_404(Style, id=style_id, is_template=False)
+    if request.method == "POST":
+        return _save_production_cell(request, style)
+    return render(request, "piecerate/production.html", _build_production_context(style))
+
+
+def production_mobile_view(request, style_id):
+    """Same style, same data, same cell-save endpoint as production_view
+    — just a compact, one-operator-row-at-a-time layout instead of the
+    full day x operator grid, since that grid doesn't fit comfortably
+    on a phone screen. An experimental parallel UI for now rather than
+    a replacement, reachable via the "Mobile view" link on the desktop
+    page (and back again via "Desktop view" here)."""
+    style = get_object_or_404(Style, id=style_id, is_template=False)
+    if request.method == "POST":
+        return _save_production_cell(request, style)
+    return render(request, "piecerate/production_mobile.html", _build_production_context(style))
 
 
 def _qty_diff_class(quantity, order_quantity):

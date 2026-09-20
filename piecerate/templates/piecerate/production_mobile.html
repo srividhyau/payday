@@ -1,0 +1,560 @@
+{% load static piecerate_extras %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payday — {{ style.name }} Production</title>
+    <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+<style>
+    .page { padding: 1rem 1rem 3rem; max-width: 640px; margin: 0 auto; }
+    .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+    .header-row h1 { font-size: 1.05rem; margin: 0; color: var(--navy); }
+    .top-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .top-links a {
+        font-size: 0.75rem; border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.6rem;
+        color: var(--navy); text-decoration: none; white-space: nowrap;
+    }
+    #styleSwitcher { font-size: 0.95rem; font-weight: 700; border: 1px solid var(--border); border-radius: 6px; padding: 0.15rem 0.4rem; color: var(--navy); font-family: inherit; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 0.4rem 0.7rem; font-size: 0.68rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .legend .swatch { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 3px; margin-right: 0.25rem; vertical-align: middle; border: 1px solid rgba(0,0,0,0.1); }
+    .legend .swatch-dot { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%; margin-right: 0.3rem; vertical-align: middle; }
+
+    .op-card { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.7rem; overflow: hidden; background: #fff; }
+    .op-card-header {
+        display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+        padding: 0.7rem 0.9rem; background: #eef2f7; cursor: pointer;
+    }
+    .op-card-heading { min-width: 0; }
+    .toggle-arrow { display: inline-block; transition: transform 0.15s ease; margin-right: 0.25rem; flex-shrink: 0; }
+    .op-card.expanded .toggle-arrow { transform: rotate(90deg); }
+    .op-card-title { font-weight: 700; color: var(--navy); font-size: 0.85rem; }
+    .op-card-meta { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem; }
+    .op-card-total { font-weight: 700; font-size: 0.95rem; flex-shrink: 0; white-space: nowrap; }
+    .diff-more { color: #a400a4; } .diff-less { color: #b3261e; } .diff-balanced { color: #1e7e34; }
+
+    .op-card-body { padding: 0.7rem 0.9rem; display: none; }
+    .op-card.expanded .op-card-body { display: block; }
+
+    .add-operator-btn {
+        border: 1px solid var(--navy); color: var(--navy); background: #fff; border-radius: 6px;
+        padding: 0.35rem 0.7rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit;
+        margin-bottom: 0.6rem;
+    }
+    .add-operator-btn:hover { background: var(--navy); color: #fff; }
+
+    .operator-block { border-top: 1px solid var(--border); padding: 0.6rem 0; }
+    .operator-block:first-of-type { border-top: none; padding-top: 0; }
+    .operator-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; gap: 0.5rem; }
+    .operator-block-name { font-weight: 600; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
+    .operator-block-total { font-weight: 700; color: var(--navy); font-size: 0.85rem; }
+    .remove-operator-btn {
+        flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #b3261e;
+        background: #fff; color: #b3261e; font-weight: 700; font-size: 0.72rem; line-height: 1;
+        cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .remove-operator-btn:hover { background: #b3261e; color: #fff; }
+
+    .day-strip { display: flex; gap: 0.35rem; overflow-x: auto; padding-bottom: 0.3rem; -webkit-overflow-scrolling: touch; }
+    .day-chip {
+        flex: 0 0 auto; width: 42px; height: 48px; border-radius: 8px; border: 1px solid var(--border);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-size: 0.65rem; color: #000; cursor: pointer; position: relative; background: #fff;
+    }
+    .day-chip .dow { font-size: 0.55rem; color: #000; }
+    .day-chip .qty { font-weight: 700; font-size: 0.82rem; color: #000; margin-top: 0.1rem; }
+    .day-chip.special-H { background: #ececec; }
+    .day-chip.special-PH { background: #d3ece9; }
+    .day-chip.special-CO { background: #fce3c9; }
+    .day-chip.carried-over { background: #fef3c7; box-shadow: inset 0 0 0 1.5px #f59e0b; }
+    .day-chip.has-qty { background: #e6f4ea; }
+    .day-chip.today { box-shadow: inset 0 0 0 1.5px #0f1b2d; }
+    .day-chip.entered-operator { background: #dbeafe; }
+    .corrected-dot {
+        position: absolute; top: 2px; right: 2px; width: 7px; height: 7px;
+        border-radius: 50%; background: #2563eb;
+    }
+
+    .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+
+    .filter-bar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.9rem; }
+    .filter-bar input[type=text] {
+        border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem;
+        font-size: 0.85rem; font-family: inherit; box-sizing: border-box; width: 100%;
+    }
+    .filter-bar input[type=text]:focus { outline: none; border-color: var(--navy); }
+
+    .edit-modal { background: #fff; border-radius: 14px; padding: 1.3rem 1.4rem; width: 100%; max-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+    .edit-modal h3 { margin: 0 0 0.9rem; font-size: 1rem; color: var(--navy); }
+    .edit-modal label { display: block; font-size: 0.8rem; font-weight: 600; color: #444; margin-bottom: 0.3rem; }
+    .edit-modal input[type=number], .edit-modal input[type=text] {
+        width: 100%; padding: 0.6rem 0.7rem; border: 1px solid var(--border); border-radius: 8px;
+        font-size: 1rem; font-family: inherit; box-sizing: border-box;
+    }
+    .edit-modal input:focus { outline: none; border-color: var(--navy); }
+    .correction-note { font-size: 0.8rem; color: #4a5468; background: #f8fafc; border-radius: 8px; padding: 0.5rem 0.7rem; margin-bottom: 0.9rem; }
+    .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.1rem; }
+    .edit-actions button { padding: 0.5rem 1.1rem; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 0.85rem; font-family: inherit; }
+    .edit-actions button:hover { background: var(--bg); }
+    .edit-actions button.primary { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 700; }
+    .edit-actions button.primary:hover { background: var(--navy-deep); }
+    .edit-actions button.danger { color: #b3261e; border-color: #b3261e; }
+    .edit-actions button.danger:hover { background: #fdecea; }
+</style>
+</head>
+<body>
+    {% include "attendance/_topbar.html" with current="piece_rate_production" %}
+
+    <div class="page">
+        <div class="header-row">
+            <h1>
+                {% if sibling_styles|length > 1 %}
+                <select id="styleSwitcher" data-base="{% url 'piece_rate_production_mobile' 0 %}">
+                    {% for s in sibling_styles %}
+                    <option value="{{ s.id }}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                {{ style.name }}
+                {% endif %}
+            </h1>
+            <div class="top-links">
+                <a href="{% url 'piece_rate_rate_card' style.id %}">Rate Card</a>
+                <a href="{% url 'piece_rate_production' style.id %}">Desktop view</a>
+            </div>
+        </div>
+
+        <div class="legend">
+            <span><span class="swatch" style="background:#ececec"></span>Holiday</span>
+            <span><span class="swatch" style="background:#d3ece9"></span>Paid Holiday</span>
+            <span><span class="swatch" style="background:#fce3c9"></span>Comp Off</span>
+            <span><span class="swatch" style="background:#dbeafe"></span>Operator</span>
+            <span><span class="swatch-dot" style="background:#2563eb"></span>Corrected</span>
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        {% if op_rows %}
+        <div class="filter-bar">
+            <input type="text" id="operationSearch" placeholder="Search operation…" autocomplete="off">
+            <input type="text" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
+        </div>
+        <p class="empty-state" id="noResultsState" hidden>No operations match your search.</p>
+        {% for row in op_rows %}
+        <div class="op-card" id="opCard{{ row.op.id }}" data-op-id="{{ row.op.id }}" data-order-qty="{{ row.op.order_quantity }}">
+            <div class="op-card-header" data-toggle>
+                <div class="op-card-heading">
+                    <span class="op-card-title"><span class="toggle-arrow">▸</span>{{ row.op.op_code }} — {{ row.op.name }}</span>
+                    <div class="op-card-meta">
+                        {{ row.op.section|default:"—" }}
+                        {% if row.op.order_quantity %} · Order Qty {{ row.op.order_quantity }}{% endif %}
+                    </div>
+                </div>
+                <div class="op-card-total {{ row.diff_class }}" id="opTotal{{ row.op.id }}">
+                    {{ row.op_total }}{% if row.diff_display %} <span class="diff-value">({{ row.diff_display }})</span>{% endif %}
+                </div>
+            </div>
+            <div class="op-card-body">
+                <button type="button" class="add-operator-btn" data-op-id="{{ row.op.id }}" data-op-name="{{ row.op.name|escapejs }}"
+                    {% if not row.available_employees %}style="display:none;"{% endif %}>+ Add operator</button>
+                <datalist id="opEmpList{{ row.op.id }}">
+                    {% for e in row.available_employees %}
+                    <option data-id="{{ e.id }}" value="{{ e.name }}"></option>
+                    {% endfor %}
+                </datalist>
+
+                <div class="operator-list">
+                    {% for r in row.rows %}
+                    <div class="operator-block" data-employee-id="{{ r.employee.id }}">
+                        <div class="operator-block-header">
+                            <span class="operator-block-name">
+                                {{ r.employee.name }}
+                                <button type="button" class="remove-operator-btn" data-op-id="{{ row.op.id }}"
+                                    data-employee-id="{{ r.employee.id }}" data-employee-name="{{ r.employee.name|escapejs }}">×</button>
+                            </span>
+                            <span class="operator-block-total" data-row-total>{{ r.total }}</span>
+                        </div>
+                        <div class="day-strip">
+                            {% for dh in day_headers %}
+                            {% with source=r.source_class|dict_get:dh.date.isoformat qty=r.days|dict_get:dh.date.isoformat %}
+                            <div class="day-chip{% if qty %} has-qty{% endif %}{% if dh.date == today %} today{% endif %}{% if dh.is_carried_over %} carried-over{% endif %}{% if special_days|dict_get:dh.date.isoformat %} special-{{ special_days|dict_get:dh.date.isoformat }}{% endif %}{% if source == 'entered-operator' %} entered-operator{% endif %}"
+                                data-date="{{ dh.date.isoformat }}" data-qty="{{ qty|default:'' }}"
+                                data-op-id="{{ row.op.id }}" data-employee-id="{{ r.employee.id }}"
+                                data-employee-name="{{ r.employee.name|escapejs }}" data-op-name="{{ row.op.name|escapejs }}"
+                                {% if source == 'corrected' %}data-operator-qty="{{ r.operator_qty|dict_get:dh.date.isoformat }}"{% endif %}>
+                                <span class="dow">{{ dh.dow }} {{ dh.day }}</span>
+                                {% if qty %}<span class="qty">{{ qty }}</span>{% endif %}
+                                {% if source == 'corrected' %}<span class="corrected-dot"></span>{% endif %}
+                            </div>
+                            {% endwith %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-state">This style has no rate card operations yet — add some on the Rate Card page first.</p>
+        {% endif %}
+    </div>
+
+    <div class="edit-overlay" id="dayEditOverlay">
+        <div class="edit-modal">
+            <h3 id="dayEditTitle"></h3>
+            <p class="correction-note" id="dayEditCorrectionNote" hidden></p>
+            <label for="dayEditInput">Quantity</label>
+            <input type="number" id="dayEditInput" min="0" step="1" inputmode="numeric">
+            <div class="edit-actions">
+                <button type="button" id="dayEditCancel">Cancel</button>
+                <button type="button" id="dayEditSave" class="primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="edit-overlay" id="addOperatorOverlay">
+        <div class="edit-modal">
+            <h3 id="addOperatorTitle">Add operator</h3>
+            <input type="text" id="addOperatorInput" placeholder="Search operator…" autocomplete="off">
+            <div class="edit-actions">
+                <button type="button" id="addOperatorCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    {{ special_days|json_script:"specialDays" }}
+    {{ day_headers|json_script:"dayHeadersData" }}
+    <script>
+        var styleSwitcher = document.getElementById('styleSwitcher');
+        if (styleSwitcher) {
+            styleSwitcher.addEventListener('change', function () {
+                window.location.href = styleSwitcher.dataset.base.replace('/0/', '/' + styleSwitcher.value + '/');
+            });
+        }
+
+        var csrfToken = document.cookie.split('; ').find(function (row) { return row.startsWith('csrftoken='); });
+        csrfToken = csrfToken ? csrfToken.split('=')[1] : '';
+
+        function getCookie() { return csrfToken; }
+
+        var specialDays = JSON.parse(document.getElementById('specialDays').textContent);
+        var todayIso = "{{ today.isoformat }}";
+
+        // Operation search matches an op-card's own title/meta; operator
+        // search matches any operator inside it. Neither ever hides an
+        // individual operator-block within a card that's shown — filtering
+        // by operator surfaces every operation they touch, with every
+        // OTHER operator on that operation still visible once expanded.
+        var operationSearchInput = document.getElementById('operationSearch');
+        var operatorSearchInput = document.getElementById('operatorSearch');
+        var noResultsState = document.getElementById('noResultsState');
+
+        function operatorBlockName(block) {
+            var nameSpan = block.querySelector('.operator-block-name');
+            return nameSpan ? nameSpan.textContent.replace('×', '').trim().toLowerCase() : '';
+        }
+
+        function applyFilters() {
+            var opQuery = operationSearchInput.value.trim().toLowerCase();
+            var operatorQuery = operatorSearchInput.value.trim().toLowerCase();
+            var anyVisible = false;
+            document.querySelectorAll('.op-card').forEach(function (card) {
+                var titleEl = card.querySelector('.op-card-title');
+                var metaEl = card.querySelector('.op-card-meta');
+                var opText = ((titleEl ? titleEl.textContent : '') + ' ' + (metaEl ? metaEl.textContent : '')).toLowerCase();
+                var opMatches = !opQuery || opText.indexOf(opQuery) !== -1;
+                var operatorBlocks = card.querySelectorAll('.operator-block');
+                var operatorMatches = !operatorQuery || Array.prototype.some.call(operatorBlocks, function (block) {
+                    return operatorBlockName(block).indexOf(operatorQuery) !== -1;
+                });
+                var visible = opMatches && operatorMatches;
+                if (visible) anyVisible = true;
+                card.hidden = !visible;
+            });
+            if (noResultsState) noResultsState.hidden = anyVisible;
+        }
+
+        if (operationSearchInput && operatorSearchInput) {
+            operationSearchInput.addEventListener('input', applyFilters);
+            operatorSearchInput.addEventListener('input', applyFilters);
+        }
+
+        // Expand/collapse operation cards — starts collapsed so a long
+        // style doesn't dump 50 operations' worth of day-strips at once,
+        // and only one card stays open at a time so opening the next one
+        // doesn't leave a growing stack of expanded strips to scroll past.
+        document.querySelectorAll('.op-card-header[data-toggle]').forEach(function (header) {
+            header.addEventListener('click', function () {
+                var card = header.closest('.op-card');
+                var wasExpanded = card.classList.contains('expanded');
+                document.querySelectorAll('.op-card.expanded').forEach(function (c) {
+                    c.classList.remove('expanded');
+                });
+                if (!wasExpanded) card.classList.add('expanded');
+            });
+        });
+
+        function rowTotal(block) {
+            var sum = 0;
+            block.querySelectorAll('.day-chip').forEach(function (chip) {
+                sum += parseInt(chip.dataset.qty, 10) || 0;
+            });
+            return sum;
+        }
+
+        function updateOpTotal(opId) {
+            var card = document.getElementById('opCard' + opId);
+            if (!card) return;
+            var orderQty = parseInt(card.dataset.orderQty, 10) || 0;
+            var total = 0;
+            card.querySelectorAll('.operator-block').forEach(function (block) {
+                total += rowTotal(block);
+            });
+            var totalEl = document.getElementById('opTotal' + opId);
+            var diffHtml = String(total);
+            totalEl.classList.remove('diff-more', 'diff-less', 'diff-balanced');
+            if (orderQty) {
+                var diff = total - orderQty;
+                if (diff > 0) { totalEl.classList.add('diff-more'); diffHtml += ' <span class="diff-value">(+' + diff + ')</span>'; }
+                else if (diff < 0) { totalEl.classList.add('diff-less'); diffHtml += ' <span class="diff-value">(' + diff + ')</span>'; }
+                else { totalEl.classList.add('diff-balanced'); diffHtml += ' <span class="diff-value">(0)</span>'; }
+            }
+            totalEl.innerHTML = diffHtml;
+        }
+
+        // Day-chip tap -> edit modal (add or revise that day's quantity).
+        var dayEditOverlay = document.getElementById('dayEditOverlay');
+        var dayEditInput = document.getElementById('dayEditInput');
+        var dayEditTitle = document.getElementById('dayEditTitle');
+        var dayEditNote = document.getElementById('dayEditCorrectionNote');
+        var activeChip = null;
+
+        function openDayEdit(chip) {
+            activeChip = chip;
+            dayEditTitle.textContent = chip.dataset.employeeName + ' — ' + chip.dataset.opName;
+            dayEditInput.value = chip.dataset.qty || '';
+            if (chip.dataset.operatorQty) {
+                dayEditNote.hidden = false;
+                dayEditNote.textContent = 'Operator entered ' + chip.dataset.operatorQty + ' for this day.';
+            } else {
+                dayEditNote.hidden = true;
+            }
+            dayEditOverlay.classList.add('open');
+            setTimeout(function () { dayEditInput.focus(); dayEditInput.select(); }, 50);
+        }
+        function closeDayEdit() {
+            dayEditOverlay.classList.remove('open');
+            activeChip = null;
+        }
+        function attachChip(chip) {
+            chip.addEventListener('click', function () { openDayEdit(chip); });
+        }
+        document.querySelectorAll('.day-chip').forEach(attachChip);
+
+        document.getElementById('dayEditCancel').addEventListener('click', closeDayEdit);
+        dayEditOverlay.addEventListener('click', function (e) {
+            if (e.target === dayEditOverlay) closeDayEdit();
+        });
+
+        document.getElementById('dayEditSave').addEventListener('click', function () {
+            if (!activeChip) return;
+            var chip = activeChip;
+            var quantity = dayEditInput.value || '0';
+            var formData = new FormData();
+            formData.append('rate_card_operation_id', chip.dataset.opId);
+            formData.append('employee_id', chip.dataset.employeeId);
+            formData.append('date', chip.dataset.date);
+            formData.append('quantity', quantity);
+            fetch(window.location.href, {
+                method: 'POST', body: formData,
+                headers: { 'X-CSRFToken': getCookie() },
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (!data.ok) {
+                        alert(data.error || 'Could not save — please try again.');
+                        return;
+                    }
+                    var qtyNum = parseInt(quantity, 10) || 0;
+                    chip.dataset.qty = qtyNum ? String(qtyNum) : '';
+                    chip.classList.toggle('has-qty', !!qtyNum);
+                    // Saving here always makes it the supervisor's value —
+                    // clear any leftover "operator" look, since this
+                    // browser session has no way to know it was ever
+                    // otherwise (that only becomes accurate on reload).
+                    chip.classList.remove('entered-operator');
+                    var qtySpan = chip.querySelector('.qty');
+                    if (qtyNum) {
+                        if (!qtySpan) {
+                            qtySpan = document.createElement('span');
+                            qtySpan.className = 'qty';
+                            chip.appendChild(qtySpan);
+                        }
+                        qtySpan.textContent = qtyNum;
+                    } else if (qtySpan) {
+                        qtySpan.remove();
+                    }
+                    var block = chip.closest('.operator-block');
+                    block.querySelector('[data-row-total]').textContent = rowTotal(block);
+                    updateOpTotal(chip.dataset.opId);
+                    closeDayEdit();
+                })
+                .catch(function () {
+                    alert('Failed to reach the server — please try again.');
+                });
+        });
+
+        // Add operator — same <datalist>-per-operation, native-autocomplete
+        // pattern as the desktop grid, just triggered from a popup here
+        // instead of an inline input next to the operation's name.
+        var addOperatorOverlay = document.getElementById('addOperatorOverlay');
+        var addOperatorInput = document.getElementById('addOperatorInput');
+        var addOperatorTitle = document.getElementById('addOperatorTitle');
+
+        function closeAddOperatorPopup() {
+            addOperatorOverlay.classList.remove('open');
+            addOperatorInput.value = '';
+            addOperatorInput.removeAttribute('list');
+        }
+
+        function addOperatorBlock(opId, employeeId, employeeName) {
+            var card = document.getElementById('opCard' + opId);
+            var list = card.querySelector('.operator-list');
+            var dayHeaders = JSON.parse(document.getElementById('dayHeadersData').textContent);
+
+            var block = document.createElement('div');
+            block.className = 'operator-block';
+            block.dataset.employeeId = employeeId;
+
+            var header = document.createElement('div');
+            header.className = 'operator-block-header';
+            var nameSpan = document.createElement('span');
+            nameSpan.className = 'operator-block-name';
+            nameSpan.appendChild(document.createTextNode(employeeName + ' '));
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-operator-btn';
+            removeBtn.textContent = '×';
+            removeBtn.dataset.opId = opId;
+            removeBtn.dataset.employeeId = employeeId;
+            removeBtn.dataset.employeeName = employeeName;
+            attachRemoveHandler(removeBtn);
+            nameSpan.appendChild(removeBtn);
+            header.appendChild(nameSpan);
+            var totalSpan = document.createElement('span');
+            totalSpan.className = 'operator-block-total';
+            totalSpan.setAttribute('data-row-total', '');
+            totalSpan.textContent = '0';
+            header.appendChild(totalSpan);
+            block.appendChild(header);
+
+            var strip = document.createElement('div');
+            strip.className = 'day-strip';
+            dayHeaders.forEach(function (dh) {
+                var chip = document.createElement('div');
+                var classes = ['day-chip'];
+                if (specialDays[dh.date]) classes.push('special-' + specialDays[dh.date]);
+                if (dh.is_carried_over) classes.push('carried-over');
+                if (dh.date === todayIso) classes.push('today');
+                chip.className = classes.join(' ');
+                chip.dataset.date = dh.date;
+                chip.dataset.qty = '';
+                chip.dataset.opId = opId;
+                chip.dataset.employeeId = employeeId;
+                chip.dataset.employeeName = employeeName;
+                chip.dataset.opName = card.querySelector('.op-card-title').textContent;
+                var dow = document.createElement('span');
+                dow.className = 'dow';
+                dow.textContent = dh.dow + ' ' + dh.day;
+                chip.appendChild(dow);
+                attachChip(chip);
+                strip.appendChild(chip);
+            });
+            block.appendChild(strip);
+            list.appendChild(block);
+            if (operationSearchInput) applyFilters();
+        }
+
+        document.querySelectorAll('.add-operator-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                addOperatorOverlay.dataset.opId = btn.dataset.opId;
+                addOperatorTitle.textContent = 'Add operator — ' + btn.dataset.opName;
+                addOperatorInput.setAttribute('list', 'opEmpList' + btn.dataset.opId);
+                addOperatorInput.value = '';
+                addOperatorOverlay.classList.add('open');
+                addOperatorInput.focus();
+            });
+        });
+
+        addOperatorInput.addEventListener('input', function () {
+            var opId = addOperatorOverlay.dataset.opId;
+            var datalist = document.getElementById('opEmpList' + opId);
+            var match = null;
+            datalist.querySelectorAll('option').forEach(function (opt) {
+                if (opt.value === addOperatorInput.value) match = opt;
+            });
+            if (!match) return;
+            addOperatorBlock(opId, match.dataset.id, match.value);
+            match.remove();
+            var btn = document.querySelector('.add-operator-btn[data-op-id="' + opId + '"]');
+            if (!datalist.querySelector('option') && btn) btn.style.display = 'none';
+            closeAddOperatorPopup();
+        });
+
+        document.getElementById('addOperatorCancel').addEventListener('click', closeAddOperatorPopup);
+        addOperatorOverlay.addEventListener('click', function (e) {
+            if (e.target === addOperatorOverlay) closeAddOperatorPopup();
+        });
+
+        // Removing an operator deletes every entry they have on this
+        // operation (all days) — confirm first if they actually have
+        // any quantity logged, so an empty just-added-by-mistake row
+        // can be removed without a prompt.
+        function attachRemoveHandler(btn) {
+            btn.addEventListener('click', function () {
+                var block = btn.closest('.operator-block');
+                var opId = btn.dataset.opId;
+                var employeeId = btn.dataset.employeeId;
+                var employeeName = btn.dataset.employeeName;
+                var total = rowTotal(block);
+                if (total > 0 && !confirm(
+                    'Remove ' + employeeName + '? They already have ' + total +
+                    ' piece(s) logged for this operation — this deletes all of it.'
+                )) {
+                    return;
+                }
+                var formData = new FormData();
+                formData.append('action', 'remove_operator');
+                formData.append('rate_card_operation_id', opId);
+                formData.append('employee_id', employeeId);
+                fetch(window.location.href, {
+                    method: 'POST', body: formData,
+                    headers: { 'X-CSRFToken': getCookie() },
+                })
+                    .then(function (resp) { return resp.json(); })
+                    .then(function (data) {
+                        if (!data.ok) { alert('Could not remove — please try again.'); return; }
+                        block.remove();
+                        updateOpTotal(opId);
+                        var datalist = document.getElementById('opEmpList' + opId);
+                        var opt = document.createElement('option');
+                        opt.value = employeeName;
+                        opt.dataset.id = employeeId;
+                        datalist.appendChild(opt);
+                        var addBtn = document.querySelector('.add-operator-btn[data-op-id="' + opId + '"]');
+                        if (addBtn) addBtn.style.display = '';
+                        if (operationSearchInput) applyFilters();
+                    })
+                    .catch(function () {
+                        alert('Failed to reach the server — please try again.');
+                    });
+            });
+        }
+        document.querySelectorAll('.remove-operator-btn').forEach(attachRemoveHandler);
+    </script>
+</body>
+</html>
