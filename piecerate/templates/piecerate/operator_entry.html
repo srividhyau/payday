@@ -336,6 +336,12 @@
             input.addEventListener('keydown', function (e) {
                 if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
             });
+            // Same for the mouse wheel while this field is focused —
+            // scrolling the page with the cursor over it shouldn't
+            // change the quantity.
+            input.addEventListener('wheel', function (e) {
+                if (input === document.activeElement) e.preventDefault();
+            }, { passive: false });
         });
 
         // Pre-fills the quantity field from an existing entry (editing

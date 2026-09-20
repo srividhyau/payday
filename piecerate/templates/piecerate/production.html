@@ -9,7 +9,12 @@
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
 
-    .table-wrap { overflow: auto; max-height: calc(100vh - 170px); }
+    /* Extra bottom room inside the scroll container — without it the
+       horizontal scrollbar sits flush against the last row, making its
+       cells fiddly to click/edit right at the bottom of a scroll.
+       box-sizing keeps max-height the actual on-screen height rather
+       than growing taller by the padding amount. */
+    .table-wrap { overflow: auto; max-height: calc(100vh - 170px); padding-bottom: 2.5rem; box-sizing: border-box; }
     /* border-collapse:collapse + position:sticky cells is a known
        browser rendering bug — scrolled-under content can bleed through
        a sticky cell's border/background. border-separate avoids it. */
@@ -94,6 +99,15 @@
     .remove-operator-btn:hover { background: #b3261e; color: #fff; }
 
     tr.operator-row td.col-label { text-align: left; padding-left: 1.1rem; }
+    /* Marks which operator row(s) actually matched an operator-name
+       search — the whole operation still shows every other operator for
+       context (see applyFilters), so without this there'd be no way to
+       tell which row was the one actually searched for. Covers every
+       cell's own background (same specificity as the special-day/
+       carried-over rules above, placed later so it wins); a day cell's
+       own input still shows its own entered-operator/saving/error state
+       on top, since that's a separate element. */
+    tr.operator-row.search-match td { background: #fff3b0; }
     .day-input {
         width: 34px; border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem;
         font-size: 0.72rem; text-align: center; font-family: inherit; box-sizing: border-box;
@@ -345,10 +359,14 @@
                 var opId = opRow.dataset.opId;
                 var operatorRows = document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"]');
                 var opMatches = !opQuery || opSearchText(opRow).indexOf(opQuery) !== -1;
-                var operatorMatches = !operatorQuery || Array.prototype.some.call(operatorRows, function (tr) {
+                var anyOperatorMatches = false;
+                operatorRows.forEach(function (tr) {
                     var nameSpan = tr.querySelector('.operator-name-row span');
-                    return nameSpan && nameSpan.textContent.toLowerCase().indexOf(operatorQuery) !== -1;
+                    var isMatch = !!operatorQuery && nameSpan && nameSpan.textContent.toLowerCase().indexOf(operatorQuery) !== -1;
+                    if (isMatch) anyOperatorMatches = true;
+                    tr.classList.toggle('search-match', isMatch);
                 });
+                var operatorMatches = !operatorQuery || anyOperatorMatches;
                 var visible = opMatches && operatorMatches;
                 if (visible) anyVisible = true;
                 opRow.style.display = visible ? '' : 'none';
@@ -368,6 +386,20 @@
                 sum += parseInt(input.value, 10) || 0;
             });
             return sum;
+        }
+
+        // Native title-attribute tooltip on each day cell, showing that
+        // operator's running total for the operation through that day
+        // (inclusive) — cells are in date order in the DOM, so a plain
+        // left-to-right walk is a running sum. Re-run whenever a row's
+        // values change so hovering never shows a stale number.
+        function updateCumulativeTitles(tr) {
+            var running = 0;
+            tr.querySelectorAll('.day-input').forEach(function (input) {
+                running += parseInt(input.value, 10) || 0;
+                var td = input.closest('td');
+                if (td) td.title = 'Cumulative through this day: ' + running;
+            });
         }
 
         var DIFF_CLASSES = ['diff-more', 'diff-less', 'diff-balanced'];
@@ -436,6 +468,7 @@
                         var tr = input.closest('tr');
                         tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
                         updateOpTotal(input.dataset.rateCardOperationId);
+                        updateCumulativeTitles(tr);
                     } else {
                         var td = input.closest('td');
                         var existingDot = td.querySelector('.corrected-dot');
@@ -490,6 +523,38 @@
             return { over: hypothetical > orderQty, hypothetical: hypothetical, orderQty: orderQty };
         }
 
+        // Changing a cell that already had a quantity in it is confirmed
+        // first, showing the old number alongside this operator's own
+        // total, every operator's combined total, and the Order Qty —
+        // the context needed to catch an accidental overwrite before it's
+        // saved. rowTotal(tr)/the all-operator sum already count this
+        // input's live (typed but unsaved) value via the "input" handler
+        // above, so the previous value is backed out and the old one
+        // added back in, to show the totals as they stand right now
+        // (before this edit), not as they'd be after it.
+        function confirmQuantityChange(input, previousValue) {
+            var prevVal = parseInt(previousValue, 10) || 0;
+            var newVal = parseInt(input.value, 10) || 0;
+            var tr = input.closest('tr');
+            var opId = input.dataset.rateCardOperationId;
+            var opRow = document.querySelector('tr.op-row[data-op-id="' + opId + '"]');
+            var orderQty = opRow ? (parseInt(opRow.dataset.orderQty, 10) || 0) : 0;
+
+            var operatorQty = rowTotal(tr) - newVal + prevVal;
+            var allOperatorQty = 0;
+            document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"]').forEach(function (r) {
+                allOperatorQty += rowTotal(r);
+            });
+            allOperatorQty = allOperatorQty - newVal + prevVal;
+
+            return confirm(
+                'Old number was ' + prevVal + '.\n\n' +
+                'Operator Qty: ' + operatorQty + '\n' +
+                'All Operator Qty: ' + allOperatorQty + '\n' +
+                'Order Qty: ' + (orderQty || 'Not set')
+            );
+        }
+
         // Live preview as they type: color the field and update the
         // row/operation totals immediately, before anything is saved.
         function attachDayInput(input) {
@@ -500,42 +565,47 @@
                 input.classList.toggle('qty-invalid', checkOverLimit(input).over);
                 tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
                 updateOpTotal(input.dataset.rateCardOperationId);
+                updateCumulativeTitles(tr);
             });
 
-            // Trap focus on this cell while it's over the limit — a popup
-            // explains why, then focus snaps right back to the same box,
-            // so the amount has to be fixed before moving on to anything
-            // else (another cell, the "+"/remove buttons, navigation).
-            //
-            // Whether THIS blur should trap is decided from this input's
-            // own "qty-invalid" class (set by its "input" handler above),
-            // not a fresh whole-operation recheck — checkOverLimit sums
-            // every cell in the operation, so if it drove the decision
-            // here too, every OTHER cell in an over-limit operation would
-            // also count itself as the culprit the instant it got focus.
-            // Tabbing from this cell to the next one would then trap
-            // that cell too, and refocusing this one would trap it right
-            // back — an infinite focus fight between the two.
+            // Going over the Order Qty is allowed for now — confirmed
+            // first rather than hard-blocked, so a legitimate excess
+            // (a rework day, an order bumped after the fact, etc.)
+            // doesn't require going around the tool to record it.
+            function revertToPreviousValue(previousValue) {
+                input.value = previousValue;
+                var tr = input.closest('tr');
+                tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
+                input.classList.toggle('qty-invalid', checkOverLimit(input).over);
+                updateOpTotal(input.dataset.rateCardOperationId);
+                updateCumulativeTitles(tr);
+            }
+
             input.addEventListener('blur', function () {
+                if (input.value === input.dataset.lastGoodValue) return;
+                var previousValue = input.dataset.lastGoodValue;
+
                 if (input.classList.contains('qty-invalid')) {
                     var status = checkOverLimit(input);
-                    alert(
+                    if (!confirm(
                         'This would bring the total to ' + status.hypothetical + ', which exceeds the Order Qty of ' +
-                        status.orderQty + '. Fix the amount before moving on.'
-                    );
-                    // Deferred to the next tick: refocusing synchronously
-                    // from inside a blur handler can make some browsers
-                    // fire blur on this same element again right away.
-                    setTimeout(function () { input.focus(); }, 0);
+                        status.orderQty + '. Save anyway?'
+                    )) {
+                        revertToPreviousValue(previousValue);
+                        return;
+                    }
+                }
+
+                if ((parseInt(previousValue, 10) || 0) > 0 && !confirmQuantityChange(input, previousValue)) {
+                    revertToPreviousValue(previousValue);
                     return;
                 }
-                if (input.value !== input.dataset.lastGoodValue) {
-                    saveCell(input, input.dataset.lastGoodValue);
-                }
+                saveCell(input, previousValue);
             });
         }
 
         document.querySelectorAll('.day-input').forEach(attachDayInput);
+        document.querySelectorAll('tr.operator-row').forEach(updateCumulativeTitles);
 
         function addOperatorRow(opId, employeeId, employeeName) {
             // Insert after the last existing operator row for this
@@ -603,6 +673,7 @@
             });
 
             afterRow.parentNode.insertBefore(newRow, afterRow.nextSibling);
+            updateCumulativeTitles(newRow);
             if (operationSearchInput) applyFilters();
         }
 

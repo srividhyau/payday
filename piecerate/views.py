@@ -451,20 +451,9 @@ def _save_production_cell(request, style):
         return JsonResponse({"ok": False, "error": "Invalid date."}, status=400)
     quantity = _parse_int(request.POST.get("quantity"))
 
-    if rc_op.order_quantity:
-        other_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).exclude(
-            employee=employee, date=entry_date
-        ).aggregate(total=Sum("quantity"))["total"] or 0
-        hypothetical = other_total + quantity
-        if hypothetical > rc_op.order_quantity:
-            return JsonResponse({
-                "ok": False,
-                "error": (
-                    f"This would bring the total to {hypothetical}, which exceeds "
-                    f"the Order Qty of {rc_op.order_quantity}. Reduce the quantity."
-                ),
-            }, status=400)
-
+    # Order Qty is enforced client-side only (a confirm popup) for now —
+    # a supervisor can go over it here as long as they confirm it, rather
+    # than being hard-blocked.
     if quantity > 0:
         PieceRateEntry.objects.update_or_create(
             rate_card_operation=rc_op, employee=employee, date=entry_date,

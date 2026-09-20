@@ -45,6 +45,15 @@
     .add-operator-btn:hover { background: var(--navy); color: #fff; }
 
     .operator-block { border-top: 1px solid var(--border); padding: 0.6rem 0; }
+    /* Marks which operator block actually matched an operator-name
+       search — the whole card still shows every other operator for
+       context (see applyFilters), so without this there'd be no way to
+       tell which one was the one actually searched for. Each day-chip
+       has its own opaque background (has-qty/special-*/etc.), so it
+       needs its own override too — higher specificity than those single-
+       class rules, so it wins regardless of source order. */
+    .operator-block.search-match { background: #fff3b0; margin: 0 -0.9rem; padding: 0.6rem 0.9rem; }
+    .operator-block.search-match .day-chip { background: #fff3b0; }
     .operator-block:first-of-type { border-top: none; padding-top: 0; }
     .operator-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; gap: 0.5rem; }
     .operator-block-name { font-weight: 600; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
@@ -268,9 +277,13 @@
                 var opText = ((titleEl ? titleEl.textContent : '') + ' ' + (metaEl ? metaEl.textContent : '')).toLowerCase();
                 var opMatches = !opQuery || opText.indexOf(opQuery) !== -1;
                 var operatorBlocks = card.querySelectorAll('.operator-block');
-                var operatorMatches = !operatorQuery || Array.prototype.some.call(operatorBlocks, function (block) {
-                    return operatorBlockName(block).indexOf(operatorQuery) !== -1;
+                var anyOperatorMatches = false;
+                operatorBlocks.forEach(function (block) {
+                    var isMatch = !!operatorQuery && operatorBlockName(block).indexOf(operatorQuery) !== -1;
+                    if (isMatch) anyOperatorMatches = true;
+                    block.classList.toggle('search-match', isMatch);
                 });
+                var operatorMatches = !operatorQuery || anyOperatorMatches;
                 var visible = opMatches && operatorMatches;
                 if (visible) anyVisible = true;
                 card.hidden = !visible;
@@ -304,6 +317,18 @@
                 sum += parseInt(chip.dataset.qty, 10) || 0;
             });
             return sum;
+        }
+
+        // Native title-attribute tooltip on each chip, showing that
+        // operator's running total for the operation through that day
+        // (inclusive) — chips are in date order in the DOM, so a plain
+        // left-to-right walk is a running sum.
+        function updateCumulativeTitles(block) {
+            var running = 0;
+            block.querySelectorAll('.day-chip').forEach(function (chip) {
+                running += parseInt(chip.dataset.qty, 10) || 0;
+                chip.title = 'Cumulative through this day: ' + running;
+            });
         }
 
         function updateOpTotal(opId) {
@@ -354,16 +379,63 @@
             chip.addEventListener('click', function () { openDayEdit(chip); });
         }
         document.querySelectorAll('.day-chip').forEach(attachChip);
+        document.querySelectorAll('.operator-block').forEach(updateCumulativeTitles);
 
         document.getElementById('dayEditCancel').addEventListener('click', closeDayEdit);
         dayEditOverlay.addEventListener('click', function (e) {
             if (e.target === dayEditOverlay) closeDayEdit();
         });
 
+        // Changing a chip that already had a quantity is confirmed first,
+        // showing the old number alongside this operator's own total for
+        // the operation, every operator's combined total, and the Order
+        // Qty — chip.dataset.qty/rowTotal(block) still reflect the
+        // pre-edit state here since neither updates until after a
+        // successful save (below).
+        function confirmQuantityChange(chip, prevVal) {
+            var block = chip.closest('.operator-block');
+            var card = chip.closest('.op-card');
+            var operatorQty = rowTotal(block);
+            var orderQty = parseInt(card.dataset.orderQty, 10) || 0;
+            var allOperatorQty = 0;
+            card.querySelectorAll('.operator-block').forEach(function (b) { allOperatorQty += rowTotal(b); });
+            return confirm(
+                'Old number was ' + prevVal + '.\n\n' +
+                'Operator Qty: ' + operatorQty + '\n' +
+                'All Operator Qty: ' + allOperatorQty + '\n' +
+                'Order Qty: ' + (orderQty || 'Not set')
+            );
+        }
+
+        // Going over the Order Qty is allowed for now — confirmed first
+        // rather than blocked, same as the desktop grid.
+        function confirmOverLimit(chip, newVal) {
+            var card = chip.closest('.op-card');
+            var orderQty = parseInt(card.dataset.orderQty, 10) || 0;
+            if (!orderQty) return true;
+            var prevVal = parseInt(chip.dataset.qty, 10) || 0;
+            var cardTotal = 0;
+            card.querySelectorAll('.operator-block').forEach(function (b) { cardTotal += rowTotal(b); });
+            var hypothetical = cardTotal - prevVal + newVal;
+            if (hypothetical <= orderQty) return true;
+            return confirm(
+                'This would bring the total to ' + hypothetical + ', which exceeds the Order Qty of ' +
+                orderQty + '. Save anyway?'
+            );
+        }
+
         document.getElementById('dayEditSave').addEventListener('click', function () {
             if (!activeChip) return;
             var chip = activeChip;
             var quantity = dayEditInput.value || '0';
+            var prevVal = parseInt(chip.dataset.qty, 10) || 0;
+            var newVal = parseInt(quantity, 10) || 0;
+            if (newVal !== prevVal && !confirmOverLimit(chip, newVal)) {
+                return;
+            }
+            if (prevVal > 0 && newVal !== prevVal && !confirmQuantityChange(chip, prevVal)) {
+                return;
+            }
             var formData = new FormData();
             formData.append('rate_card_operation_id', chip.dataset.opId);
             formData.append('employee_id', chip.dataset.employeeId);
@@ -401,6 +473,7 @@
                     var block = chip.closest('.operator-block');
                     block.querySelector('[data-row-total]').textContent = rowTotal(block);
                     updateOpTotal(chip.dataset.opId);
+                    updateCumulativeTitles(block);
                     closeDayEdit();
                 })
                 .catch(function () {
@@ -475,6 +548,7 @@
                 strip.appendChild(chip);
             });
             block.appendChild(strip);
+            updateCumulativeTitles(block);
             list.appendChild(block);
             if (operationSearchInput) applyFilters();
         }

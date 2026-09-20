@@ -113,4 +113,16 @@
             e.preventDefault();
         }
     });
+
+    // Scrolling the mouse wheel over a FOCUSED number input steps its
+    // value the same way the arrow keys do — just as easy to trigger by
+    // accident (scrolling the page while the cursor happens to be over
+    // one). Only blocked while the input is actually focused, so
+    // scrolling the page with the cursor merely resting over an
+    // unfocused number input still scrolls normally.
+    document.addEventListener('wheel', function (e) {
+        if (e.target.tagName === 'INPUT' && e.target.type === 'number' && e.target === document.activeElement) {
+            e.preventDefault();
+        }
+    }, { passive: false });
 </script>
