@@ -35,7 +35,8 @@
     .col-opcode { left: 0; width: 30px; }
     .col-section { left: 30px; width: 90px; }
     .col-label { left: 120px; width: 240px; }
-    .col-total { left: 360px; width: 55px; font-weight: 700; }
+    .col-total { left: 360px; width: 110px; font-weight: 700; }
+    tr.op-row td.col-total .op-diff-value { font-weight: 400; }
     .col-day { width: 40px; }
     .col-day .dow { display: block; font-size: 0.6rem; font-weight: 400; color: var(--text-muted); line-height: 1.3; }
 
@@ -60,8 +61,12 @@
     table.simple th.col-label, table.simple td.col-label { text-align: left; white-space: normal; }
 
     tr.op-row td { background: #eef2f7; font-weight: 700; }
-    tr.op-row td.op-summary { text-align: left; }
-    .op-meta { font-weight: 400; color: var(--text-muted); font-size: 0.72rem; }
+    /* Order Qty/short-excess is shown as "sum / order qty (balance)"
+       right in the Total column (a real, non-colspan sticky column) —
+       this cell spans the whole (scrollable) day-columns width, and
+       position:sticky doesn't reliably pin colspan cells across
+       browsers, so it's left as just an empty background fill so the
+       op-row still reads as one solid colored band across the table. */
     .diff-more { color: #a400a4; font-weight: 700; }
     .diff-less { color: #b3261e; font-weight: 700; }
     .diff-balanced { color: #1e7e34; font-weight: 700; }
@@ -250,10 +255,8 @@
                                 </datalist>
                             </div>
                         </td>
-                        <td class="col-total op-total-cell {{ row.diff_class }}">{{ row.op_total }}</td>
-                        <td class="op-summary" colspan="{{ days|length }}">
-                            <span class="op-meta">Order Qty {{ row.op.order_quantity }}{% if row.op.order_quantity %} · <span class="op-diff-value {{ row.diff_class }}">{{ row.diff_display }}</span>{% endif %}</span>
-                        </td>
+                        <td class="col-total op-total-cell {{ row.diff_class }}">{{ row.op_total }}{% if row.op.order_quantity %} / {{ row.op.order_quantity }} <span class="op-diff-value {{ row.diff_class }}">({{ row.diff_display }})</span>{% endif %}</td>
+                        <td class="op-summary" colspan="{{ days|length }}"></td>
                     </tr>
                     {% for r in row.rows %}
                     <tr class="operator-row" data-op-id="{{ row.op.id }}" data-employee-id="{{ r.employee.id }}">
@@ -388,27 +391,61 @@
             return sum;
         }
 
-        // Native title-attribute tooltip on each day cell, showing that
-        // operator's running total for the operation through that day
-        // (inclusive) — cells are in date order in the DOM, so a plain
-        // left-to-right walk is a running sum. Re-run whenever a row's
-        // values change so hovering never shows a stale number.
-        function updateCumulativeTitles(tr) {
-            var running = 0;
-            tr.querySelectorAll('.day-input').forEach(function (input) {
-                running += parseInt(input.value, 10) || 0;
-                var td = input.closest('td');
-                if (td) td.title = 'Cumulative through this day: ' + running;
-            });
+        // Native title-attribute tooltip on each day cell: this
+        // operator's own running total through that day, every
+        // operator's combined running total through that day, and the
+        // operation's Order Qty — same three figures as the "changing an
+        // existing value" confirm popup, so hovering answers "are we
+        // short or over as of here" without opening anything. Every
+        // operator row for the same operation has the same day columns
+        // in the same order, so a single lockstep walk across all of
+        // them gives both running totals in one pass. Re-run whenever
+        // any of the operation's values change so hovering never shows
+        // a stale number.
+        function updateCumulativeTitles(opId) {
+            var opRow = document.querySelector('tr.op-row[data-op-id="' + opId + '"]');
+            var orderQty = opRow ? (parseInt(opRow.dataset.orderQty, 10) || 0) : 0;
+            var rows = Array.prototype.slice.call(document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"]'));
+            var rowInputs = rows.map(function (tr) { return Array.prototype.slice.call(tr.querySelectorAll('.day-input')); });
+            var rowRunning = rows.map(function () { return 0; });
+            var allRunning = 0;
+            var dayCount = rowInputs.length ? rowInputs[0].length : 0;
+
+            for (var d = 0; d < dayCount; d++) {
+                var dayTotal = 0;
+                for (var i = 0; i < rowInputs.length; i++) {
+                    dayTotal += parseInt(rowInputs[i][d].value, 10) || 0;
+                }
+                allRunning += dayTotal;
+                for (var j = 0; j < rowInputs.length; j++) {
+                    rowRunning[j] += parseInt(rowInputs[j][d].value, 10) || 0;
+                    var td = rowInputs[j][d].closest('td');
+                    if (td) {
+                        td.title = 'Operator: ' + rowRunning[j] + '\nAll Operators: ' + allRunning +
+                            '\nOrder Qty: ' + (orderQty || 'Not set');
+                    }
+                }
+            }
         }
 
         var DIFF_CLASSES = ['diff-more', 'diff-less', 'diff-balanced'];
 
-        function updateOpTotal(opId) {
-            var sum = 0;
-            document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"]').forEach(function (tr) {
-                sum += rowTotal(tr);
-            });
+        // Recomputes the operation's total/short-excess badge. Pass
+        // serverTotal (the authoritative op_total a save's response just
+        // returned) to reconcile with what the server actually has,
+        // rather than trusting this tab's own local sum — without that,
+        // a concurrent edit to the same operation from another tab/user
+        // would leave this tab's badge quietly wrong until reload. Live
+        // typing (before anything is saved) has no server number yet, so
+        // it omits serverTotal and falls back to the local sum.
+        function updateOpTotal(opId, serverTotal) {
+            var sum = serverTotal;
+            if (typeof sum !== 'number') {
+                sum = 0;
+                document.querySelectorAll('tr.operator-row[data-op-id="' + opId + '"]').forEach(function (tr) {
+                    sum += rowTotal(tr);
+                });
+            }
             var opRow = document.querySelector('tr.op-row[data-op-id="' + opId + '"]');
             if (!opRow) return sum;
 
@@ -422,17 +459,19 @@
                 else { diffClass = 'diff-balanced'; diffText = '0'; }
             }
 
+            // Built as one "sum / order qty (balance)" string rather than
+            // separate cell/span text updates — the cell holds nothing
+            // else, so rebuilding it whole each time can't drift from
+            // what the template originally rendered.
             var totalCell = opRow.querySelector('.op-total-cell');
             if (totalCell) {
                 totalCell.classList.remove.apply(totalCell.classList, DIFF_CLASSES);
                 if (diffClass) totalCell.classList.add(diffClass);
-                totalCell.textContent = sum;
-            }
-            var diffSpan = opRow.querySelector('.op-diff-value');
-            if (diffSpan) {
-                diffSpan.classList.remove.apply(diffSpan.classList, DIFF_CLASSES);
-                if (diffClass) diffSpan.classList.add(diffClass);
-                diffSpan.textContent = diffText;
+                var html = String(sum);
+                if (orderQty) {
+                    html += ' / ' + orderQty + ' <span class="op-diff-value ' + diffClass + '">(' + diffText + ')</span>';
+                }
+                totalCell.innerHTML = html;
             }
             var nameSpan = opRow.querySelector('.op-name-text');
             if (nameSpan) {
@@ -468,11 +507,17 @@
                         var tr = input.closest('tr');
                         tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
                         updateOpTotal(input.dataset.rateCardOperationId);
-                        updateCumulativeTitles(tr);
+                        updateCumulativeTitles(input.dataset.rateCardOperationId);
                     } else {
                         var td = input.closest('td');
                         var existingDot = td.querySelector('.corrected-dot');
                         input.dataset.lastGoodValue = input.value;
+                        // Reconcile the operation's total/badge with what
+                        // the server actually has now, rather than this
+                        // tab's own local sum — catches drift from a
+                        // concurrent edit elsewhere.
+                        updateOpTotal(input.dataset.rateCardOperationId, data.op_total);
+                        updateCumulativeTitles(input.dataset.rateCardOperationId);
                         // Saving here always makes this a supervisor
                         // value now — if it was the operator's own
                         // (the full blue fill), it becomes a
@@ -565,7 +610,7 @@
                 input.classList.toggle('qty-invalid', checkOverLimit(input).over);
                 tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
                 updateOpTotal(input.dataset.rateCardOperationId);
-                updateCumulativeTitles(tr);
+                updateCumulativeTitles(input.dataset.rateCardOperationId);
             });
 
             // Going over the Order Qty is allowed for now — confirmed
@@ -578,7 +623,7 @@
                 tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
                 input.classList.toggle('qty-invalid', checkOverLimit(input).over);
                 updateOpTotal(input.dataset.rateCardOperationId);
-                updateCumulativeTitles(tr);
+                updateCumulativeTitles(input.dataset.rateCardOperationId);
             }
 
             input.addEventListener('blur', function () {
@@ -605,7 +650,9 @@
         }
 
         document.querySelectorAll('.day-input').forEach(attachDayInput);
-        document.querySelectorAll('tr.operator-row').forEach(updateCumulativeTitles);
+        document.querySelectorAll('tr.op-row').forEach(function (opRow) {
+            updateCumulativeTitles(opRow.dataset.opId);
+        });
 
         function addOperatorRow(opId, employeeId, employeeName) {
             // Insert after the last existing operator row for this
@@ -673,7 +720,7 @@
             });
 
             afterRow.parentNode.insertBefore(newRow, afterRow.nextSibling);
-            updateCumulativeTitles(newRow);
+            updateCumulativeTitles(opId);
             if (operationSearchInput) applyFilters();
         }
 
@@ -708,6 +755,7 @@
                         if (!data.ok) { alert('Could not remove — please try again.'); return; }
                         tr.remove();
                         updateOpTotal(opId);
+                        updateCumulativeTitles(opId);
 
                         var datalist = document.getElementById('opEmpList' + opId);
                         var opt = document.createElement('option');

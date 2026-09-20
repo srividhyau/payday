@@ -319,26 +319,56 @@
             return sum;
         }
 
-        // Native title-attribute tooltip on each chip, showing that
-        // operator's running total for the operation through that day
-        // (inclusive) — chips are in date order in the DOM, so a plain
-        // left-to-right walk is a running sum.
-        function updateCumulativeTitles(block) {
-            var running = 0;
-            block.querySelectorAll('.day-chip').forEach(function (chip) {
-                running += parseInt(chip.dataset.qty, 10) || 0;
-                chip.title = 'Cumulative through this day: ' + running;
-            });
-        }
-
-        function updateOpTotal(opId) {
+        // Native title-attribute tooltip on each chip: this operator's
+        // own running total through that day, every operator's combined
+        // running total through that day, and the operation's Order Qty
+        // — same three figures as the "changing an existing value"
+        // confirm popup, so hovering answers "are we short or over as of
+        // here" without opening anything. Every operator block for the
+        // same operation has the same day columns in the same order, so
+        // a single lockstep walk across all of them gives both running
+        // totals in one pass.
+        function updateCumulativeTitles(opId) {
             var card = document.getElementById('opCard' + opId);
             if (!card) return;
             var orderQty = parseInt(card.dataset.orderQty, 10) || 0;
-            var total = 0;
-            card.querySelectorAll('.operator-block').forEach(function (block) {
-                total += rowTotal(block);
-            });
+            var blocks = Array.prototype.slice.call(card.querySelectorAll('.operator-block'));
+            var blockChips = blocks.map(function (b) { return Array.prototype.slice.call(b.querySelectorAll('.day-chip')); });
+            var blockRunning = blocks.map(function () { return 0; });
+            var allRunning = 0;
+            var dayCount = blockChips.length ? blockChips[0].length : 0;
+
+            for (var d = 0; d < dayCount; d++) {
+                var dayTotal = 0;
+                for (var i = 0; i < blockChips.length; i++) {
+                    dayTotal += parseInt(blockChips[i][d].dataset.qty, 10) || 0;
+                }
+                allRunning += dayTotal;
+                for (var j = 0; j < blockChips.length; j++) {
+                    blockRunning[j] += parseInt(blockChips[j][d].dataset.qty, 10) || 0;
+                    blockChips[j][d].title = 'Operator: ' + blockRunning[j] + '\nAll Operators: ' + allRunning +
+                        '\nOrder Qty: ' + (orderQty || 'Not set');
+                }
+            }
+        }
+
+        // Recomputes the operation's total/short-excess badge. Pass
+        // serverTotal (the authoritative op_total a save's response just
+        // returned) to reconcile with what the server actually has,
+        // rather than trusting this tab's own local sum — without that,
+        // a concurrent edit to the same operation from another tab/user
+        // would leave this tab's badge quietly wrong until reload.
+        function updateOpTotal(opId, serverTotal) {
+            var card = document.getElementById('opCard' + opId);
+            if (!card) return;
+            var orderQty = parseInt(card.dataset.orderQty, 10) || 0;
+            var total = serverTotal;
+            if (typeof total !== 'number') {
+                total = 0;
+                card.querySelectorAll('.operator-block').forEach(function (block) {
+                    total += rowTotal(block);
+                });
+            }
             var totalEl = document.getElementById('opTotal' + opId);
             var diffHtml = String(total);
             totalEl.classList.remove('diff-more', 'diff-less', 'diff-balanced');
@@ -379,7 +409,9 @@
             chip.addEventListener('click', function () { openDayEdit(chip); });
         }
         document.querySelectorAll('.day-chip').forEach(attachChip);
-        document.querySelectorAll('.operator-block').forEach(updateCumulativeTitles);
+        document.querySelectorAll('.op-card').forEach(function (card) {
+            updateCumulativeTitles(card.dataset.opId);
+        });
 
         document.getElementById('dayEditCancel').addEventListener('click', closeDayEdit);
         dayEditOverlay.addEventListener('click', function (e) {
@@ -472,8 +504,11 @@
                     }
                     var block = chip.closest('.operator-block');
                     block.querySelector('[data-row-total]').textContent = rowTotal(block);
-                    updateOpTotal(chip.dataset.opId);
-                    updateCumulativeTitles(block);
+                    // Reconcile with what the server actually has now,
+                    // rather than this tab's own local sum — catches
+                    // drift from a concurrent edit elsewhere.
+                    updateOpTotal(chip.dataset.opId, data.op_total);
+                    updateCumulativeTitles(chip.dataset.opId);
                     closeDayEdit();
                 })
                 .catch(function () {
@@ -548,7 +583,7 @@
                 strip.appendChild(chip);
             });
             block.appendChild(strip);
-            updateCumulativeTitles(block);
+            updateCumulativeTitles(opId);
             list.appendChild(block);
             if (operationSearchInput) applyFilters();
         }
@@ -614,6 +649,7 @@
                         if (!data.ok) { alert('Could not remove — please try again.'); return; }
                         block.remove();
                         updateOpTotal(opId);
+                        updateCumulativeTitles(opId);
                         var datalist = document.getElementById('opEmpList' + opId);
                         var opt = document.createElement('option');
                         opt.value = employeeName;
