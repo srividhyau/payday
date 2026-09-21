@@ -40,6 +40,21 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
+# Permission Hours allowed per month; anything beyond is deducted from OT.
+PERMISSION_ALLOWANCE_HOURS = 2.0
+
+
+def _permission_label(permission_hours) -> tuple[str, str]:
+    """("1h 30m/2h", "") — used vs. monthly allowance; when over, the second
+    part is the excess deducted from OT ("(-1h)"), shown in red."""
+    used = float(permission_hours or 0)
+    if not used:
+        return "", ""
+    label = f"{metrics.format_hours_as_hm(used)}/{PERMISSION_ALLOWANCE_HOURS:g}h"
+    excess = used - PERMISSION_ALLOWANCE_HOURS
+    return label, (f"(-{metrics.format_hours_as_hm(excess)})" if excess > 0 else "")
+
+
 def _error(request, text: str) -> None:
     """messages.error() plus a matching log line — a user-facing error
     should always leave a trace in the log, not just a one-time flash
@@ -682,15 +697,19 @@ def _build_month_grid(
             "ot_rate": "" if is_dept or not ot_rate else round(ot_rate, 2),
             "total_ot_amount": "" if is_dept or not total_ot_amount else round(total_ot_amount, 2),
             "el_days": "" if is_dept or not el_days else el_days,
-            "permission_hours": "" if is_dept else metrics.format_hours_as_hm(permission_hours),
-            # Total OT minus Permission Hours — the actual OT owed once
-            # that month's short-day shortfall is netted against it.
-            # Genuinely allowed to go negative (they owe more time than
-            # they earned in OT) rather than floored at 0, since that's
-            # real information HR needs to see, not an error state.
+            # "used/allowance", plus the excess that comes out of OT.
+            "permission_hours": "" if is_dept else _permission_label(permission_hours)[0],
+            "permission_excess": "" if is_dept else _permission_label(permission_hours)[1],
+            # Total OT minus only the Permission Hours beyond the monthly
+            # allowance. Genuinely allowed to go negative (they owe more
+            # time than they earned in OT) rather than floored at 0, since
+            # that's real information HR needs to see, not an error state.
             "paid_ot_hours": (
                 "" if is_dept
-                else metrics.format_hours_as_hm(float(total_ot) - float(permission_hours), allow_negative=True)
+                else metrics.format_hours_as_hm(
+                    float(total_ot) - max(0.0, float(permission_hours) - PERMISSION_ALLOWANCE_HOURS),
+                    allow_negative=True,
+                )
             ),
         })
 
@@ -3849,8 +3868,12 @@ def _ot_details_context(date_param: str | None) -> dict:
     # each row's own "paid_ot_hours" shows, summed the same way (from
     # grid["emp_ot_totals"]/emp_permission_hours) so the footer can never
     # drift from what the rows above it add up to.
+    # Only Permission Hours beyond each employee's monthly allowance
+    # (PERMISSION_ALLOWANCE_HOURS) are deducted.
     summary_total_paid_ot_hours = metrics.format_hours_as_hm(
-        sum(grid["emp_ot_totals"].values()) - sum(grid["emp_permission_hours"].values()), allow_negative=True
+        sum(grid["emp_ot_totals"].values())
+        - sum(max(0.0, float(h) - PERMISSION_ALLOWANCE_HOURS) for h in grid["emp_permission_hours"].values()),
+        allow_negative=True,
     )
 
     # Surfaced on the Monthly Summary tab as a callout — see

@@ -95,6 +95,21 @@
         table.month tfoot td { font-weight: 700; background: #FFF9B0; border-top: 2px solid #666; }
         table.month tfoot td.label { background: #FFF9B0; }
 
+        /* Freeze the date header row and the name column: the grid scrolls
+           inside its own box (both axes) so the sticky offsets are relative
+           to it. Borders don't travel with sticky cells under
+           border-collapse, so an inset box-shadow redraws them. */
+        .grid-scroll { overflow: auto; max-height: calc(100vh - 140px); }
+        table.month thead th { position: sticky; top: 0; z-index: 3; box-shadow: inset 0 -1px 0 #666; }
+        table.month td.label:not(.dept-header), table.month th.label {
+            position: sticky; left: 0; z-index: 2; box-shadow: inset -1px 0 0 #666;
+        }
+        table.month thead th.label { z-index: 4; }
+        /* The department row is one cell spanning every column, so the cell
+           itself can't stick; its text does instead. */
+        table.month td.dept-header { overflow: visible; text-overflow: clip; }
+        table.month td.dept-header .dept-title { position: sticky; left: 0.35rem; display: inline-block; }
+
         table.month td[data-tooltip] { cursor: help; position: relative; }
         /* Bump the hovered cell itself above the sticky .topbar (z-index
            30) — the ::after's own z-index only ranks it among its own
@@ -445,14 +460,14 @@
                                     {% for row in editable_table_rows %}
                                     <tr class="{% if row.is_dept %}dept{% elif row.is_ot_operator %}ot-operator-row{% endif %}">
                                         {% if row.is_dept %}
-                                            <td class="label dept-header" colspan="{{ total_cols }}"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</td>
+                                            <td class="label dept-header" colspan="{{ total_cols }}"><span class="dept-title"><span class="toggle-icon">▾</span>{{ row.label|slice:"2:" }}</span></td>
                                         {% else %}
                                             <td class="label" title="{{ row.label }}">{{ row.label }}</td>
                                         {% for cell in row.day_cells %}
                                             <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short and not cell.shift_flag %} short-hours{% endif %}{% if cell.edited_time %} edited-time{% endif %}{% if cell.edited_shift %} edited-shift{% endif %}{% if cell.edited_status %} edited-status{% endif %}{% if cell.edited_unknown %} edited-unknown{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}" data-edited-time="{% if cell.edited_time %}1{% endif %}" data-suggested-shift="{{ cell.suggested_shift }}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% elif cell.is_short and not cell.shift_flag %}-{{ cell.short_hours_label }}{% else %}{{ cell.value }}{% endif %}</td>
                                         {% endfor %}
                                             <td class="ot-total-highlight ot-total-col">{{ row.total_ot_label }}</td>
-                                            <td class="summary-highlight ot-total-col">{{ row.permission_hours }}</td>
+                                            <td class="summary-highlight ot-total-col">{{ row.permission_hours }}{% if row.permission_excess %} <span style="color:#d32f2f">{{ row.permission_excess }}</span>{% endif %}</td>
                                             <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.paid_ot_hours }}</td>
                                             <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
                                             <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.total_ot_amount }}</td>
