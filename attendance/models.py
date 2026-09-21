@@ -316,6 +316,36 @@ class SalaryAdjustment(models.Model):
         return f"{self.employee.code} {self.year}-{self.month:02d} ({self.tab or 'legacy'})"
 
 
+class OtAdjustment(models.Model):
+    """One employee's manual OT Hours correction for one month, entered on
+    the OT Details page's inline "OT Adj" cell. Deliberately kept OUT of
+    the shift-based OT table (attendance/views.py's _build_month_grid) —
+    "OT Hours" (and OT Amount/the Monthly Summary, both derived from it)
+    always stays the real, punch-derived figure. Only "Paid OT Hours" (OT
+    Hours + this adjustment, minus any Permission Hours excess) folds it
+    in, since that's the one number meant to answer "what should actually
+    get paid," not "what did the shift data say." For OT that genuinely
+    isn't recoverable from punch data at all (e.g. correcting a forgotten
+    shift code after the month's attendance has already been finalized).
+    Can be negative (a correction the other way), same as
+    SalaryAdjustment's deductions/additions."""
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="ot_adjustments")
+    year = models.IntegerField()
+    month = models.IntegerField()
+    hours = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    notes = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["employee", "year", "month"], name="unique_employee_ot_adjustment_month"),
+        ]
+        ordering = ["employee__code"]
+
+    def __str__(self):
+        return f"{self.employee.code} {self.year}-{self.month:02d} ({self.hours:+}h)"
+
+
 class PayrollSnapshot(models.Model):
     """One employee's fully-computed Salary row, frozen at the moment a
     Salary tab gets locked (see toggle_month_lock_view/_snapshot_salary_tab

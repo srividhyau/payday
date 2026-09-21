@@ -74,6 +74,8 @@
         table.month col.label-col { width: 100px; }
         table.month col.day-col { width: 34px; }
         table.month col.summary-col { width: 82px; }
+        table.month col.ot-adj-col { width: 75px; }
+        table.month th.ot-adj-cell, table.month td.ot-adj-cell { width: 75px; min-width: 75px; max-width: 75px; }
         table.month th {
             background: #FFF9B0;
             white-space: normal; overflow-wrap: break-word; line-height: 1.15; vertical-align: bottom;
@@ -340,6 +342,27 @@
             transition: border-color .15s ease;
         }
         .edit-modal input:focus, .edit-modal select:focus { outline: none; border-color: var(--navy); }
+
+        /* The "OT Adj" column's inline input — highlighted whenever it
+           actually holds a non-zero adjustment, so one that's set is
+           easy to spot at a glance across a whole department. Wrapped
+           with a static "h" suffix so the unit is always visible next
+           to the number, not just implied by the column header. */
+        .ot-adjust-inline-form { margin: 0; display: flex; align-items: center; gap: 0.2rem; }
+        .ot-adjust-suffix { font-size: 0.7rem; color: #666; flex-shrink: 0; }
+        .ot-adjust-input {
+            width: 100%; min-width: 0; box-sizing: border-box; font-size: 0.75rem; padding: 0.15rem 0.3rem;
+            border: 1px solid #999; border-radius: 4px; text-align: center; font-family: inherit;
+            /* This column is narrow — the native up/down spinner alone
+               was wide enough to push the actual number out of view.
+               Typing digits still works; only the spinner is hidden. */
+            -moz-appearance: textfield;
+        }
+        .ot-adjust-input::-webkit-outer-spin-button, .ot-adjust-input::-webkit-inner-spin-button {
+            -webkit-appearance: none; margin: 0;
+        }
+        .ot-adjust-input[value]:not([value=""]) { background: #FFF3B0; border-color: #EF6C00; }
+        .ot-adjust-input:disabled { background: #f0f0f0; color: #999; }
         .edit-modal input:disabled { background: #f0f0f0; color: #999; }
         .edit-modal .edit-staff-note { font-size: 0.75rem; color: #999; margin: -0.3rem 0 0.6rem; }
         .shift-toggle-label { font-size: 0.8rem; color: #444; margin-bottom: 0.35rem; }
@@ -457,6 +480,7 @@
                                     <col class="label-col">
                                     {% for d in day_headers %}<col class="day-col">{% endfor %}
                                     <col class="summary-col ot-total-col">
+                                    <col class="summary-col ot-total-col ot-adj-col">
                                     <col class="summary-col ot-total-col">
                                     <col class="summary-col ot-total-col">
                                     <col class="summary-col ot-total-col">
@@ -468,6 +492,7 @@
                                         <th class="label"></th>
                                         {% for d in day_headers %}<th class="editable-header {% if d.special %}special-{{ d.special }}{% endif %}" data-date="{{ d.date_iso }}" data-day-type="{{ d.special }}"><span class="dow">{{ d.dow }}</span>{{ d.label }}</th>{% endfor %}
                                         <th class="ot-total-col">OT Hours</th>
+                                        <th class="ot-total-col ot-adj-cell">OT Adj</th>
                                         <th class="ot-total-col">Permission Hrs</th>
                                         <th class="ot-total-col ot-highlight-col">Paid OT Hours</th>
                                         <th class="ot-total-col">OT Rate/hr</th>
@@ -486,6 +511,19 @@
                                             <td class="editable-cell {% if cell.issue %}punch-issue{% elif cell.special %}special-{{ cell.special }}{% elif cell.status == "EL" %}el-day{% endif %}{% if cell.shift_flag %} shift-flag-{{ cell.shift_flag }}{% endif %}{% if cell.gs_show_time %} gs-show-time{% endif %}{% if cell.suggested_shift %} gs-suggest-{{ cell.suggested_shift }}{% endif %}{% if cell.el_day_credit %} el-credit-cell{% endif %}{% if cell.is_short and not cell.shift_flag %} short-hours{% endif %}{% if cell.edited_time %} edited-time{% endif %}{% if cell.edited_shift %} edited-shift{% endif %}{% if cell.edited_status %} edited-status{% endif %}{% if cell.edited_unknown %} edited-unknown{% endif %}"{% if cell.title %} data-tooltip="{{ cell.title }}"{% endif %} data-emp="{{ cell.emp_code }}" data-date="{{ cell.date_iso }}" data-shift="{{ cell.shift }}" data-status="{{ cell.status }}" data-in="{{ cell.time_in }}" data-out="{{ cell.time_out }}" data-staff="{% if cell.is_staff %}1{% endif %}" data-value="{{ cell.value }}" data-shift-ot="{{ cell.shift_ot_hours }}" data-edited-time="{% if cell.edited_time %}1{% endif %}" data-suggested-shift="{{ cell.suggested_shift }}">{% if cell.status == "EL" %}-EL{% elif cell.el_day_credit %}+{{ cell.el_day_credit|floatformat:"-1" }} EL{% elif cell.is_short and not cell.shift_flag %}-{{ cell.short_hours_label }}{% else %}{{ cell.value }}{% endif %}</td>
                                         {% endfor %}
                                             <td class="ot-total-highlight ot-total-col">{{ row.total_ot_label }}</td>
+                                            <td class="summary-highlight ot-total-col ot-adj-cell">
+                                                <form method="post" action="{% url 'ot_adjustment_save' %}" class="ot-adjust-inline-form">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="emp_code" value="{{ row.day_cells.0.emp_code }}">
+                                                    <input type="hidden" name="year" value="{{ year }}">
+                                                    <input type="hidden" name="month" value="{{ month }}">
+                                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                    <input type="number" step="0.25" name="hours" class="ot-adjust-input"
+                                                        value="{{ row.ot_adjustment_hours }}" data-original="{{ row.ot_adjustment_hours }}"
+                                                        title="Manual OT adjustment for this month, in hours">
+                                                    <span class="ot-adjust-suffix">h</span>
+                                                </form>
+                                            </td>
                                             <td class="summary-highlight ot-total-col">{{ row.permission_hours }}{% if row.permission_excess %} <span style="color:#d32f2f">{{ row.permission_excess }}</span>{% endif %}</td>
                                             <td class="summary-highlight ot-total-col ot-highlight-col">{{ row.paid_ot_hours }}</td>
                                             <td class="summary-highlight ot-total-col">{{ row.ot_rate }}</td>
@@ -499,6 +537,7 @@
                                     <tr>
                                         <td class="label" colspan="{{ day_headers|length|add:1 }}">Total</td>
                                         <td class="ot-total-col">{{ summary_total_hours_label }}</td>
+                                        <td class="ot-total-col"></td>
                                         <td class="ot-total-col">{{ summary_total_permission_hours }}</td>
                                         <td class="ot-total-col ot-highlight-col">{{ summary_total_paid_ot_hours }}</td>
                                         <td class="ot-total-col"></td>
@@ -910,6 +949,49 @@
                 editOverlay.classList.remove('open');
                 document.body.classList.remove('modal-open');
             });
+
+            // Inline "OT Adj" cell — no popup, just a plain number input
+            // that submits its own tiny form (see the matching markup)
+            // when the value actually changes, same as leaving a normal
+            // text field and having it save. That's a real POST (a full
+            // page reload, so the refreshed totals are never stale) —
+            // the scroll position is saved just before submitting and
+            // restored once below, so the reload doesn't dump the page
+            // back at the top.
+            var gridScrollEl = document.querySelector('.grid-scroll');
+            grid.querySelectorAll('.ot-adjust-input').forEach(function (input) {
+                if (isOtLocked) { input.disabled = true; return; }
+                input.addEventListener('blur', function () {
+                    if (input.value !== input.dataset.original) {
+                        if (gridScrollEl) {
+                            sessionStorage.setItem('otGridScrollTop', gridScrollEl.scrollTop);
+                            sessionStorage.setItem('otGridScrollLeft', gridScrollEl.scrollLeft);
+                        }
+                        sessionStorage.setItem('otPageScrollY', window.scrollY);
+                        input.closest('form').submit();
+                    }
+                });
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') input.blur();
+                });
+            });
+            // One-shot restore — cleared right after reading, so it
+            // never fires again on an unrelated later visit/navigation
+            // (prev/next month, a plain refresh, etc.).
+            (function restoreScrollAfterInlineSave() {
+                var savedY = sessionStorage.getItem('otPageScrollY');
+                if (savedY !== null) {
+                    window.scrollTo(0, parseInt(savedY, 10) || 0);
+                    sessionStorage.removeItem('otPageScrollY');
+                }
+                var savedTop = sessionStorage.getItem('otGridScrollTop');
+                if (savedTop !== null && gridScrollEl) {
+                    gridScrollEl.scrollTop = parseInt(savedTop, 10) || 0;
+                    gridScrollEl.scrollLeft = parseInt(sessionStorage.getItem('otGridScrollLeft'), 10) || 0;
+                    sessionStorage.removeItem('otGridScrollTop');
+                    sessionStorage.removeItem('otGridScrollLeft');
+                }
+            })();
 
             var bulkOverlay = document.getElementById('bulkOverlay');
             grid.querySelectorAll('th.editable-header').forEach(function (th) {

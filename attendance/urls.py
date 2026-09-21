@@ -14,6 +14,7 @@ urlpatterns = [
     path("dashboard/", views.dashboard_view, name="dashboard"),
     path("reports/ot-details/", views.ot_details_view, name="ot_details"),
     path("reports/ot-details/download/", views.ot_details_download_view, name="ot_details_download"),
+    path("reports/ot-details/adjustment/", views.ot_adjustment_save_view, name="ot_adjustment_save"),
 
     path("calendar/", views.calendar_view, name="calendar"),
     path("edit-record/", views.edit_record_view, name="edit_record"),

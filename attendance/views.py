@@ -34,7 +34,7 @@ from .importer import import_dataframe, import_file
 from .middleware import EMPLOYEE_EDIT_GROUP
 from .models import (
     AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmploymentPeriod,
-    LeaveLedgerEntry, MonthLock, PayrollSnapshot, SalaryAdjustment, SpecialDay, UploadBatch,
+    LeaveLedgerEntry, MonthLock, OtAdjustment, PayrollSnapshot, SalaryAdjustment, SpecialDay, UploadBatch,
 )
 
 logger = logging.getLogger(__name__)
@@ -415,18 +415,30 @@ def _build_month_grid(
     full_day_map = full_day_map or {}
     working_days = metrics.infer_working_days(daily, special_days)
 
+    first_date = pd.Timestamp(daily["date"].iloc[0])
+
     # Shift-based OT (M-OT/E-OT/ME-OT/Full-OT), same calculation as the OT
     # Details report — drives every OT figure here except the day-cell's
     # bold-red OT text/background, which stays tied to special-day-worked
     # hours.
     shift_ot_table = metrics.overtime_view(daily)
-    # The day-cell hover tooltip uses the raw table (see time_labels
-    # below) — it should keep showing what was actually worked that day
-    # regardless of how the monthly total treats it.
+    # The day-cell hover tooltip uses this same raw table (see time_labels
+    # below) — it should keep showing what was actually worked that day.
     shift_ot_map = (
         {(r.emp_code, r.date): r.total_ot_hours for r in shift_ot_table.itertuples(index=False)}
         if not shift_ot_table.empty else {}
     )
+    # Manual OT correction (OtAdjustment, entered on the OT Details page)
+    # — deliberately NOT folded into shift_ot_table/emp_ot_totals: "OT
+    # Hours" (and OT Amount/the Monthly Summary, both derived from it)
+    # stays the real, punch-derived figure. Only "Paid OT Hours" (below)
+    # adds this on top, since that's the one number meant to answer
+    # "what should actually get paid," not "what did the shift data say."
+    ot_adjustments = list(
+        OtAdjustment.objects.filter(year=first_date.year, month=first_date.month)
+        .exclude(hours=0).select_related("employee")
+    )
+    emp_ot_adjustment_map = {adj.employee.code: adj for adj in ot_adjustments}
     staff_codes = (
         set(daily.loc[daily["subcategory"] == "Staff", "emp_code"])
         if "subcategory" in daily.columns else set()
@@ -442,7 +454,6 @@ def _build_month_grid(
     )
     emp_permission_hours = metrics.permission_hours_by_employee(daily, full_day_map)
 
-    first_date = pd.Timestamp(daily["date"].iloc[0])
     _, days_in_month = py_calendar.monthrange(first_date.year, first_date.month)
     dates = [
         pd.Timestamp(year=first_date.year, month=first_date.month, day=d)
@@ -681,6 +692,10 @@ def _build_month_grid(
         if not is_dept and isinstance(summary_cells[_EL_SUMMARY_COL_INDEX], (int, float)):
             summary_cells[_EL_SUMMARY_COL_INDEX] = el_days
         permission_hours = emp_permission_hours.get(row["Emp Code"], 0) if not is_dept else 0
+        ot_adjustment_hours = (
+            float(emp_ot_adjustment_map[row["Emp Code"]].hours)
+            if not is_dept and row["Emp Code"] in emp_ot_adjustment_map else 0.0
+        )
         table_rows.append({
             "label": row["Row Labels"],
             "is_dept": is_dept,
@@ -700,16 +715,25 @@ def _build_month_grid(
             # "used/allowance", plus the excess that comes out of OT.
             "permission_hours": "" if is_dept else _permission_label(permission_hours)[0],
             "permission_excess": "" if is_dept else _permission_label(permission_hours)[1],
-            # Total OT minus only the Permission Hours beyond the monthly
-            # allowance. Genuinely allowed to go negative (they owe more
-            # time than they earned in OT) rather than floored at 0, since
-            # that's real information HR needs to see, not an error state.
+            # Real (punch-derived) Total OT, plus the manual OT Adj on top,
+            # minus only the Permission Hours beyond the monthly allowance.
+            # Genuinely allowed to go negative (they owe more time than
+            # they earned in OT) rather than floored at 0, since that's
+            # real information HR needs to see, not an error state.
             "paid_ot_hours": (
                 "" if is_dept
                 else metrics.format_hours_as_hm(
-                    float(total_ot) - max(0.0, float(permission_hours) - PERMISSION_ALLOWANCE_HOURS),
+                    float(total_ot) + ot_adjustment_hours - max(0.0, float(permission_hours) - PERMISSION_ALLOWANCE_HOURS),
                     allow_negative=True,
                 )
+            ),
+            # Pre-fills the inline "OT Adj" cell with whatever's already
+            # saved for this employee this month (see OtAdjustment/
+            # ot_adjustment_save_view) — "" if there's none yet.
+            "ot_adjustment_hours": "" if is_dept or row["Emp Code"] not in emp_ot_adjustment_map else ot_adjustment_hours,
+            "ot_adjustment_notes": (
+                "" if is_dept or row["Emp Code"] not in emp_ot_adjustment_map
+                else emp_ot_adjustment_map[row["Emp Code"]].notes
             ),
         })
 
@@ -719,6 +743,10 @@ def _build_month_grid(
         "emp_ot_totals": emp_ot_totals,
         "emp_el_days": emp_el_days,
         "emp_permission_hours": emp_permission_hours,
+        # Company-wide total of every manual OT Adj this month, for the
+        # "Paid OT Hours" footer to add on top of emp_ot_totals the same
+        # way each row's own paid_ot_hours does.
+        "total_ot_adjustment_hours": sum(float(adj.hours) for adj in ot_adjustments),
         "issues": issues,
         "day_labels": day_labels,
         "day_headers": day_headers,
@@ -3868,10 +3896,13 @@ def _ot_details_context(date_param: str | None) -> dict:
     # each row's own "paid_ot_hours" shows, summed the same way (from
     # grid["emp_ot_totals"]/emp_permission_hours) so the footer can never
     # drift from what the rows above it add up to.
-    # Only Permission Hours beyond each employee's monthly allowance
-    # (PERMISSION_ALLOWANCE_HOURS) are deducted.
+    # Real Total OT, plus every manual OT Adj this month, minus only the
+    # Permission Hours beyond each employee's monthly allowance
+    # (PERMISSION_ALLOWANCE_HOURS) — same formula each row's own
+    # "paid_ot_hours" uses, so the footer can never drift from what the
+    # rows above it add up to.
     summary_total_paid_ot_hours = metrics.format_hours_as_hm(
-        sum(grid["emp_ot_totals"].values())
+        sum(grid["emp_ot_totals"].values()) + grid["total_ot_adjustment_hours"]
         - sum(max(0.0, float(h) - PERMISSION_ALLOWANCE_HOURS) for h in grid["emp_permission_hours"].values()),
         allow_negative=True,
     )
@@ -3911,9 +3942,9 @@ def _ot_details_context(date_param: str | None) -> dict:
         # Not grid["total_cols"] — that's sized for dashboard.html's grid,
         # which renders its own (longer) summary_cols (Work Days/Comp
         # Off/etc.) this report's grid never shows (label + day columns +
-        # Total OT/EL Days/Permission Hours/Paid OT Hours/OT Rate/OT
-        # Amount only).
-        "total_cols": 1 + len(grid["day_headers"]) + 6,
+        # Total OT/OT Adj/EL Days/Permission Hours/Paid OT Hours/OT Rate/
+        # OT Amount only).
+        "total_cols": 1 + len(grid["day_headers"]) + 7,
         "heat_colors": metrics.HEAT_COLORS,
         # For the editable OT View tab (moved here from the Attendance
         # dashboard) — the full roster (not just employees with OT this
@@ -3938,6 +3969,62 @@ def ot_details_view(request):
     Monthly View" Excel sheet, which is unaffected."""
     context = _ot_details_context(request.GET.get("date"))
     return render(request, "attendance/ot_details.html", context)
+
+
+@login_required
+def ot_adjustment_save_view(request):
+    """Saves one employee's manual OT Hours correction for one month
+    (OtAdjustment) — the OT page's OT View tab's inline "OT Adj" cell
+    submits straight here on blur, no popup. Folds into "Paid OT Hours"
+    only the next time the page is viewed (see OtAdjustment's own
+    docstring and _build_month_grid) — "OT Hours"/OT Amount/the Monthly
+    Summary tab stay the real, punch-derived figures. A blank/zero hours
+    clears any existing adjustment rather than saving a pointless zero
+    row. "notes" is only
+    ever set via the admin/shell (no UI field for it) — a POST that
+    doesn't include it leaves whatever's already there alone, rather
+    than blanking it just because the inline cell only ever submits
+    hours."""
+    next_url = request.POST.get("next") or "ot_details"
+    if request.method != "POST":
+        return redirect(next_url)
+
+    try:
+        year = int(request.POST.get("year"))
+        month = int(request.POST.get("month"))
+    except (TypeError, ValueError):
+        _error(request, "Could not save the OT adjustment — missing month.")
+        return redirect(next_url)
+
+    if MonthLock.objects.filter(year=year, month=month, view=MonthLock.VIEW_OT).exists():
+        _error(request, "This view is locked for this month — unlock it first to make changes.")
+        return redirect(next_url)
+
+    emp = Employee.objects.filter(code=request.POST.get("emp_code", "").strip()).first()
+    if not emp:
+        _error(request, "Could not save the OT adjustment — unknown employee.")
+        return redirect(next_url)
+
+    hours_raw = request.POST.get("hours", "").strip()
+    try:
+        hours = Decimal(hours_raw) if hours_raw else Decimal("0")
+    except InvalidOperation:
+        _error(request, "Enter a valid number of hours.")
+        return redirect(next_url)
+    if hours == 0:
+        OtAdjustment.objects.filter(employee=emp, year=year, month=month).delete()
+        messages.success(request, f"Cleared the OT adjustment for {emp.code} - {emp.name}.")
+    else:
+        defaults = {"hours": hours}
+        if "notes" in request.POST:
+            defaults["notes"] = request.POST.get("notes", "").strip()
+        OtAdjustment.objects.update_or_create(employee=emp, year=year, month=month, defaults=defaults)
+        messages.success(request, f"Saved a {hours:+}h OT adjustment for {emp.code} - {emp.name}.")
+    logger.info(
+        "OT adjustment saved: employee=%s %s-%s hours=%s by user=%s",
+        emp.code, year, month, hours, request.user,
+    )
+    return redirect(next_url)
 
 
 def _apply_grid_borders(ws, min_row: int, max_row: int, max_col: int) -> None:
