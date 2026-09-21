@@ -26,7 +26,17 @@ def import_dataframe(daily_df, file_name: str = "") -> UploadBatch:
     silently wipe out a manually-set OT shift code. An existing row that
     already has real punches is left completely untouched — the file is
     assumed stale for it. A genuinely new employee+date row is created
-    with everything straight from the file, including shift."""
+    with everything straight from the file, including shift.
+
+    Likewise, an *existing* Employee's department/category/subcategory are
+    HR-managed (set via the Employee form — e.g. an Operator/Bartrack/OT
+    combination that drives OT/Salary tab routing) and are never touched
+    by a re-upload, even if the device export's own values differ or say
+    something generic like "DefaultCategory". Only name/designation/
+    company (identity details the device export is authoritative for) get
+    refreshed on an existing employee. A genuinely new employee still gets
+    everything, including department/category/subcategory, straight from
+    the file."""
     if daily_df.empty:
         raise ValueError("No attendance rows found in that file.")
 
@@ -73,14 +83,9 @@ def import_dataframe(daily_df, file_name: str = "") -> UploadBatch:
             )
             if not created:
                 emp.name = row.emp_name
-                emp.department = dept
                 emp.designation = row.designation
                 emp.company = company
-                emp.category = category
-                emp.subcategory = subcategory
-                emp.save(update_fields=[
-                    "name", "department", "designation", "company", "category", "subcategory",
-                ])
+                emp.save(update_fields=["name", "designation", "company"])
             emp_cache[row.emp_code] = emp
 
         row_date = row.date.date()

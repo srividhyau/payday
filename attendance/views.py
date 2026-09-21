@@ -3842,6 +3842,18 @@ def _ot_details_context(date_param: str | None) -> dict:
     if daily.empty:
         return {"empty": True, "summary_rows": [], **month_nav}
 
+    # Same idea for Operators: piece-rate Operators (subcategory="Company"
+    # etc.) belong on the Attendance Dashboard, not this OT-specific page —
+    # only an Operator explicitly marked subcategory="OT" shows up here.
+    # (Recomputed against the now-narrower `daily` so the boolean masks
+    # share its index — reusing the Contractor-filter's `is_ot_marked`
+    # here would silently misalign after that filter dropped rows.)
+    is_operator = daily["department"].str.lower() == "operator"
+    is_ot_marked = daily["subcategory"].fillna("").str.lower() == "ot"
+    daily = daily[~is_operator | is_ot_marked]
+    if daily.empty:
+        return {"empty": True, "summary_rows": [], **month_nav}
+
     special_days, downgraded_special_days, skip_special_days = _special_days_and_downgrades()
     daily = metrics.apply_special_days(daily, special_days, downgraded_special_days, skip_special_days)
     emp_rate_map = dict(Employee.objects.values_list("code", "ot_rate_per_hour"))
