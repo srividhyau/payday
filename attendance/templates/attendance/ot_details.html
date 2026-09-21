@@ -92,16 +92,35 @@
         table.month td.dept-header { position: static; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
         table.month tr.dept:hover td { filter: brightness(0.97); }
         table.month .toggle-icon { display: inline-block; width: 0.9em; }
-        table.month tfoot td { font-weight: 700; background: #FFF9B0; border-top: 2px solid #666; }
+        /* Pinned to the bottom of .grid-scroll the same way thead is
+           pinned to the top (see below) — so the Total row is always on
+           screen without having to scroll to the exact end to find it,
+           rather than relying on scroll position/padding alone. */
+        table.month tfoot td {
+            font-weight: 700; background: #FFF9B0;
+            position: sticky; bottom: 0; z-index: 3; box-shadow: inset 0 1px 0 #666;
+        }
         table.month tfoot td.label { background: #FFF9B0; }
 
         /* Freeze the date header row and the name column: the grid scrolls
            inside its own box (both axes) so the sticky offsets are relative
            to it. Borders don't travel with sticky cells under
            border-collapse, so an inset box-shadow redraws them. */
-        .grid-scroll { overflow: auto; max-height: calc(100vh - 140px); }
+        /* Extra bottom room inside the scroll container — without it the
+           horizontal scrollbar sits flush against the Total row (the
+           last thing inside this box), making it look missing/cut off.
+           box-sizing keeps max-height the actual on-screen height rather
+           than growing taller by the padding amount. */
+        .grid-scroll { overflow: auto; max-height: calc(100vh - 140px); padding-bottom: 2.5rem; box-sizing: border-box; }
         table.month thead th { position: sticky; top: 0; z-index: 3; box-shadow: inset 0 -1px 0 #666; }
-        table.month td.label:not(.dept-header), table.month th.label {
+        /* Scoped to tbody only — the tfoot's own "Total" label cell
+           spans every column (colspan) and already sticks to the
+           bottom (see table.month tfoot td above); sticking it left
+           too, on top of that huge a colspan, renders unreliably across
+           browsers and was painting over the actual total figures next
+           to it (same issue colspan + sticky caused on the Piece Rate
+           page — it just doesn't pin colspan cells reliably). */
+        table.month tbody td.label:not(.dept-header), table.month th.label {
             position: sticky; left: 0; z-index: 2; box-shadow: inset -1px 0 0 #666;
         }
         table.month thead th.label { z-index: 4; }
