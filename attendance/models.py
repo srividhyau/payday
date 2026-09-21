@@ -383,6 +383,39 @@ class PayrollSnapshot(models.Model):
         return f"{self.employee.code} {self.year}-{self.month:02d} ({self.tab}) [frozen]"
 
 
+class EmployeeSnapshot(models.Model):
+    """A full copy of one Employee row's fields, frozen the moment ANY
+    MonthLock view (Attendance All/Missed Punch, OT View, or a Salary tab)
+    gets locked for a given (year, month) — see toggle_month_lock_view.
+    Unlike PayrollSnapshot (Salary-specific, only the fields the Salary
+    templates read, only for employees appearing in that tab's rows),
+    this covers every Employee field for every employee, regardless of
+    which view triggered the lock — so "what were this employee's
+    details when this month was locked" can always be answered later,
+    even for a purely-Attendance/OT lock that has no other snapshot at
+    all. Purely a record for reference/recovery: locking does not make
+    any page render from this instead of the live Employee row (only
+    PayrollSnapshot does that, for Salary tabs). Re-locking the same
+    (year, month, view) overwrites it with whatever's live at that later
+    lock time, same as PayrollSnapshot."""
+
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="detail_snapshots")
+    year = models.IntegerField()
+    month = models.IntegerField()
+    view = models.CharField(max_length=24)
+    data = models.JSONField(encoder=DjangoJSONEncoder)
+    created_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["employee", "year", "month", "view"], name="unique_employee_detail_snapshot"),
+        ]
+        ordering = ["employee__code"]
+
+    def __str__(self):
+        return f"{self.employee.code} {self.year}-{self.month:02d} ({self.view}) [details frozen]"
+
+
 class MonthLock(models.Model):
     """Marks one calendar month's attendance/payroll as frozen for one of
     several editable views — the Attendance dashboard's All and Missed

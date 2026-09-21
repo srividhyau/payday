@@ -33,8 +33,8 @@ from .forms import EmployeeForm, UploadForm
 from .importer import import_dataframe, import_file
 from .middleware import EMPLOYEE_EDIT_GROUP
 from .models import (
-    AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmploymentPeriod,
-    LeaveLedgerEntry, MonthLock, OtAdjustment, PayrollSnapshot, SalaryAdjustment, SpecialDay,
+    AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmployeeSnapshot,
+    EmploymentPeriod, LeaveLedgerEntry, MonthLock, OtAdjustment, PayrollSnapshot, SalaryAdjustment, SpecialDay,
     UploadBatch,
 )
 
@@ -1311,6 +1311,7 @@ def toggle_month_lock_view(request):
             lock_key = _SALARY_VIEW_TO_LOCK_KEY.get(view)
             if lock_key:
                 _snapshot_salary_tab(year, month, lock_key)
+            _snapshot_all_employee_details(year, month, view)
             MonthLock.objects.get_or_create(year=year, month=month, view=view)
         elif action == "unlock":
             MonthLock.objects.filter(year=year, month=month, view=view).delete()
@@ -2195,6 +2196,37 @@ def _snapshot_salary_tab(year: int, month: int, lock_key: str) -> None:
         PayrollSnapshot.objects.update_or_create(
             employee=emp, year=year, month=month, tab=kind,
             defaults={"row_data": row_data, "employee_data": employee_data},
+        )
+
+
+def _full_employee_snapshot_data(emp: Employee) -> dict:
+    """Every Employee field, for EmployeeSnapshot — deliberately broader
+    than _snapshot_salary_tab's employee_data (which only keeps the
+    fields the Salary templates read), so any lock (not just a Salary
+    tab) can freeze the complete record for later reference."""
+    return {
+        "id": emp.id, "code": emp.code, "name": emp.name, "designation": emp.designation,
+        "department_name": emp.department.name if emp.department else "",
+        "category": emp.category, "subcategory": emp.subcategory, "company": emp.company,
+        "ot_rate_per_hour": emp.ot_rate_per_hour, "basic_salary": emp.basic_salary,
+        "hra": emp.hra, "da": emp.da, "esi_number": emp.esi_number, "pf_number": emp.pf_number,
+        "esi_enabled": emp.esi_enabled, "pf_enabled": emp.pf_enabled, "tds_enabled": emp.tds_enabled,
+        "payment_method": emp.payment_method, "account_name": emp.account_name,
+        "bank_name": emp.bank_name, "account_no": emp.account_no, "ifsc_code": emp.ifsc_code,
+        "branch": emp.branch,
+    }
+
+
+def _snapshot_all_employee_details(year: int, month: int, view: str) -> None:
+    """Freezes every Employee's full field set into EmployeeSnapshot for
+    this (year, month, view) — called for every lock, not just Salary
+    tabs (see _snapshot_salary_tab for the narrower, Salary-specific
+    twin of this). Purely a record for later reference/recovery; nothing
+    reads it back to render a page."""
+    for emp in Employee.objects.select_related("department").all():
+        EmployeeSnapshot.objects.update_or_create(
+            employee=emp, year=year, month=month, view=view,
+            defaults={"data": _full_employee_snapshot_data(emp)},
         )
 
 
