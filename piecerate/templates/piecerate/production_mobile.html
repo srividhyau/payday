@@ -80,6 +80,13 @@
     .day-chip.has-qty { background: #e6f4ea; }
     .day-chip.today { box-shadow: inset 0 0 0 1.5px #0f1b2d; }
     .day-chip.entered-operator { background: #dbeafe; }
+    /* Marks the day most recently edited into pushing the operation
+       over its Order Qty — same magenta as the desktop grid's
+       qty-invalid cell, so "this is the one that's over" reads the
+       same way on both pages. Same specificity as has-qty/etc., placed
+       later so it wins when a day is both. */
+    .day-chip.qty-invalid { background: #fbe6fb; box-shadow: inset 0 0 0 1.5px #a400a4; }
+    .day-chip.qty-invalid .qty { color: #a400a4; }
     .corrected-dot {
         position: absolute; top: 2px; right: 2px; width: 7px; height: 7px;
         border-radius: 50%; background: #2563eb;
@@ -509,6 +516,14 @@
                     // drift from a concurrent edit elsewhere.
                     updateOpTotal(chip.dataset.opId, data.op_total);
                     updateCumulativeTitles(chip.dataset.opId);
+                    // Flags this day specifically as the one that's over,
+                    // matching the desktop grid's qty-invalid indicator —
+                    // cleared again once a later edit brings it back
+                    // under (or this same chip is re-saved once it no
+                    // longer is).
+                    var card = chip.closest('.op-card');
+                    var cardOrderQty = parseInt(card.dataset.orderQty, 10) || 0;
+                    chip.classList.toggle('qty-invalid', !!cardOrderQty && data.op_total > cardOrderQty);
                     closeDayEdit();
                 })
                 .catch(function () {

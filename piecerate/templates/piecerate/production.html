@@ -391,17 +391,21 @@
             return sum;
         }
 
-        // Native title-attribute tooltip on each day cell: this
-        // operator's own running total through that day, every
-        // operator's combined running total through that day, and the
-        // operation's Order Qty — same three figures as the "changing an
-        // existing value" confirm popup, so hovering answers "are we
-        // short or over as of here" without opening anything. Every
-        // operator row for the same operation has the same day columns
-        // in the same order, so a single lockstep walk across all of
-        // them gives both running totals in one pass. Re-run whenever
-        // any of the operation's values change so hovering never shows
-        // a stale number.
+        // Two things, in one lockstep walk across every operator row for
+        // the operation (they share the same day columns in the same
+        // order, so day-by-day is safe):
+        //   1. Each cell's title tooltip — this operator's own running
+        //      total through that day, every operator's combined running
+        //      total through that day, and the Order Qty.
+        //   2. Which cells are actually "in excess" — not every cell in
+        //      an over-limit operation, only the filled ones from the day
+        //      the combined running total first crossed the Order Qty
+        //      onward (earlier days were still within budget at the
+        //      time). This is the qty-invalid class the confirm-to-save
+        //      flow below also uses, so a cell that's over stays visibly
+        //      marked after load/save, not just while actively typing.
+        // Re-run whenever any of the operation's values change so
+        // neither the tooltip nor the marked cells go stale.
         function updateCumulativeTitles(opId) {
             var opRow = document.querySelector('tr.op-row[data-op-id="' + opId + '"]');
             var orderQty = opRow ? (parseInt(opRow.dataset.orderQty, 10) || 0) : 0;
@@ -417,13 +421,17 @@
                     dayTotal += parseInt(rowInputs[i][d].value, 10) || 0;
                 }
                 allRunning += dayTotal;
+                var overAsOfThisDay = !!orderQty && allRunning > orderQty;
                 for (var j = 0; j < rowInputs.length; j++) {
-                    rowRunning[j] += parseInt(rowInputs[j][d].value, 10) || 0;
-                    var td = rowInputs[j][d].closest('td');
+                    var dayInput = rowInputs[j][d];
+                    var qty = parseInt(dayInput.value, 10) || 0;
+                    rowRunning[j] += qty;
+                    var td = dayInput.closest('td');
                     if (td) {
                         td.title = 'Operator: ' + rowRunning[j] + '\nAll Operators: ' + allRunning +
                             '\nOrder Qty: ' + (orderQty || 'Not set');
                     }
+                    dayInput.classList.toggle('qty-invalid', overAsOfThisDay && qty > 0);
                 }
             }
         }
@@ -607,7 +615,6 @@
 
             input.addEventListener('input', function () {
                 var tr = input.closest('tr');
-                input.classList.toggle('qty-invalid', checkOverLimit(input).over);
                 tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
                 updateOpTotal(input.dataset.rateCardOperationId);
                 updateCumulativeTitles(input.dataset.rateCardOperationId);
@@ -621,7 +628,6 @@
                 input.value = previousValue;
                 var tr = input.closest('tr');
                 tr.querySelector('.row-total-cell').textContent = rowTotal(tr);
-                input.classList.toggle('qty-invalid', checkOverLimit(input).over);
                 updateOpTotal(input.dataset.rateCardOperationId);
                 updateCumulativeTitles(input.dataset.rateCardOperationId);
             }
@@ -630,8 +636,8 @@
                 if (input.value === input.dataset.lastGoodValue) return;
                 var previousValue = input.dataset.lastGoodValue;
 
-                if (input.classList.contains('qty-invalid')) {
-                    var status = checkOverLimit(input);
+                var status = checkOverLimit(input);
+                if (status.over) {
                     if (!confirm(
                         'This would bring the total to ' + status.hypothetical + ', which exceeds the Order Qty of ' +
                         status.orderQty + '. Save anyway?'
