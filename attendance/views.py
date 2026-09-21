@@ -34,7 +34,8 @@ from .importer import import_dataframe, import_file
 from .middleware import EMPLOYEE_EDIT_GROUP
 from .models import (
     AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmploymentPeriod,
-    LeaveLedgerEntry, MonthLock, OtAdjustment, PayrollSnapshot, SalaryAdjustment, SpecialDay, UploadBatch,
+    LeaveLedgerEntry, MonthLock, OtAdjustment, PayrollSnapshot, SalaryAdjustment, SpecialDay,
+    UploadBatch,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,17 @@ logger = logging.getLogger(__name__)
 
 # Permission Hours allowed per month; anything beyond is deducted from OT.
 PERMISSION_ALLOWANCE_HOURS = 2.0
+
+
+def _split_hours_minutes(decimal_hours: float) -> tuple[str, int]:
+    """Decimal hours (e.g. -2.5) -> ("-2", 30) for the OT Adj cell's two
+    separate Hours/Minutes inputs — the sign lives on the hours part
+    (as text, so "-0" is representable for a sub-hour negative
+    adjustment) while minutes is always a plain 0-59 magnitude; the JS
+    that recombines them on blur mirrors this exactly (see ot_details.html)."""
+    sign = -1 if decimal_hours < 0 else 1
+    whole, minutes = divmod(round(abs(decimal_hours) * 60), 60)
+    return (f"-{whole}" if sign < 0 else str(whole)), minutes
 
 
 def _permission_label(permission_hours) -> tuple[str, str]:
@@ -677,7 +689,23 @@ def _build_month_grid(
         summary_cells = [row[c] for c in summary_cols]
         total_ot = emp_ot_totals.get(row["Emp Code"], 0) if not is_dept else 0
         ot_rate = float(emp_rate_map.get(row["Emp Code"], 0)) if not is_dept else 0
-        total_ot_amount = float(total_ot) * ot_rate if not is_dept else 0
+        permission_hours = emp_permission_hours.get(row["Emp Code"], 0) if not is_dept else 0
+        ot_adjustment_hours = (
+            float(emp_ot_adjustment_map[row["Emp Code"]].hours)
+            if not is_dept and row["Emp Code"] in emp_ot_adjustment_map else 0.0
+        )
+        # What actually gets paid — real Total OT, plus the manual OT
+        # Adj, minus only the Permission Hours beyond the monthly
+        # allowance — is what OT Amount is computed from, not the raw
+        # Total OT alone, so Amount always matches "Paid OT Hours" x
+        # rate rather than silently ignoring a correction sitting right
+        # next to it in the same row.
+        paid_ot_hours_decimal = (
+            float(total_ot) + ot_adjustment_hours
+            - max(0.0, float(permission_hours) - PERMISSION_ALLOWANCE_HOURS)
+            if not is_dept else 0.0
+        )
+        total_ot_amount = paid_ot_hours_decimal * ot_rate if not is_dept else 0
         el_days = emp_el_days.get(row["Emp Code"], 0) if not is_dept else 0
         # The summary table's own "EL" column (from month_attendance_view)
         # is a different, older calculation that deliberately excludes a
@@ -691,11 +719,6 @@ def _build_month_grid(
         # aggregated from the older figure; not revisited here).
         if not is_dept and isinstance(summary_cells[_EL_SUMMARY_COL_INDEX], (int, float)):
             summary_cells[_EL_SUMMARY_COL_INDEX] = el_days
-        permission_hours = emp_permission_hours.get(row["Emp Code"], 0) if not is_dept else 0
-        ot_adjustment_hours = (
-            float(emp_ot_adjustment_map[row["Emp Code"]].hours)
-            if not is_dept and row["Emp Code"] in emp_ot_adjustment_map else 0.0
-        )
         table_rows.append({
             "label": row["Row Labels"],
             "is_dept": is_dept,
@@ -716,21 +739,27 @@ def _build_month_grid(
             "permission_hours": "" if is_dept else _permission_label(permission_hours)[0],
             "permission_excess": "" if is_dept else _permission_label(permission_hours)[1],
             # Real (punch-derived) Total OT, plus the manual OT Adj on top,
-            # minus only the Permission Hours beyond the monthly allowance.
+            # minus only the Permission Hours beyond the monthly allowance
+            # — same figure total_ot_amount above was computed from.
             # Genuinely allowed to go negative (they owe more time than
             # they earned in OT) rather than floored at 0, since that's
             # real information HR needs to see, not an error state.
-            "paid_ot_hours": (
-                "" if is_dept
-                else metrics.format_hours_as_hm(
-                    float(total_ot) + ot_adjustment_hours - max(0.0, float(permission_hours) - PERMISSION_ALLOWANCE_HOURS),
-                    allow_negative=True,
-                )
-            ),
+            "paid_ot_hours": "" if is_dept else metrics.format_hours_as_hm(paid_ot_hours_decimal, allow_negative=True),
             # Pre-fills the inline "OT Adj" cell with whatever's already
             # saved for this employee this month (see OtAdjustment/
-            # ot_adjustment_save_view) — "" if there's none yet.
+            # ot_adjustment_save_view) — "" if there's none yet. Split
+            # into separate Hours/Minutes for the two visible inputs;
+            # the combined decimal is what the hidden field/server
+            # actually stores (see _split_hours_minutes).
             "ot_adjustment_hours": "" if is_dept or row["Emp Code"] not in emp_ot_adjustment_map else ot_adjustment_hours,
+            "ot_adjustment_hours_whole": (
+                "" if is_dept or row["Emp Code"] not in emp_ot_adjustment_map
+                else _split_hours_minutes(ot_adjustment_hours)[0]
+            ),
+            "ot_adjustment_minutes": (
+                "" if is_dept or row["Emp Code"] not in emp_ot_adjustment_map
+                else _split_hours_minutes(ot_adjustment_hours)[1]
+            ),
             "ot_adjustment_notes": (
                 "" if is_dept or row["Emp Code"] not in emp_ot_adjustment_map
                 else emp_ot_adjustment_map[row["Emp Code"]].notes
@@ -3892,10 +3921,6 @@ def _ot_details_context(date_param: str | None) -> dict:
     summary_total_amount = round(sum(r["ot_amount"] for r in summary_rows if not r["is_dept"]), 2)
     summary_total_el_days = sum(grid["emp_el_days"].values())
     summary_total_permission_hours = metrics.format_hours_as_hm(sum(grid["emp_permission_hours"].values()))
-    # Total OT minus Permission Hours, company-wide — same net figure
-    # each row's own "paid_ot_hours" shows, summed the same way (from
-    # grid["emp_ot_totals"]/emp_permission_hours) so the footer can never
-    # drift from what the rows above it add up to.
     # Real Total OT, plus every manual OT Adj this month, minus only the
     # Permission Hours beyond each employee's monthly allowance
     # (PERMISSION_ALLOWANCE_HOURS) — same formula each row's own

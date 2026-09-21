@@ -63,8 +63,13 @@
         /* --- Full Monthly OT grid (same look/logic as the dashboard's OT
            View tab, permanently on instead of toggled — see
            attendance/views.py _build_month_grid) --- */
+        /* No overflow/height constraint at all — the table just flows
+           into the page's own scroll (both directions), which is what
+           lets thead/tfoot's sticky positioning below bind to the
+           actual viewport instead of a confined inner box (see the
+           comment further down explaining why those two can't coexist
+           on the same element). */
         .grid-scroll {
-            overflow-x: auto;
             border: 1px solid var(--border);
             border-radius: 10px;
             max-width: 100%;
@@ -74,8 +79,8 @@
         table.month col.label-col { width: 100px; }
         table.month col.day-col { width: 34px; }
         table.month col.summary-col { width: 82px; }
-        table.month col.ot-adj-col { width: 75px; }
-        table.month th.ot-adj-cell, table.month td.ot-adj-cell { width: 75px; min-width: 75px; max-width: 75px; }
+        table.month col.ot-adj-col { width: 135px; }
+        table.month th.ot-adj-cell, table.month td.ot-adj-cell { width: 135px; min-width: 135px; max-width: 135px; }
         table.month th {
             background: #FFF9B0;
             white-space: normal; overflow-wrap: break-word; line-height: 1.15; vertical-align: bottom;
@@ -94,38 +99,45 @@
         table.month td.dept-header { position: static; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
         table.month tr.dept:hover td { filter: brightness(0.97); }
         table.month .toggle-icon { display: inline-block; width: 0.9em; }
-        /* Pinned to the bottom of .grid-scroll the same way thead is
-           pinned to the top (see below) — so the Total row is always on
-           screen without having to scroll to the exact end to find it,
-           rather than relying on scroll position/padding alone. */
-        table.month tfoot td {
-            font-weight: 700; background: #FFF9B0;
-            position: sticky; bottom: 0; z-index: 3; box-shadow: inset 0 1px 0 #666;
-        }
-        table.month tfoot td.label { background: #FFF9B0; }
-
-        /* Freeze the date header row and the name column: the grid scrolls
-           inside its own box (both axes) so the sticky offsets are relative
-           to it. Borders don't travel with sticky cells under
-           border-collapse, so an inset box-shadow redraws them. */
-        /* Extra bottom room inside the scroll container — without it the
-           horizontal scrollbar sits flush against the Total row (the
-           last thing inside this box), making it look missing/cut off.
-           box-sizing keeps max-height the actual on-screen height rather
-           than growing taller by the padding amount. */
-        .grid-scroll { overflow: auto; max-height: calc(100vh - 140px); padding-bottom: 2.5rem; box-sizing: border-box; }
-        table.month thead th { position: sticky; top: 0; z-index: 3; box-shadow: inset 0 -1px 0 #666; }
+        /* Freeze the date header row and the name column. No wrapping
+           div here has its own overflow/scroll anymore (see .grid-scroll
+           above) — sticky positioning always binds to the NEAREST
+           ancestor that actually scrolls, and CSS won't let one axis
+           stay "visible" while the other is "auto"/"scroll" on the same
+           element (a real spec quirk, not a bug) — so keeping a
+           horizontally-scrolling inner box would have silently made
+           these bind to that box instead of the page, undoing the
+           "freeze while scrolling the page" effect entirely. With
+           nothing clipping in between, they bind to the real viewport,
+           same as the sticky .topbar already does — hence the 56px
+           offset below, matching its rendered height (see
+           piecerate/rate_card.html's identical sticky-header offset).
+           Borders don't travel with sticky cells under border-collapse,
+           so an inset box-shadow redraws them. */
+        table.month thead th { position: sticky; top: 56px; z-index: 3; box-shadow: inset 0 -1px 0 #666; }
         /* Scoped to tbody only — the tfoot's own "Total" label cell
-           spans every column (colspan) and already sticks to the
-           bottom (see table.month tfoot td above); sticking it left
-           too, on top of that huge a colspan, renders unreliably across
-           browsers and was painting over the actual total figures next
-           to it (same issue colspan + sticky caused on the Piece Rate
-           page — it just doesn't pin colspan cells reliably). */
+           spans every column (colspan); sticking it left too, on top of
+           that huge a colspan, renders unreliably across browsers and
+           was painting over the actual total figures next to it (same
+           issue colspan + sticky caused on the Piece Rate page — it
+           just doesn't pin colspan cells reliably). */
         table.month tbody td.label:not(.dept-header), table.month th.label {
             position: sticky; left: 0; z-index: 2; box-shadow: inset -1px 0 0 #666;
         }
         table.month thead th.label { z-index: 4; }
+        /* Total row, back in the table itself so its numbers line up
+           under the right columns (a separate bar below couldn't match
+           column widths). Sticky to the bottom of the real viewport —
+           same reasoning as thead above — except for the wide "Total"
+           label cell (colspan across every day column), which is the
+           worst case for the border-collapse + position:sticky bleed-
+           through glitch, so it scrolls normally instead of fighting it
+           for a label that doesn't carry any figures. */
+        table.month tfoot td { font-weight: 700; background: #FFF9B0; }
+        table.month tfoot td.label { border-top: 2px solid #666; }
+        table.month tfoot td:not(.label) {
+            position: sticky; bottom: 0; z-index: 20; box-shadow: inset 0 1px 0 #666;
+        }
         /* The department row is one cell spanning every column, so the cell
            itself can't stick; its text does instead. */
         table.month td.dept-header { overflow: visible; text-overflow: clip; }
@@ -145,12 +157,10 @@
             padding: 0.35rem 0.7rem; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             z-index: 10; pointer-events: none;
         }
-        /* .grid-scroll's overflow-x: auto forces its overflow-y to an
-           effective "auto" too (a standard CSS quirk — the two axes
-           can't independently be visible/auto), which clips a tooltip
-           popping upward off the top of the scroll container — so for
-           the first few rows, where there's no room above to pop into,
-           flip it to open downward instead. */
+        /* For the first few rows there's little/no room above to pop a
+           tooltip upward into (whether that's the very top of the page,
+           or just below the sticky thead) — flip it to open downward
+           instead so it's never clipped or hidden behind the header. */
         table.month tbody tr:nth-child(-n+3) td[data-tooltip]:hover::after {
             bottom: auto; top: 100%; margin-bottom: 0; margin-top: 6px;
         }
@@ -343,26 +353,27 @@
         }
         .edit-modal input:focus, .edit-modal select:focus { outline: none; border-color: var(--navy); }
 
-        /* The "OT Adj" column's inline input — highlighted whenever it
-           actually holds a non-zero adjustment, so one that's set is
-           easy to spot at a glance across a whole department. Wrapped
-           with a static "h" suffix so the unit is always visible next
-           to the number, not just implied by the column header. */
-        .ot-adjust-inline-form { margin: 0; display: flex; align-items: center; gap: 0.2rem; }
+        /* The "OT Adj" column's two inline inputs (Hours/Minutes) —
+           highlighted whenever either actually holds a value, so one
+           that's set is easy to spot at a glance across a whole
+           department. Each has a static suffix ("h"/"m") so the unit
+           is always visible, not just implied by the column header. */
+        .ot-adjust-inline-form { margin: 0; display: flex; align-items: center; gap: 0.15rem; }
         .ot-adjust-suffix { font-size: 0.7rem; color: #666; flex-shrink: 0; }
-        .ot-adjust-input {
-            width: 100%; min-width: 0; box-sizing: border-box; font-size: 0.75rem; padding: 0.15rem 0.3rem;
+        .ot-adjust-h, .ot-adjust-m {
+            width: 2.6em; min-width: 0; box-sizing: border-box; font-size: 0.75rem; padding: 0.15rem 0.2rem;
             border: 1px solid #999; border-radius: 4px; text-align: center; font-family: inherit;
-            /* This column is narrow — the native up/down spinner alone
-               was wide enough to push the actual number out of view.
+            /* The native up/down spinner alone was wide enough to push
+               the actual number out of view in a box this narrow.
                Typing digits still works; only the spinner is hidden. */
             -moz-appearance: textfield;
         }
-        .ot-adjust-input::-webkit-outer-spin-button, .ot-adjust-input::-webkit-inner-spin-button {
+        .ot-adjust-h::-webkit-outer-spin-button, .ot-adjust-h::-webkit-inner-spin-button,
+        .ot-adjust-m::-webkit-outer-spin-button, .ot-adjust-m::-webkit-inner-spin-button {
             -webkit-appearance: none; margin: 0;
         }
-        .ot-adjust-input[value]:not([value=""]) { background: #FFF3B0; border-color: #EF6C00; }
-        .ot-adjust-input:disabled { background: #f0f0f0; color: #999; }
+        .ot-adjust-h[value]:not([value=""]), .ot-adjust-m[value]:not([value=""]) { background: #FFF3B0; border-color: #EF6C00; }
+        .ot-adjust-h:disabled, .ot-adjust-m:disabled { background: #f0f0f0; color: #999; }
         .edit-modal input:disabled { background: #f0f0f0; color: #999; }
         .edit-modal .edit-staff-note { font-size: 0.75rem; color: #999; margin: -0.3rem 0 0.6rem; }
         .shift-toggle-label { font-size: 0.8rem; color: #444; margin-bottom: 0.35rem; }
@@ -518,10 +529,14 @@
                                                     <input type="hidden" name="year" value="{{ year }}">
                                                     <input type="hidden" name="month" value="{{ month }}">
                                                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                                    <input type="number" step="0.25" name="hours" class="ot-adjust-input"
-                                                        value="{{ row.ot_adjustment_hours }}" data-original="{{ row.ot_adjustment_hours }}"
-                                                        title="Manual OT adjustment for this month, in hours">
+                                                    <input type="hidden" name="hours" class="ot-adjust-combined"
+                                                        value="{{ row.ot_adjustment_hours }}" data-original="{{ row.ot_adjustment_hours }}">
+                                                    <input type="number" step="1" class="ot-adjust-h"
+                                                        value="{{ row.ot_adjustment_hours_whole }}" placeholder="0" title="Hours">
                                                     <span class="ot-adjust-suffix">h</span>
+                                                    <input type="number" step="1" min="0" max="59" class="ot-adjust-m"
+                                                        value="{{ row.ot_adjustment_minutes }}" placeholder="0" title="Minutes">
+                                                    <span class="ot-adjust-suffix">m</span>
                                                 </form>
                                             </td>
                                             <td class="summary-highlight ot-total-col">{{ row.permission_hours }}{% if row.permission_excess %} <span style="color:#d32f2f">{{ row.permission_excess }}</span>{% endif %}</td>
@@ -950,29 +965,55 @@
                 document.body.classList.remove('modal-open');
             });
 
-            // Inline "OT Adj" cell — no popup, just a plain number input
-            // that submits its own tiny form (see the matching markup)
-            // when the value actually changes, same as leaving a normal
-            // text field and having it save. That's a real POST (a full
-            // page reload, so the refreshed totals are never stale) —
-            // the scroll position is saved just before submitting and
-            // restored once below, so the reload doesn't dump the page
-            // back at the top.
-            var gridScrollEl = document.querySelector('.grid-scroll');
-            grid.querySelectorAll('.ot-adjust-input').forEach(function (input) {
-                if (isOtLocked) { input.disabled = true; return; }
-                input.addEventListener('blur', function () {
-                    if (input.value !== input.dataset.original) {
-                        if (gridScrollEl) {
-                            sessionStorage.setItem('otGridScrollTop', gridScrollEl.scrollTop);
-                            sessionStorage.setItem('otGridScrollLeft', gridScrollEl.scrollLeft);
-                        }
+            // Inline "OT Adj" cell — two plain number inputs (Hours,
+            // Minutes; no popup) that combine into the form's hidden
+            // "hours" field and submit that same tiny form (see the
+            // matching markup) once focus actually leaves BOTH of them,
+            // same as leaving a normal text field and having it save.
+            // Checking on every individual blur instead would fire a
+            // premature save while just tabbing from Hours into
+            // Minutes — focusout's relatedTarget is what lets this tell
+            // "moved to the sibling field" apart from "actually done."
+            // The sign lives on the Hours field's text (so "-0" means a
+            // sub-hour negative adjustment); Minutes is always 0-59,
+            // taken in that same direction — see _split_hours_minutes
+            // for the exact inverse used to pre-fill these two fields.
+            // The submit is a real POST (a full page reload, so the
+            // refreshed totals are never stale) — the page's own scroll
+            // position (both axes — the grid has no scroll box of its
+            // own anymore, so this IS the scroll that matters) is saved
+            // just before submitting and restored once below, so the
+            // reload doesn't dump the page back at the top-left corner.
+            grid.querySelectorAll('.ot-adjust-inline-form').forEach(function (form) {
+                var hInput = form.querySelector('.ot-adjust-h');
+                var mInput = form.querySelector('.ot-adjust-m');
+                var combinedInput = form.querySelector('.ot-adjust-combined');
+                if (isOtLocked) { hInput.disabled = true; mInput.disabled = true; return; }
+
+                function trySubmit() {
+                    var mVal = Math.max(0, Math.min(59, parseInt(mInput.value, 10) || 0));
+                    var hRaw = (hInput.value || '').trim();
+                    var negative = hRaw.charAt(0) === '-';
+                    var hAbs = Math.abs(parseInt(hRaw, 10) || 0);
+                    var combined = hAbs + mVal / 60;
+                    if (negative) combined = -combined;
+                    var combinedStr = combined.toFixed(4);
+                    if (parseFloat(combinedStr) !== parseFloat(combinedInput.dataset.original || '0')) {
+                        combinedInput.value = combinedStr;
+                        sessionStorage.setItem('otPageScrollX', window.scrollX);
                         sessionStorage.setItem('otPageScrollY', window.scrollY);
-                        input.closest('form').submit();
+                        form.submit();
                     }
+                }
+
+                form.addEventListener('focusout', function (e) {
+                    if (e.relatedTarget && form.contains(e.relatedTarget)) return;
+                    trySubmit();
                 });
-                input.addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter') input.blur();
+                [hInput, mInput].forEach(function (input) {
+                    input.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter') input.blur();
+                    });
                 });
             });
             // One-shot restore — cleared right after reading, so it
@@ -981,15 +1022,9 @@
             (function restoreScrollAfterInlineSave() {
                 var savedY = sessionStorage.getItem('otPageScrollY');
                 if (savedY !== null) {
-                    window.scrollTo(0, parseInt(savedY, 10) || 0);
+                    window.scrollTo(parseInt(sessionStorage.getItem('otPageScrollX'), 10) || 0, parseInt(savedY, 10) || 0);
+                    sessionStorage.removeItem('otPageScrollX');
                     sessionStorage.removeItem('otPageScrollY');
-                }
-                var savedTop = sessionStorage.getItem('otGridScrollTop');
-                if (savedTop !== null && gridScrollEl) {
-                    gridScrollEl.scrollTop = parseInt(savedTop, 10) || 0;
-                    gridScrollEl.scrollLeft = parseInt(sessionStorage.getItem('otGridScrollLeft'), 10) || 0;
-                    sessionStorage.removeItem('otGridScrollTop');
-                    sessionStorage.removeItem('otGridScrollLeft');
                 }
             })();
 
