@@ -1569,11 +1569,27 @@ def _build_simple_month_grid(dept, year: int, month: int) -> dict:
     dashboard's pandas-based _build_month_grid, which draws from a
     different data source (_load_daily_data)."""
     _, days_in_month = py_calendar.monthrange(year, month)
+    # SpecialDay(H/PH/CO) — same source every other page (Calendar, OT
+    # Details, Dashboard) reads for a holiday's type — plus a plain
+    # Sunday (weekday() == 6) with no SpecialDay override, matching the
+    # Holiday Calendar's own per-Sunday shading (see calendar.html's
+    # nth-child(7) rule). Either one only ever fills in for a day that
+    # has no real AttendanceRecord at all — an employee who actually has
+    # a recorded status that day (even "P", working a Sunday) always
+    # shows their real status instead.
+    special_day_types = {
+        sd.date: sd.day_type
+        for sd in SpecialDay.objects.filter(date__year=year, date__month=month)
+    }
     day_headers = [
         {
             "day": d,
             "dow": _DOW_LABELS[date_cls(year, month, d).weekday()],
             "date_iso": date_cls(year, month, d).isoformat(),
+            "fallback_status": (
+                special_day_types.get(date_cls(year, month, d))
+                or ("WO" if date_cls(year, month, d).weekday() == 6 else "")
+            ),
         }
         for d in range(1, days_in_month + 1)
     ]
@@ -1590,39 +1606,73 @@ def _build_simple_month_grid(dept, year: int, month: int) -> dict:
             employee__in=employees, date__year=year, date__month=month
         ).values("employee_id", "date", "status")
     }
+    today = date_cls.today()
     total_days = len(day_headers)
     day_totals = [0] * total_days
+    day_absent_totals = [0] * total_days
     table_rows = []
     for emp in employees:
-        cells = [
-            {
+        cells = []
+        for d in day_headers:
+            is_future = date_cls(year, month, d["day"]) > today
+            # A future day's own attendance is unknowable (no fill), but
+            # a SpecialDay/Sunday is a calendar fact known in advance —
+            # a future Holiday/Comp Off/Week Off still shows its real
+            # color; only a plain future workday with nothing declared
+            # stays blank.
+            raw_status = "" if is_future else status_map.get((emp.id, d["day"]), "")
+            # A SpecialDay/Sunday fallback wins over a blank OR an
+            # explicit "A" — the device import stamps a no-punch day as
+            # Absent regardless of whether it's actually a declared
+            # holiday, so without this a real Holiday/Comp Off/Week Off
+            # still shows red instead of its real color (see
+            # metrics.apply_special_days, which unconditionally
+            # overwrites status the same way for the same reason). Any
+            # OTHER real status (P, HD, PL, …) still shows as-is — only
+            # "nothing recorded" and "recorded absent" get overridden.
+            status = raw_status
+            if (not raw_status or raw_status == "A") and d["fallback_status"]:
+                status = d["fallback_status"]
+            cells.append({
                 "day": d["day"],
                 "date_iso": d["date_iso"],
-                "status": status_map.get((emp.id, d["day"]), ""),
-            }
-            for d in day_headers
-        ]
+                "status": status,
+                "is_future": is_future,
+            })
         present_count = 0
         absent_count = 0
+        elapsed_days = 0
         for i, c in enumerate(cells):
+            if c["is_future"]:
+                continue
+            elapsed_days += 1
             if c["status"] == "P":
                 present_count += 1
                 day_totals[i] += 1
-            elif not c["status"]:
+            # Blank (no record at all) and an explicit "A" read the same
+            # way here — neither is a real distinct status worth telling
+            # apart on this summary-only grid, just "not present".
+            elif not c["status"] or c["status"] == "A":
                 absent_count += 1
+                day_absent_totals[i] += 1
         table_rows.append({
             "employee": emp,
             "cells": cells,
             "present_count": present_count,
-            "total_days": total_days,
-            "percent_absent": round(absent_count / total_days * 100) if total_days else 0,
+            "total_days": elapsed_days,
+            "percent_absent": round(absent_count / elapsed_days * 100) if elapsed_days else 0,
         })
 
+    day_grand_totals = [p + a for p, a in zip(day_totals, day_absent_totals)]
     return {
         "day_headers": day_headers,
         "table_rows": table_rows,
         "day_totals": day_totals,
+        "day_absent_totals": day_absent_totals,
+        "day_grand_totals": day_grand_totals,
         "total_present": sum(day_totals),
+        "total_absent": sum(day_absent_totals),
+        "total_days_count": sum(day_grand_totals),
     }
 
 
@@ -1842,7 +1892,11 @@ def mark_attendance_month_view(request):
         "day_headers": grid["day_headers"],
         "table_rows": grid["table_rows"],
         "day_totals": grid["day_totals"],
+        "day_absent_totals": grid["day_absent_totals"],
+        "day_grand_totals": grid["day_grand_totals"],
         "total_present": grid["total_present"],
+        "total_absent": grid["total_absent"],
+        "total_days_count": grid["total_days_count"],
         "status_choices": AttendanceRecord.STATUS_CHOICES,
         "status_labels": dict(AttendanceRecord.STATUS_CHOICES),
         "is_locked": _month_is_locked(current.isoformat(), MonthLock.VIEW_ALL),

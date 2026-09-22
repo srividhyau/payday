@@ -395,10 +395,16 @@
         }
 
         function rotateToLandscape(canvas) {
-            if (canvas.height <= canvas.width) return canvas;
-            // A department with many employees makes the month table taller
-            // than wide — rotate it 90° so the report always lands in
-            // Telegram as a wide, landscape image.
+            // Rotating also rotates every letter/number in the table —
+            // fine for a genuinely narrow strip, but merely-taller-than-
+            // wide (the common case) reads worse rotated than plain tall,
+            // since now the viewer has to turn their phone sideways just
+            // to read day headers/names instead of scrolling a bit. Only
+            // rotate once it's dramatically taller than wide.
+            if (canvas.height <= canvas.width * 2) return canvas;
+            // A department with enough employees makes the month table
+            // far taller than wide — rotate it 90° so the report still
+            // lands in Telegram as a readable image.
             var rotated = document.createElement('canvas');
             rotated.width = canvas.height;
             rotated.height = canvas.width;

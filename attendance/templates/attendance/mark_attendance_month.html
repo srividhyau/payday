@@ -102,7 +102,9 @@
         table.month col.day-col { width: 38px; }
         table.month col.summary-col { width: 110px; }
         table.month th.summary, table.month td.summary { font-size: 0.72rem; white-space: nowrap; }
-        table.month tfoot td { background: #fafafa; font-weight: 700; }
+        table.month tfoot td { background: #fff3b0; font-weight: 700; }
+        table.month tfoot td.label { background: #fff3b0; }
+        table.month th.summary, table.month td.summary { background: #fff3b0; }
         table.month th {
             background: #fafafa;
             position: sticky;
@@ -139,16 +141,20 @@
         table.month.locked td.day-cell button { cursor: default; }
         table.month.locked td.day-cell button:hover { outline: none; }
         table.month td.status-P { background: #e6f4ea; color: #1e7e34; }
-        table.month td.status-PH { background: #d3ece9; color: #0d6b62; }
-        table.month td.status-CO { background: #fce3c9; color: #8a4b00; }
-        table.month td.status-PL { background: #eae3fb; color: #5b21b6; }
-        table.month td.status-WO { background: #ececec; color: #555; }
-        table.month td.status-H { background: #ececec; color: #555; }
-        table.month td.status-HD { background: #fff6cc; color: #8a6d00; }
+        table.month td.status-A { background: #ff8a80; color: #7a0000; }
+        /* Same colors as the Holiday Calendar page (calendar.html) for
+           Paid Holiday/Comp Off/Holiday, so a date reads the same way on
+           both pages. */
+        table.month td.status-PH { background: #4FB3A9; color: #fff; }
+        table.month td.status-CO { background: #F5A85C; color: #5a3200; }
+        table.month td.status-PL { background: #f1948a; color: #7b241c; }
+        table.month td.status-WO { background: #D6D6D6; color: #555; }
+        table.month td.status-H { background: #D6D6D6; color: #555; }
+        table.month td.status-HD { background: #ffcc80; color: #7a3e00; }
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="mark_attendance" %}
+    {% include "attendance/_topbar.html" with current="mark_attendance_month" %}
 
     <div class="page">
         <h1>Mark Attendance — Month View</h1>
@@ -196,12 +202,14 @@
             <p class="hint">Tap a day to toggle Present ⇄ Absent. For other statuses (Paid Holiday, Comp Off, etc.), use the <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}">Day view</a>.</p>
             <div class="legend">
                 <span><span class="swatch" style="background:#e6f4ea"></span>Present</span>
-                <span><span class="swatch" style="background:#d3ece9"></span>Paid Holiday</span>
-                <span><span class="swatch" style="background:#fce3c9"></span>Comp Off</span>
-                <span><span class="swatch" style="background:#eae3fb"></span>Personal Leave</span>
-                <span><span class="swatch" style="background:#ececec"></span>Week Off / Holiday</span>
-                <span><span class="swatch" style="background:#fff6cc"></span>Half Day</span>
-                <span><span class="swatch" style="background:#fff;border:1px solid #ccc"></span>Blank = Absent / Unmarked</span>
+                <span><span class="swatch" style="background:#ff8a80"></span>Absent / Unmarked</span>
+                <span><span class="swatch" style="background:#fff;border:1px solid #ccc"></span>Future (not yet due)</span>
+                <span><span class="swatch" style="background:#ffcc80"></span>Half Day</span>
+                <span><span class="swatch" style="background:#D6D6D6"></span>Week Off / Holiday</span>
+                <span><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
+                <span><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
+                <span><span class="swatch" style="background:#f1948a"></span>Personal Leave</span>
+                <span><span class="swatch" style="background:#fff3b0"></span>Summary / Total rows</span>
             </div>
 
             <div class="grid-scroll">
@@ -223,13 +231,13 @@
                         <tr>
                             <td class="label" title="{{ row.employee.name }}">{{ row.employee.name }}</td>
                             {% for cell in row.cells %}
-                                <td class="day-cell {% if cell.status %}status-{{ cell.status }}{% endif %}">
+                                <td class="day-cell {% if cell.status %}status-{{ cell.status }}{% elif not cell.is_future %}status-A{% endif %}">
                                     <form method="post" action="{% url 'set_attendance_status' %}">
                                         {% csrf_token %}
                                         <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                         <input type="hidden" name="date" value="{{ cell.date_iso }}">
                                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                        <button type="submit" name="status" value="{% if cell.status == 'P' %}A{% else %}P{% endif %}" {% if is_locked %}disabled{% endif %}>{% if cell.status != 'A' %}{{ cell.status }}{% endif %}</button>
+                                        <button type="submit" name="status" value="{% if cell.status == 'P' %}A{% else %}P{% endif %}" {% if is_locked %}disabled{% endif %}>{% if cell.status != 'A' and cell.status != 'H' and cell.status != 'WO' and cell.status != 'CO' and cell.status != 'PH' %}{{ cell.status }}{% endif %}</button>
                                     </form>
                                 </td>
                             {% endfor %}
@@ -242,6 +250,16 @@
                             <td class="label">Present</td>
                             {% for count in day_totals %}<td class="summary">{{ count }}</td>{% endfor %}
                             <td class="summary">{{ total_present }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Absent</td>
+                            {% for count in day_absent_totals %}<td class="summary">{{ count }}</td>{% endfor %}
+                            <td class="summary">{{ total_absent }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Total</td>
+                            {% for count in day_grand_totals %}<td class="summary">{{ count }}</td>{% endfor %}
+                            <td class="summary">{{ total_days_count }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -281,11 +299,17 @@
         }
 
         function rotateToLandscape(canvas) {
-            if (canvas.height <= canvas.width) return canvas;
-            // A department with many employees makes the table taller than
-            // wide — rotate it 90° so the report always lands in Telegram
-            // as a wide, landscape image instead of a tall, hard-to-read
-            // strip.
+            // Rotating also rotates every letter/number in the table —
+            // fine for a genuinely narrow strip, but merely-taller-than-
+            // wide (the common case) reads worse rotated than plain tall,
+            // since now the viewer has to turn their phone sideways just
+            // to read day headers/names instead of scrolling a bit. Only
+            // rotate once it's dramatically taller than wide.
+            if (canvas.height <= canvas.width * 2) return canvas;
+            // A department with enough employees makes the table far
+            // taller than wide — rotate it 90° so the report still lands
+            // in Telegram/WhatsApp as a readable image instead of an
+            // extremely long, thin strip.
             var rotated = document.createElement('canvas');
             rotated.width = canvas.height;
             rotated.height = canvas.width;

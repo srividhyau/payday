@@ -7,9 +7,10 @@
     <nav>
         {% if not is_salary_viewer and not is_employee_editor and not is_production_head and not is_operator_link_revoker %}
         <details class="nav-dropdown">
-            <summary{% if current == "mark_attendance" or current == "dashboard" or current == "upload" or current == "calendar" %} class="current"{% endif %}>Attendance</summary>
+            <summary{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} class="current"{% endif %}>Attendance</summary>
             <div class="nav-dropdown-menu">
                 <a href="{% url 'mark_attendance' %}"{% if current == "mark_attendance" %} class="current"{% endif %}>Mark Attendance</a>
+                <a href="{% url 'mark_attendance_month' %}"{% if current == "mark_attendance_month" %} class="current"{% endif %}>Monthly Attendance</a>
                 <a href="{% url 'dashboard' %}"{% if current == "dashboard" %} class="current"{% endif %}>Device Records</a>
                 <a href="{% url 'upload' %}"{% if current == "upload" %} class="current"{% endif %}>Upload</a>
                 <a href="{% url 'calendar' %}"{% if current == "calendar" %} class="current"{% endif %}>Holiday Calendar</a>
