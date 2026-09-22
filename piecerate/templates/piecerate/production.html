@@ -14,7 +14,7 @@
        cells fiddly to click/edit right at the bottom of a scroll.
        box-sizing keeps max-height the actual on-screen height rather
        than growing taller by the padding amount. */
-    .table-wrap { overflow: auto; max-height: calc(100vh - 170px); padding-bottom: 2.5rem; box-sizing: border-box; }
+    .table-wrap { overflow-x: scroll; overflow-y: auto; max-height: calc(100vh - 170px); padding-bottom: 2.5rem; box-sizing: border-box; }
     /* border-collapse:collapse + position:sticky cells is a known
        browser rendering bug — scrolled-under content can bleed through
        a sticky cell's border/background. border-separate avoids it. */
@@ -251,9 +251,9 @@
                             <div class="op-name-row">
                                 <span class="op-name-text {{ row.diff_class }}">{{ row.op.name }}</span>
                                 <button type="button" class="add-operator-btn" data-op-id="{{ row.op.id }}" data-op-name="{{ row.op.name }}"
-                                    title="Add operator" {% if not row.available_employees %}style="display:none;"{% endif %}>+</button>
+                                    title="Add operator" {% if not all_employees %}style="display:none;"{% endif %}>+</button>
                                 <datalist id="opEmpList{{ row.op.id }}">
-                                    {% for e in row.available_employees %}
+                                    {% for e in all_employees %}
                                     <option data-id="{{ e.id }}" value="{{ e.name }}"></option>
                                     {% endfor %}
                                 </datalist>
@@ -773,14 +773,10 @@
                         tr.remove();
                         updateOpTotal(opId);
                         updateCumulativeTitles(opId);
-
-                        var datalist = document.getElementById('opEmpList' + opId);
-                        var opt = document.createElement('option');
-                        opt.value = employeeName;
-                        opt.dataset.id = employeeId;
-                        datalist.appendChild(opt);
-                        var addBtn = document.querySelector('.add-operator-btn[data-op-id="' + opId + '"]');
-                        if (addBtn) addBtn.style.display = '';
+                        // The "+" datalist always lists every operator (see
+                        // opEmpList in the template) rather than being kept
+                        // in sync with who's currently added, so there's
+                        // nothing to add back to it here.
                         if (operationSearchInput) applyFilters();
                     })
                     .catch(function () {
@@ -824,10 +820,19 @@
                 if (opt.value === addOperatorInput.value) match = opt;
             });
             if (!match) return;
+            // The datalist lists every operator, including ones already on
+            // this operation (see opEmpList in the template) — guard here
+            // instead of filtering them out, so picking one already added
+            // doesn't create a second row for them.
+            var alreadyAdded = document.querySelector(
+                'tr.operator-row[data-op-id="' + opId + '"][data-employee-id="' + match.dataset.id + '"]'
+            );
+            if (alreadyAdded) {
+                alert(match.value + ' is already added to this operation.');
+                closeAddOperatorPopup();
+                return;
+            }
             addOperatorRow(opId, match.dataset.id, match.value);
-            match.remove();
-            var btn = document.querySelector('.add-operator-btn[data-op-id="' + opId + '"]');
-            if (!datalist.querySelector('option') && btn) btn.style.display = 'none';
             closeAddOperatorPopup();
         });
 

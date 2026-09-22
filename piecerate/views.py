@@ -591,6 +591,13 @@ def _build_production_context(style):
         "carried_over_dates": sorted(carried_over_dates),
         "sibling_styles": sibling_styles,
         "today": date_cls.today(),
+        # Every operator eligible for this style's month, regardless of
+        # who's already on a given operation — desktop Production's "+"
+        # picker lists this (not the per-row available_employees) so
+        # every operator is always visible there; available_employees is
+        # still what decides whether the "+" itself is worth showing at
+        # all (and remains what production_mobile.html's own picker uses).
+        "all_employees": all_employees,
     }
 
 
