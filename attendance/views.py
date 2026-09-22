@@ -773,6 +773,11 @@ def _build_month_grid(
         "emp_ot_totals": emp_ot_totals,
         "emp_el_days": emp_el_days,
         "emp_permission_hours": emp_permission_hours,
+        # Per-employee manual OT Adj hours (0 for anyone without one) —
+        # so any caller computing Paid OT Hours per employee (Monthly
+        # Summary, same as this function's own row loop above) uses the
+        # exact same figure, not just the company-wide total below.
+        "emp_ot_adjustment_hours": {code: float(adj.hours) for code, adj in emp_ot_adjustment_map.items()},
         # Company-wide total of every manual OT Adj this month, for the
         # "Paid OT Hours" footer to add on top of emp_ot_totals the same
         # way each row's own paid_ot_hours does.
@@ -3980,7 +3985,17 @@ def _ot_details_context(date_param: str | None) -> dict:
         emp_rows_by_dept: dict = {}
         for r in totals.itertuples(index=False):
             rate = float(emp_rate_map.get(r.emp_code, 0))
-            hours = round(float(r.total_ot_hours), 2)
+            # Paid OT Hours, not the raw punch-derived figure — same
+            # formula as each OT View row's own paid_ot_hours, applied
+            # once per employee per month here too, so Monthly Summary
+            # can never show a different number than OT View for the
+            # same person/month (OT is always paid out on Paid OT
+            # Hours, never the pre-adjustment raw figure).
+            permission_excess = max(
+                0.0, float(grid["emp_permission_hours"].get(r.emp_code, 0)) - PERMISSION_ALLOWANCE_HOURS
+            )
+            adjustment = grid["emp_ot_adjustment_hours"].get(r.emp_code, 0.0)
+            hours = round(float(r.total_ot_hours) + adjustment - permission_excess, 2)
             emp_rows_by_dept.setdefault(r.department, []).append({
                 "is_dept": False,
                 "emp_code": r.emp_code,
@@ -4182,7 +4197,7 @@ def _write_ot_summary_sheet(ws, context) -> None:
     ws.append([f"OT Monthly Summary — {month_label}"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([])
-    headers = ["Code", "Employee", "Department", "OT Hours", "OT Rate/hr", "OT Amount"]
+    headers = ["Code", "Employee", "Department", "Paid OT Hours", "OT Rate/hr", "Paid OT Amount"]
     ws.append(headers)
     header_row_num = ws.max_row
     header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")

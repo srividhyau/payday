@@ -534,7 +534,12 @@ def month_attendance_view(
         rows.append(
             ["▸ " + dept, "", *[float("nan")] * len(day_labels), *[""] * len(summary_cols)]
         )
-        for (emp_code, emp_name), vals in dept_block.iterrows():
+        # pivot_table's default index sort orders these by emp_code (its
+        # first remaining level) — a meaningless order to read a sheet
+        # by, since emp_code is just an arbitrary device-assigned id.
+        # Sort by name instead, matching how every other employee list
+        # in this app is ordered.
+        for (emp_code, emp_name), vals in sorted(dept_block.iterrows(), key=lambda item: item[0][1]):
             counts = per_emp_counts[(dept, emp_code, emp_name)]
             day_vals = [round(v, 1) if v > 0 else float("nan") for v in vals.values]
             rows.append(
