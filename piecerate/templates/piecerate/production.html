@@ -152,6 +152,7 @@
 
     .filter-bar { display: flex; gap: 1.1rem; align-items: center; margin: 0.9rem 0 1rem; flex-wrap: wrap; }
     .filter-bar label { font-size: 0.78rem; font-weight: 600; color: #444; }
+    .filter-bar .show-all-operators-label { display: flex; align-items: center; gap: 0.35rem; font-weight: 500; }
     .filter-bar input[type=text] {
         border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.6rem;
         font-size: 0.8rem; font-family: inherit; width: 200px; box-sizing: border-box;
@@ -226,6 +227,9 @@
             <input type="text" id="operationSearch" placeholder="Search operation…" autocomplete="off">
             <label for="operatorSearch">Operator</label>
             <input type="text" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
+            <label class="show-all-operators-label" for="showAllOperators">
+                <input type="checkbox" id="showAllOperators">Show all operators
+            </label>
         </div>
         <div class="table-wrap fit-content">
             <table class="simple">
@@ -334,13 +338,15 @@
         csrfToken = csrfToken ? csrfToken.split('=')[1] : '';
 
         // Operation search matches an operation's own code/section/name;
-        // operator search matches any operator logged against it. A search
-        // never hides individual operator rows within a matching operation
-        // — filtering by operator shows every OTHER operator on the same
-        // operation too, since the point is "what is this operation doing"
-        // once you've found it through one person's name.
+        // operator search matches any operator logged against it. By
+        // default, an operator search only shows the matching operator's
+        // own row(s) within an otherwise-matching operation; checking
+        // "Show all operators" instead shows every OTHER operator on that
+        // same operation too, for "what is this operation doing" once
+        // you've found it through one person's name.
         var operationSearchInput = document.getElementById('operationSearch');
         var operatorSearchInput = document.getElementById('operatorSearch');
+        var showAllOperatorsCheckbox = document.getElementById('showAllOperators');
         var noResultsRow = document.getElementById('noResultsRow');
 
         function opSearchText(opRow) {
@@ -357,6 +363,7 @@
         function applyFilters() {
             var opQuery = operationSearchInput.value.trim().toLowerCase();
             var operatorQuery = operatorSearchInput.value.trim().toLowerCase();
+            var showAllOperators = !!(showAllOperatorsCheckbox && showAllOperatorsCheckbox.checked);
             var anyVisible = false;
             document.querySelectorAll('tr.op-row').forEach(function (opRow) {
                 var opId = opRow.dataset.opId;
@@ -373,7 +380,10 @@
                 var visible = opMatches && operatorMatches;
                 if (visible) anyVisible = true;
                 opRow.style.display = visible ? '' : 'none';
-                operatorRows.forEach(function (tr) { tr.style.display = visible ? '' : 'none'; });
+                operatorRows.forEach(function (tr) {
+                    var rowVisible = visible && (!operatorQuery || showAllOperators || tr.classList.contains('search-match'));
+                    tr.style.display = rowVisible ? '' : 'none';
+                });
             });
             if (noResultsRow) noResultsRow.style.display = anyVisible ? 'none' : '';
         }
@@ -381,6 +391,7 @@
         if (operationSearchInput && operatorSearchInput) {
             operationSearchInput.addEventListener('input', applyFilters);
             operatorSearchInput.addEventListener('input', applyFilters);
+            if (showAllOperatorsCheckbox) showAllOperatorsCheckbox.addEventListener('change', applyFilters);
         }
 
         function rowTotal(tr) {
