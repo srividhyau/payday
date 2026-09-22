@@ -383,6 +383,55 @@ class PayrollSnapshot(models.Model):
         return f"{self.employee.code} {self.year}-{self.month:02d} ({self.tab}) [frozen]"
 
 
+class AuditLogEntry(models.Model):
+    """One field-level change — old value, new value, who, when — on any
+    audited model. Shared across apps (attendance's Employee; piecerate's
+    Style/RateCardOperation/PieceRateEntry) rather than one log per app,
+    so "everything this user touched" or "everything that happened to
+    this record" is always one query. Written explicitly by the views
+    that make each change (see attendance.audit.log_change/log_changes)
+    instead of via signals, since a signal only sees a model instance's
+    final state — it can't describe a piece-rate cell edit in the terms
+    its own UI addresses a cell by (operation + employee + date), which
+    don't map onto PieceRateEntry's own primary key surviving a
+    delete-then-recreate (quantity dropping to 0 deletes the row; a
+    later entry recreates it under a new pk) the way a plain post_save
+    signal would assume.
+
+    object_id is a plain string, not a ForeignKey, deliberately — so a
+    change on a since-deleted row (or a delete itself) still has
+    somewhere to live, and one audited "object" can be a composite key
+    (e.g. "<rate_card_operation_id>:<employee_id>:<date>" for a
+    Production cell) rather than always a single row's pk."""
+
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    # Django username for a logged-in supervisor edit; "<employee name>
+    # (self-entry)" for the mobile operator-link page, which has no
+    # login at all (see piecerate.models.OperatorLink) — never blank,
+    # so every entry always names someone.
+    actor = models.CharField(max_length=150)
+    app_label = models.CharField(max_length=50)
+    model_name = models.CharField(max_length=50)
+    object_id = models.CharField(max_length=100)
+    # Human-readable label for the object, frozen at write time (e.g.
+    # "BASKAR (5087)" or "B_Shorts Sep 2026 — Collar — BASKAR — 2026-08-05")
+    # so a later rename/delete doesn't strand the log entry with nothing
+    # to display.
+    object_repr = models.CharField(max_length=255)
+    field_name = models.CharField(max_length=50)
+    old_value = models.TextField(blank=True)
+    new_value = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+        indexes = [
+            models.Index(fields=["app_label", "model_name", "object_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.timestamp:%Y-%m-%d %H:%M} {self.actor} {self.model_name}.{self.field_name}"
+
+
 class EmployeeSnapshot(models.Model):
     """A full copy of one Employee row's fields, frozen the moment ANY
     MonthLock view (Attendance All/Missed Punch, OT View, or a Salary tab)

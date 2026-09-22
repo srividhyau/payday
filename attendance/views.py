@@ -29,6 +29,7 @@ from django.views.decorators.csrf import csrf_exempt
 from src import metrics, payroll
 from src import parser as attendance_parser
 
+from .audit import log_change, log_changes
 from .forms import EmployeeForm, UploadForm
 from .importer import import_dataframe, import_file
 from .middleware import EMPLOYEE_EDIT_GROUP
@@ -4401,6 +4402,20 @@ def employee_list_view(request):
     return render(request, "attendance/employee_list.html", _employee_list_context(request))
 
 
+def _employee_field_snapshot(emp: Employee) -> dict:
+    """One field name -> current value, for every field EmployeeForm can
+    touch — used to diff before/after an edit for AuditLogEntry. department
+    is resolved to its name (a plain, comparable string) rather than kept
+    as the FK/Department object."""
+    snapshot = {}
+    for field in EmployeeForm.Meta.fields:
+        if field == "department":
+            snapshot[field] = emp.department.name if emp.department_id else ""
+        else:
+            snapshot[field] = getattr(emp, field)
+    return snapshot
+
+
 @login_required
 def employee_form_view(request, pk=None):
     """Handles both "add" (pk is None, GET renders employee_form.html — a
@@ -4409,15 +4424,34 @@ def employee_form_view(request, pk=None):
     — a bare GET here just bounces back to the list, since the popup
     *is* the edit UI now). On a validation error: create re-renders
     employee_form.html as before; edit re-renders the list with the popup
-    reopened on the rejected submission, via edit_form/edit_instance."""
+    reopened on the rejected submission, via edit_form/edit_instance.
+
+    Every field EmployeeForm can touch is audit-logged (see
+    AuditLogEntry/attendance.audit) — snapshotted from `instance` before
+    the form binds to it (the form mutates the same instance in place
+    during is_valid(), so capturing "old" has to happen before that, not
+    after save())."""
     denied = _require_employee_edit_access(request)
     if denied:
         return denied
     instance = get_object_or_404(Employee, pk=pk) if pk else None
+    old_values = _employee_field_snapshot(instance) if instance else None
     if request.method == "POST":
         form = EmployeeForm(request.POST, instance=instance)
         if form.is_valid():
             form.save()
+            object_repr = f"{form.instance.code} — {form.instance.name}"
+            actor = request.user.get_username() or "unknown"
+            if old_values is not None:
+                new_values = _employee_field_snapshot(form.instance)
+                changes = {
+                    field: (old_values[field], new_values[field])
+                    for field in old_values if str(old_values[field]) != str(new_values[field])
+                }
+                if changes:
+                    log_changes(actor, "attendance", "Employee", form.instance.pk, object_repr, changes)
+            else:
+                log_change(actor, "attendance", "Employee", form.instance.pk, object_repr, "__created__", "", "created")
             messages.success(request, f"Saved {form.instance.code} - {form.instance.name}.")
             return redirect("employee_list")
         if instance:

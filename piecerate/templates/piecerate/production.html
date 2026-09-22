@@ -129,19 +129,21 @@
        still win (same specificity, later wins) whenever they're the
        more urgent, active state. */
     .day-input.entered-operator { background: #dbeafe; }
-    /* A box that USED to be the operator's own value, before a
-       supervisor corrected it here — a small clickable dot on the
-       cell instead of the full fill, so a correction reads
-       differently from a cell that was always the supervisor's.
-       Tapping it shows what the operator originally entered vs the
-       current value (see the popup JS). A real element rather than
-       ::after so it can carry its own click handler. */
-    td.corrected { position: relative; }
-    .corrected-dot {
+    /* A cell that has ANY recorded edit history (see has_history in
+       _build_production_context) gets a small clickable dot — not
+       rendered at all on a never-touched cell, so this doesn't add
+       clutter across a mostly-untouched grid. Tapping it opens the
+       history popup (who changed this cell, when, old value -> new
+       value — see AuditLogEntry/the JS below). A cell where a
+       supervisor corrected the operator's own value (source ==
+       "corrected") gets a distinct color from a plain edited cell. */
+    td.day-cell { position: relative; }
+    .history-trigger {
         position: absolute; top: 2px; right: 2px; width: 8px; height: 8px;
-        border-radius: 50%; background: #2563eb; cursor: pointer; z-index: 5;
+        border-radius: 50%; background: #9aa5b8; cursor: pointer; z-index: 5;
     }
-    .corrected-dot:hover { width: 10px; height: 10px; top: 1px; right: 1px; }
+    .history-trigger.corrected { background: #2563eb; }
+    .history-trigger:hover { width: 10px; height: 10px; top: 1px; right: 1px; }
     .day-input.saving { border-color: var(--navy); }
     .day-input.save-error { border-color: #b3261e; background: #fdecea; }
     .day-input.qty-invalid, .day-input.qty-invalid:focus {
@@ -179,9 +181,12 @@
     .edit-modal.add-operator-modal h3 { font-size: 0.95rem; }
     #addOperatorInput { width: 100%; margin-bottom: 1rem; box-sizing: border-box; }
 
-    .edit-modal.correction-modal { max-width: 300px; }
-    .correction-row { font-size: 0.9rem; color: #4a5468; margin: 0.5rem 0; }
-    .correction-row strong { color: var(--navy); font-size: 1.1rem; }
+    .edit-modal.correction-modal { max-width: 380px; }
+    .history-entry { font-size: 0.85rem; color: #4a5468; padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
+    .history-entry:last-child { border-bottom: none; }
+    .history-entry .history-change { color: var(--navy); font-weight: 600; }
+    .history-entry .history-meta { font-size: 0.75rem; color: #8a94a6; margin-top: 0.15rem; }
+    .history-empty { font-size: 0.85rem; color: #8a94a6; padding: 0.5rem 0; }
 </style>
 </head>
 <body>
@@ -277,11 +282,19 @@
                         <td class="col-total row-total-cell">{{ r.total }}</td>
                         {% for d in days %}
                         {% with source=r.source_class|dict_get:d.isoformat %}
-                        <td class="{% if special_days|dict_get:d.isoformat %}special-{{ special_days|dict_get:d.isoformat }}{% endif %}{% if d in carried_over_dates %} carried-over{% endif %} {{ source }}"><input type="number" min="0" step="1" class="day-input {{ source }}"
+                        <td class="day-cell {% if special_days|dict_get:d.isoformat %}special-{{ special_days|dict_get:d.isoformat }}{% endif %}{% if d in carried_over_dates %} carried-over{% endif %} {{ source }}"><input type="number" min="0" step="1" class="day-input {{ source }}"
                             data-rate-card-operation-id="{{ row.op.id }}"
                             data-employee-id="{{ r.employee.id }}"
                             data-date="{{ d.isoformat }}"
-                            value="{{ r.days|dict_get:d.isoformat|default_if_none:'' }}">{% if source == "corrected" %}<span class="corrected-dot" data-operator-qty="{{ r.operator_qty|dict_get:d.isoformat }}" data-current-qty="{{ r.days|dict_get:d.isoformat }}" data-employee="{{ r.employee.name|escapejs }}" data-op="{{ row.op.name|escapejs }}"></span>{% endif %}</td>
+                            value="{{ r.days|dict_get:d.isoformat|default_if_none:'' }}">{% if r.has_history|dict_get:d.isoformat %}<span class="history-trigger{% if source == "corrected" %} corrected{% endif %}"
+                            data-rate-card-operation-id="{{ row.op.id }}"
+                            data-employee-id="{{ r.employee.id }}"
+                            data-date="{{ d.isoformat }}"
+                            data-employee-name="{{ r.employee.name|escapejs }}"
+                            data-op-name="{{ row.op.name|escapejs }}"
+                            data-operator-qty="{{ r.operator_qty|dict_get:d.isoformat }}"
+                            data-current-qty="{{ r.days|dict_get:d.isoformat }}"
+                            title="View edit history"></span>{% endif %}</td>
                         {% endwith %}
                         {% endfor %}
                     </tr>
@@ -310,9 +323,8 @@
 
     <div class="edit-overlay" id="correctionOverlay">
         <div class="edit-modal correction-modal">
-            <h3 id="correctionTitle">Correction</h3>
-            <p class="correction-row">Operator entered <strong id="correctionOperatorQty"></strong></p>
-            <p class="correction-row">Supervisor <strong id="correctionCurrentQty"></strong></p>
+            <h3 id="correctionTitle">History</h3>
+            <div id="correctionHistoryList"></div>
             <div class="edit-actions">
                 <button type="button" id="correctionClose">Close</button>
             </div>
@@ -529,7 +541,7 @@
                         updateCumulativeTitles(input.dataset.rateCardOperationId);
                     } else {
                         var td = input.closest('td');
-                        var existingDot = td.querySelector('.corrected-dot');
+                        var trigger = td.querySelector('.history-trigger');
                         input.dataset.lastGoodValue = input.value;
                         // Reconcile the operation's total/badge with what
                         // the server actually has now, rather than this
@@ -537,31 +549,39 @@
                         // concurrent edit elsewhere.
                         updateOpTotal(input.dataset.rateCardOperationId, data.op_total);
                         updateCumulativeTitles(input.dataset.rateCardOperationId);
-                        // Saving here always makes this a supervisor
-                        // value now — if it was the operator's own
-                        // (the full blue fill), it becomes a
-                        // correction (a dot, carrying what the
-                        // operator's value actually was) instead;
-                        // already-plain cells don't change, and an
-                        // already-corrected cell just gets its dot's
-                        // "current" value refreshed.
-                        if (input.classList.contains('entered-operator')) {
-                            input.classList.remove('entered-operator');
-                            td.classList.add('corrected');
-                            var opRow = input.closest('table').querySelector(
+                        // A cell with no .history-trigger yet has never
+                        // been edited before now (see has_history in
+                        // _build_production_context) — this first save
+                        // just created its history, so create the dot
+                        // here to match rather than waiting for a
+                        // full page reload. Saving always makes this a
+                        // supervisor value — if it was the operator's
+                        // own (the full blue fill), the dot brightens
+                        // into a "corrected" one instead.
+                        if (!trigger) {
+                            var opNameEl = input.closest('table').querySelector(
                                 'tr.op-row[data-op-id="' + input.dataset.rateCardOperationId + '"] .op-name-text'
                             );
                             var nameSpan = input.closest('tr').querySelector('.operator-name-row span');
-                            var dot = document.createElement('span');
-                            dot.className = 'corrected-dot';
-                            dot.dataset.operatorQty = previousValue;
-                            dot.dataset.currentQty = input.value;
-                            dot.dataset.employee = nameSpan ? nameSpan.textContent : '';
-                            dot.dataset.op = opRow ? opRow.textContent : '';
-                            attachCorrectionDot(dot);
-                            td.appendChild(dot);
-                        } else if (existingDot) {
-                            existingDot.dataset.currentQty = input.value;
+                            trigger = document.createElement('span');
+                            trigger.className = 'history-trigger';
+                            trigger.dataset.rateCardOperationId = input.dataset.rateCardOperationId;
+                            trigger.dataset.employeeId = input.dataset.employeeId;
+                            trigger.dataset.date = input.dataset.date;
+                            trigger.dataset.employeeName = nameSpan ? nameSpan.textContent : '';
+                            trigger.dataset.opName = opNameEl ? opNameEl.textContent : '';
+                            trigger.title = 'View edit history';
+                            attachHistoryTrigger(trigger);
+                            td.appendChild(trigger);
+                        }
+                        trigger.dataset.currentQty = input.value;
+                        if (input.classList.contains('entered-operator')) {
+                            trigger.dataset.operatorQty = previousValue;
+                            trigger.classList.add('corrected');
+                        }
+                        if (input.classList.contains('entered-operator')) {
+                            input.classList.remove('entered-operator');
+                            td.classList.add('corrected');
                         }
                     }
                 })
@@ -717,9 +737,12 @@
             totalTd.textContent = '0';
             newRow.appendChild(totalTd);
 
+            // No .history-trigger here — a freshly-added operator has no
+            // edit history on any day yet. The live-save handler below
+            // creates one the first time a cell here actually gets saved.
             productionDays.forEach(function (isoDate) {
                 var td = document.createElement('td');
-                var classes = [];
+                var classes = ['day-cell'];
                 if (specialDays[isoDate]) classes.push('special-' + specialDays[isoDate]);
                 if (carriedOverDates.indexOf(isoDate) !== -1) classes.push('carried-over');
                 td.className = classes.join(' ');
@@ -841,24 +864,71 @@
             if (e.target === addOperatorOverlay) closeAddOperatorPopup();
         });
 
-        // "Corrected" dot popup — shows what the operator originally
-        // entered vs the current (supervisor) value. Attached to both
-        // the server-rendered dots and any created dynamically below
-        // when a live edit turns an operator cell into a correction.
+        // Per-cell history popup — every history-trigger (one per day
+        // cell, always rendered — see the template loop above) opens
+        // this on click and fetches that cell's full AuditLogEntry trail
+        // (who changed it, when, old value -> new value) from the
+        // server; a cell with no history yet just shows an empty-state
+        // message. Falls back to the legacy operator-vs-corrected
+        // summary (dataset.operatorQty/currentQty, set server-side) for
+        // any cell whose only "correction" predates this feature, since
+        // those edits never got an AuditLogEntry.
         var correctionOverlay = document.getElementById('correctionOverlay');
-        function openCorrectionPopup(dot) {
-            document.getElementById('correctionTitle').textContent = dot.dataset.employee + ' — ' + dot.dataset.op;
-            document.getElementById('correctionOperatorQty').textContent = dot.dataset.operatorQty;
-            document.getElementById('correctionCurrentQty').textContent = dot.dataset.currentQty;
-            correctionOverlay.classList.add('open');
-        }
-        function attachCorrectionDot(dot) {
-            dot.addEventListener('click', function (e) {
-                e.stopPropagation();
-                openCorrectionPopup(dot);
+        var correctionHistoryList = document.getElementById('correctionHistoryList');
+        var cellHistoryUrl = "{% url 'piece_rate_production_cell_history' %}";
+
+        function renderHistoryEntries(entries, trigger) {
+            correctionHistoryList.innerHTML = '';
+            if (!entries.length) {
+                if (trigger.classList.contains('corrected')) {
+                    var legacy = document.createElement('div');
+                    legacy.className = 'history-entry';
+                    legacy.innerHTML = '<span class="history-change">' + trigger.dataset.operatorQty +
+                        ' → ' + trigger.dataset.currentQty + '</span>' +
+                        '<div class="history-meta">Operator entered, corrected by a supervisor — ' +
+                        'from before detailed history was recorded</div>';
+                    correctionHistoryList.appendChild(legacy);
+                } else {
+                    var empty = document.createElement('div');
+                    empty.className = 'history-empty';
+                    empty.textContent = 'No edit history for this cell yet.';
+                    correctionHistoryList.appendChild(empty);
+                }
+                return;
+            }
+            entries.forEach(function (entry) {
+                var row = document.createElement('div');
+                row.className = 'history-entry';
+                row.innerHTML = '<span class="history-change">' + (entry.old_value || '0') +
+                    ' → ' + (entry.new_value || '0') + '</span>' +
+                    '<div class="history-meta">' + entry.actor + ' — ' + entry.timestamp + '</div>';
+                correctionHistoryList.appendChild(row);
             });
         }
-        document.querySelectorAll('.corrected-dot').forEach(attachCorrectionDot);
+
+        function openHistoryPopup(trigger) {
+            document.getElementById('correctionTitle').textContent = trigger.dataset.employeeName + ' — ' + trigger.dataset.opName;
+            correctionHistoryList.innerHTML = '<div class="history-empty">Loading…</div>';
+            correctionOverlay.classList.add('open');
+            var url = cellHistoryUrl + '?rate_card_operation_id=' + encodeURIComponent(trigger.dataset.rateCardOperationId) +
+                '&employee_id=' + encodeURIComponent(trigger.dataset.employeeId) +
+                '&date=' + encodeURIComponent(trigger.dataset.date);
+            fetch(url)
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    renderHistoryEntries(data.ok ? data.entries : [], trigger);
+                })
+                .catch(function () {
+                    correctionHistoryList.innerHTML = '<div class="history-empty">Could not load history — please try again.</div>';
+                });
+        }
+        function attachHistoryTrigger(trigger) {
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openHistoryPopup(trigger);
+            });
+        }
+        document.querySelectorAll('.history-trigger').forEach(attachHistoryTrigger);
         document.getElementById('correctionClose').addEventListener('click', function () {
             correctionOverlay.classList.remove('open');
         });

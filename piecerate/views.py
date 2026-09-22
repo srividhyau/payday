@@ -21,7 +21,8 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
-from attendance.models import Employee, SpecialDay
+from attendance.audit import log_change, log_changes
+from attendance.models import AuditLogEntry, Employee, SpecialDay
 
 from .models import (
     PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, OperatorLink, PieceRateEntry, RateCardOperation, Style,
@@ -278,6 +279,15 @@ def template_list_view(request):
     })
 
 
+def _rate_card_op_snapshot(op: RateCardOperation) -> dict:
+    """Every field the Rate Card page's create/edit form can touch, for
+    diffing before/after an edit — see AuditLogEntry."""
+    return {
+        "section": op.section, "name": op.name, "machine": op.machine,
+        "rate": op.rate, "pay_type": op.pay_type, "order_quantity": op.order_quantity,
+    }
+
+
 @login_required
 def rate_card_view(request, style_id):
     """One Style's rate card: every Operation with its Section/Machine/
@@ -292,8 +302,16 @@ def rate_card_view(request, style_id):
                 return denied
         action = request.POST.get("action", "")
 
+        actor = request.user.get_username() or "unknown"
+
         if action.startswith("delete_"):
             op_id = action[len("delete_"):]
+            deleted_op = RateCardOperation.objects.filter(id=op_id, style=style).first()
+            if deleted_op:
+                log_change(
+                    actor, "piecerate", "RateCardOperation", deleted_op.id,
+                    f"{style.name} — {deleted_op.name}", "__deleted__", deleted_op.name, "deleted",
+                )
             RateCardOperation.objects.filter(id=op_id, style=style).delete()
             messages.success(request, "Operation deleted.")
             return redirect("piece_rate_rate_card", style_id=style.id)
@@ -317,18 +335,27 @@ def rate_card_view(request, style_id):
 
         if action == "bulk_order_quantity":
             qty = _parse_int(request.POST.get("bulk_order_quantity"))
+            before = list(style.operations.values("id", "name", "order_quantity"))
             updated = style.operations.update(order_quantity=qty)
+            for op_row in before:
+                log_change(
+                    actor, "piecerate", "RateCardOperation", op_row["id"],
+                    f"{style.name} — {op_row['name']}", "order_quantity", op_row["order_quantity"], qty,
+                )
             messages.success(request, f"Order Qty set to {qty} on {updated} operation(s).")
             return redirect("piece_rate_rate_card", style_id=style.id)
 
         if action == "create" or action.startswith("edit_"):
             suffix = "" if action == "create" else f"_{action[len('edit_'):]}"
+            is_new = not suffix
             if suffix:
                 op = get_object_or_404(RateCardOperation, id=action[len("edit_"):], style=style)
+                old_values = _rate_card_op_snapshot(op)
             else:
                 op = RateCardOperation(style=style)
                 last_code = RateCardOperation.objects.filter(style=style).count()
                 op.op_code = last_code + 1
+                old_values = None
 
             name = request.POST.get(f"name{suffix}", "").strip()
             duplicate = RateCardOperation.objects.filter(style=style, name=name).exclude(pk=op.pk)
@@ -345,6 +372,17 @@ def rate_card_view(request, style_id):
                 op.pay_type = request.POST.get(f"pay_type{suffix}") or PAY_TYPE_OPERATOR
                 op.order_quantity = _parse_int(request.POST.get(f"order_quantity{suffix}"))
                 op.save()
+                object_repr = f"{style.name} — {op.name}"
+                if is_new:
+                    log_change(actor, "piecerate", "RateCardOperation", op.id, object_repr, "__created__", "", "created")
+                else:
+                    new_values = _rate_card_op_snapshot(op)
+                    changes = {
+                        field: (old_values[field], new_values[field])
+                        for field in old_values if str(old_values[field]) != str(new_values[field])
+                    }
+                    if changes:
+                        log_changes(actor, "piecerate", "RateCardOperation", op.id, object_repr, changes)
                 messages.success(request, f'Operation "{op.name}" saved.')
             return redirect("piece_rate_rate_card", style_id=style.id)
 
@@ -433,16 +471,51 @@ def master_operations_view(request):
     })
 
 
+def _cell_object_id(rc_op_id, employee_id, entry_date) -> str:
+    """Stable key for one Production cell (operation + operator + day),
+    for AuditLogEntry.object_id — deliberately NOT PieceRateEntry.pk,
+    since a quantity dropping to 0 deletes that row and a later entry
+    recreates it under a new pk; this composite key stays the same
+    across that delete/recreate, so a cell's full history is always
+    one lookup regardless of how many times it's been cleared."""
+    return f"{rc_op_id}:{employee_id}:{entry_date.isoformat()}"
+
+
+def _cell_object_repr(style, rc_op, employee, entry_date) -> str:
+    return f"{style.name} — {rc_op.name} — {employee.name} — {entry_date.isoformat()}"
+
+
+def _log_piece_rate_quantity_change(actor, rc_op, employee, entry_date, old_quantity, new_quantity) -> None:
+    """One AuditLogEntry for a Production cell's quantity changing —
+    shared by every path that can change a PieceRateEntry's quantity
+    (the desktop/mobile Production grid's supervisor cell-save AND the
+    operator's own no-login mobile self-entry page), so a cell's history
+    is always complete regardless of which UI made the edit, and the
+    key/repr can't drift between the two call sites."""
+    log_change(
+        actor, "piecerate", "PieceRateEntry",
+        _cell_object_id(rc_op.id, employee.id, entry_date),
+        _cell_object_repr(rc_op.style, rc_op, employee, entry_date),
+        "quantity", old_quantity, new_quantity,
+    )
+
+
 @login_required
 def _save_production_cell(request, style):
     """One day's (operation, operator) quantity, from either Production
     template's AJAX cell-save call — same endpoint, same rules,
-    regardless of which UI is driving it."""
+    regardless of which UI is driving it. Every change (including a
+    remove-operator wipe) is audit-logged — see AuditLogEntry — keyed by
+    _cell_object_id, not the PieceRateEntry row's own pk."""
     rc_op = get_object_or_404(RateCardOperation, id=request.POST.get("rate_card_operation_id"), style=style)
     employee = get_object_or_404(Employee, id=request.POST.get("employee_id"))
+    actor = request.user.get_username() or "unknown"
 
     if request.POST.get("action") == "remove_operator":
+        removed = list(PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee))
         PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee).delete()
+        for entry in removed:
+            _log_piece_rate_quantity_change(actor, rc_op, employee, entry.date, entry.quantity, 0)
         return JsonResponse({"ok": True})
 
     try:
@@ -450,6 +523,9 @@ def _save_production_cell(request, style):
     except ValueError:
         return JsonResponse({"ok": False, "error": "Invalid date."}, status=400)
     quantity = _parse_int(request.POST.get("quantity"))
+
+    existing = PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee, date=entry_date).first()
+    old_quantity = existing.quantity if existing else 0
 
     # Order Qty is enforced client-side only (a confirm popup) for now —
     # a supervisor can go over it here as long as they confirm it, rather
@@ -462,8 +538,42 @@ def _save_production_cell(request, style):
     else:
         PieceRateEntry.objects.filter(rate_card_operation=rc_op, employee=employee, date=entry_date).delete()
 
+    _log_piece_rate_quantity_change(actor, rc_op, employee, entry_date, old_quantity, quantity)
+
     op_total = PieceRateEntry.objects.filter(rate_card_operation=rc_op).aggregate(total=Sum("quantity"))["total"] or 0
     return JsonResponse({"ok": True, "op_total": op_total})
+
+
+@login_required
+def production_cell_history_view(request):
+    """AJAX endpoint behind the Production grid's per-cell history
+    trigger (see production.html) — every AuditLogEntry recorded for one
+    (operation, operator, day) cell, newest first. Keyed by
+    _cell_object_id, not a PieceRateEntry pk, so history survives that
+    row being deleted (quantity -> 0) and recreated later."""
+    try:
+        rc_op_id = int(request.GET.get("rate_card_operation_id", ""))
+        employee_id = int(request.GET.get("employee_id", ""))
+        entry_date = date_cls.fromisoformat(request.GET.get("date", ""))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Invalid cell."}, status=400)
+
+    object_id = _cell_object_id(rc_op_id, employee_id, entry_date)
+    entries = AuditLogEntry.objects.filter(
+        app_label="piecerate", model_name="PieceRateEntry", object_id=object_id,
+    ).order_by("-timestamp")
+    return JsonResponse({
+        "ok": True,
+        "entries": [
+            {
+                "timestamp": date_format(entry.timestamp, "j M Y, g:i a"),
+                "actor": entry.actor,
+                "old_value": entry.old_value,
+                "new_value": entry.new_value,
+            }
+            for entry in entries
+        ],
+    })
 
 
 def _build_production_context(style):
@@ -523,6 +633,18 @@ def _build_production_context(style):
     )
     employees_by_id = {e.id: e for e in all_employees}
 
+    # Which (operation, employee, date) cells have ANY recorded audit
+    # history at all — a single global lookup rather than one query per
+    # cell, since the point is just "is there anything to show" (see
+    # _cell_object_id) for deciding whether the Production grid's
+    # history-trigger dot is worth rendering on that cell; a cell that
+    # was entered and then cleared back to 0 still has history even
+    # though it has no current PieceRateEntry row.
+    history_ids = set(
+        AuditLogEntry.objects.filter(app_label="piecerate", model_name="PieceRateEntry")
+        .values_list("object_id", flat=True).distinct()
+    )
+
     entries_by_op = {}
     source_by_op = {}
     operator_qty_by_op = {}
@@ -556,6 +678,9 @@ def _build_production_context(style):
                 "employee": employee, "days": day_map, "total": sum(day_map.values()),
                 "source_class": op_source.get(emp_id, {}),
                 "operator_qty": op_operator_qty.get(emp_id, {}),
+                "has_history": {
+                    d.isoformat(): _cell_object_id(op.id, emp_id, d) in history_ids for d in days
+                },
             })
         rows.sort(key=lambda r: r["employee"].name)
 
@@ -1119,12 +1244,16 @@ def operator_entry_view(request, token):
                 )
                 return redirect(own_url())
 
+        actor = f"{employee.name} (self-entry)"
+
         if existing:
+            old_quantity = existing.quantity
             existing.quantity = quantity
             existing.entered_by = PieceRateEntry.ENTERED_BY_OPERATOR
             existing.was_operator_entered = True
             existing.operator_quantity = quantity
             existing.save(update_fields=["quantity", "entered_by", "was_operator_entered", "operator_quantity"])
+            _log_piece_rate_quantity_change(actor, rc_op, employee, entry_date, old_quantity, quantity)
             messages.success(request, _("Updated %(op)s for %(day)s to %(qty)s.") % {"op": _op_display_name(rc_op), "day": day_label, "qty": quantity})
             return redirect(own_url())
 
@@ -1138,6 +1267,7 @@ def operator_entry_view(request, token):
             messages.error(request, _("You already logged this for %(day)s.") % {"day": day_label})
             return redirect(own_url())
 
+        _log_piece_rate_quantity_change(actor, rc_op, employee, entry_date, 0, quantity)
         messages.success(request, _("Logged %(qty)s for %(op)s.") % {"qty": quantity, "op": _op_display_name(rc_op)})
         return redirect(own_url())
 
