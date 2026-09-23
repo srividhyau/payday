@@ -7,27 +7,70 @@
     <title>Payday — Device Records</title>
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+                                .page { width: 100%; padding: 0.75rem 1rem 3rem; }
 
                 h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .dept-summary summary { cursor: pointer; list-style: none; }
         .dept-summary summary::-webkit-details-marker { display: none; }
-        .dept-summary summary h2 { display: inline-block; margin: 0 0 0.9rem; }
+        /* No bottom margin here — with the details closed (the default
+           for both "By department" and "Legend"), that margin was the
+           only content left inside the card, so it bled straight
+           through to become dead space below a heading with nothing
+           actually shown under it. */
+        .dept-summary summary h2 { display: inline-block; margin: 0; }
+        .card { margin-bottom: 0.75rem; }
         .dept-summary summary h2::before { content: "▸ "; }
         .dept-summary[open] summary h2::before { content: "▾ "; }
+        /* "Summary" lives as a third tab in the view-switch row; the
+           actual table it opens (#deptPanel) sits below the header as
+           its own card instead of expanding inside the yellow header
+           bar itself — plain button + JS (see the script below) rather
+           than a native <details>, since summary/content can't live in
+           two different places with that element. */
+        /* Higher specificity than .view-switch .view-btn (2 classes) is
+           needed to actually override these two — a bare .dept-toggle-btn
+           rule loses that specificity fight regardless of source order.
+           Darker text: at the plain muted grey the other .view-btns
+           use, these two were nearly invisible against the pill's pale
+           background. white-space: normal lets a label wrap onto two
+           lines instead of forcing the pill wider if space is tight. */
+        .view-switch .view-btn.dept-toggle-btn {
+            font-size: 0.76rem;
+            padding: 0.3rem 0.75rem;
+            color: var(--navy);
+            font-weight: 500;
+            white-space: normal;
+        }
+        .dept-toggle-btn.open { background: var(--navy); color: var(--yellow); font-weight: 600; }
+        .dept-toggle-btn.open:hover { background: var(--navy); color: var(--yellow); }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
         .caption:last-child { margin-bottom: 0; }
         .caption a { color: var(--navy); text-decoration: none; font-weight: 600; }
         .caption a:hover { text-decoration: underline; }
 
         
-        .kpis { display: flex; gap: 1rem; margin-top: 1rem; }
-        .kpi {
-            padding: 0.75rem 1.1rem 0.75rem 0;
-            min-width: 140px;
+        /* Shares the title-row with "Device Records" and the date-nav
+           (see the template) — margin-left: auto pushes it to that
+           row's right edge. One line, each KPI its own boxed cell
+           (a mini grid of cards) rather than one shared border around
+           the whole strip. */
+        .kpis {
+            display: flex; flex-wrap: nowrap; gap: 0.4rem; margin-left: auto;
         }
-        .kpi .label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-        .kpi .value { font-size: 1.5rem; font-weight: 700; color: var(--accent); margin-top: 0.15rem; }
+        .kpi {
+            padding: 0.2rem 0.55rem;
+            min-width: 0;
+            border: 1px solid rgba(0,47,102,0.3); border-radius: 6px; background: rgba(255,255,255,0.35);
+        }
+        /* rgba navy instead of the shared --text-muted grey — that grey
+           reads too washed-out against the header's yellow background.
+           white-space: normal (no max-width) lets a two-word label like
+           "Working Days" wrap only once the kpi is actually squeezed —
+           at full width it stays on one line, unlike a fixed max-width
+           which forced the wrap unconditionally. Bold makes it legible
+           at this small a size. */
+        .kpi .label { font-size: 0.58rem; font-weight: 700; color: rgba(0,47,102,0.75); text-transform: uppercase; letter-spacing: 0.02em; white-space: normal; line-height: 1.15; }
+        .kpi .value { font-size: 0.88rem; font-weight: 700; color: var(--accent); margin-top: 0.02rem; }
         .kpi.kpi-alert .value { color: #d32f2f; }
 
                         table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
@@ -35,7 +78,10 @@
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
 
-        .legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin: 0.6rem 0 1rem; font-size: 0.8rem; }
+        /* Below the table now, inside its own <details> (see the
+           template) — native open/closed behavior hides/shows it, same
+           as "By department" above, no custom show/hide CSS needed. */
+        .legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin: 0.6rem 0 0; font-size: 0.8rem; }
         .legend-item {
             display: inline-flex;
             align-items: center;
@@ -52,11 +98,12 @@
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.1);
         }
+        /* Sits inside .month-nav now, as its own row below the
+           title/date/KPI row. */
         .view-switch-row {
             display: flex;
             align-items: center;
             gap: 1rem;
-            margin-bottom: 1rem;
         }
         .view-switch {
             display: inline-flex;
@@ -390,13 +437,32 @@
         table.month.locked th.editable-header:hover { filter: none; }
         table.month th .dow { display: block; font-size: 0.65rem; font-weight: 400; color: #888; line-height: 1; margin-bottom: 0.25rem; }
 
-        .month-nav { display: flex; align-items: center; gap: 0.9rem; margin: 0 0 1.25rem; }
+        /* Three stacked rows: title, then date-nav + KPIs, then the
+           view-switch tabs — each .month-nav-row is its own full-width
+           flex line inside this column. */
+        .month-nav {
+            display: flex; flex-direction: column; gap: 0.4rem; margin: 0 0 1.25rem;
+            background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+        }
+        /* Collapsed-sidebar spacing/alignment for this card (margin
+           instead of padding, and recentering the reopen icon) is
+           handled once, generically, in app.css — for every page whose
+           header is this same .month-nav card, not just this one. */
+        .month-nav h1 { font-size: 0.92rem; }
+        .month-nav-row {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; width: 100%;
+        }
+        /* Was the page's own top-level heading before "Device Records"
+           became a real page title above this row — same look, just
+           not a second top-level heading on the page anymore. */
+        .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
         .month-nav .nav-arrow {
             color: var(--navy);
             text-decoration: none;
-            font-size: 1rem;
-            width: 2rem;
-            height: 2rem;
+            font-size: 0.8rem;
+            width: 1.6rem;
+            height: 1.6rem;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -407,8 +473,6 @@
             transition: background .15s ease, color .15s ease;
         }
         .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
-        .month-nav .edit-calendar-link { color: var(--navy); font-size: 0.85rem; font-weight: 600; text-decoration: none; margin-left: 0.25rem; }
-        .month-nav .edit-calendar-link:hover { text-decoration: underline; }
         .lock-banner {
             background: #fdecea;
             color: #b3261e;
@@ -461,7 +525,7 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="dashboard" %}
+    {% include "attendance/_topbar.html" with current="dashboard" page_title="Device Records" %}
     <div class="page">
 
     {% for message in messages %}
@@ -470,10 +534,33 @@
 
     {% if has_data %}
     <div class="month-nav">
-        <a href="?date={{ prev_date }}&view={{ current_view }}" class="nav-arrow">&larr;</a>
-        <h1>{{ month_name }} {{ year }}</h1>
-        <a href="?date={{ next_date }}&view={{ current_view }}" class="nav-arrow">&rarr;</a>
-        <a href="{% url 'calendar' %}" class="edit-calendar-link">Edit holiday calendar →</a>
+        <div class="month-nav-row title-row">
+            <a href="?date={{ prev_date }}&view={{ current_view }}" class="nav-arrow">&larr;</a>
+            <span class="current-month">{{ month_name }} {{ year }}</span>
+            <a href="?date={{ next_date }}&view={{ current_view }}" class="nav-arrow">&rarr;</a>
+            {% if not empty %}
+            <div class="kpis">
+                <div class="kpi"><div class="label">Headcount</div><div class="value">{{ kpi.headcount }}</div></div>
+                <div class="kpi"><div class="label">Working Days</div><div class="value">{{ working_days }}</div></div>
+                <div class="kpi"><div class="label">Holidays</div><div class="value">{{ holidays|length }}</div></div>
+                <div class="kpi"><div class="label">Paid Holidays</div><div class="value">{{ paid_holidays|length }}</div></div>
+                <div class="kpi"><div class="label">Avg. attendance</div><div class="value">{{ kpi.avg_attendance_pct }}%</div></div>
+                <div class="kpi kpi-alert"><div class="label">Missed punches</div><div class="value">{{ missed_punch_count }}</div></div>
+            </div>
+            <div class="view-switch-row">
+                <div class="view-switch">
+                    <a href="?date={{ current_date }}&view=all" class="view-btn{% if current_view == 'all' %} active{% endif %}" data-view="all">All
+                        <span class="tab-lock-icon" data-view="all" data-label="All" data-action="{% if lock_status.all %}unlock{% else %}lock{% endif %}" title="{% if lock_status.all %}Unlock{% else %}Lock{% endif %} All">{% if lock_status.all %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+                    </a>
+                    <a href="?date={{ current_date }}&view=issues" class="view-btn{% if current_view == 'issues' %} active{% endif %}" data-view="issues">Missed Punch
+                        <span class="tab-lock-icon" data-view="issues" data-label="Missed Punch" data-action="{% if lock_status.issues %}unlock{% else %}lock{% endif %}" title="{% if lock_status.issues %}Unlock{% else %}Lock{% endif %} Missed Punch">{% if lock_status.issues %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+                    </a>
+                    <button type="button" class="view-btn dept-toggle-btn" id="deptToggleBtn">Summary</button>
+                    <button type="button" class="view-btn dept-toggle-btn" id="legendToggleBtn">Legend</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
     {% if is_locked %}
         <p class="lock-banner">🔒 {{ current_view_label }} is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>
@@ -485,21 +572,8 @@
     {% elif empty %}
         <p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p>
     {% else %}
-        <div class="card">
-            <div class="kpis">
-                <div class="kpi"><div class="label">Headcount</div><div class="value">{{ kpi.headcount }}</div></div>
-                <div class="kpi"><div class="label">Working Days</div><div class="value">{{ working_days }}</div></div>
-                <div class="kpi"><div class="label">Holidays</div><div class="value">{{ holidays|length }}</div></div>
-                <div class="kpi"><div class="label">Paid Holidays</div><div class="value">{{ paid_holidays|length }}</div></div>
-                <div class="kpi"><div class="label">Comp Off</div><div class="value">{{ comp_offs|length }}</div></div>
-                <div class="kpi"><div class="label">Avg. attendance</div><div class="value">{{ kpi.avg_attendance_pct }}%</div></div>
-                <div class="kpi kpi-alert"><div class="label">Missed punches</div><div class="value">{{ missed_punch_count }}</div></div>
-            </div>
-        </div>
-
-        <div class="card">
-            <details class="dept-summary">
-                <summary><h2>By department</h2></summary>
+        <div class="card" id="deptPanel" style="display:none;">
+            <h2>By department</h2>
             <div class="dept-view" data-view="all">
                 <div class="table-wrap">
                     <table class="simple">
@@ -535,12 +609,10 @@
                     </table>
                 </div>
             </div>
-            </details>
         </div>
 
-        <div class="card">
-            <h2>Month Attendance</h2>
-            <p class="caption">Click any day cell to fix a missed punch or set its shift code (e.g. M-OT/E-OT/ME-OT/Full-OT to pre-authorize overtime — see the OT page's OT View tab for a dedicated view of these). Click a date's column header to set that shift for everyone that day (Staff excluded).</p>
+        <div class="card" id="legendPanel" style="display:none;">
+            <h2>Legend</h2>
             <div class="legend">
                 <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.red }}"></span>0.5–5h</span>
                 <span class="legend-item legend-hours"><span class="swatch" style="background:{{ heat_colors.green }}"></span>5–9.5h</span>
@@ -564,16 +636,9 @@
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-radius:50%;width:5px;height:5px;background-color:#6A1B9A;"></span>Edited — Status</span>
                 <span class="legend-item"><span class="swatch" style="background:#fff;border-radius:50%;width:5px;height:5px;background-color:#757575;"></span>Edited — detail not tracked (before this feature)</span>
             </div>
-            <div class="view-switch-row">
-                <div class="view-switch">
-                    <a href="?date={{ current_date }}&view=all" class="view-btn{% if current_view == 'all' %} active{% endif %}" data-view="all">All
-                        <span class="tab-lock-icon" data-view="all" data-label="All" data-action="{% if lock_status.all %}unlock{% else %}lock{% endif %}" title="{% if lock_status.all %}Unlock{% else %}Lock{% endif %} All">{% if lock_status.all %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
-                    </a>
-                    <a href="?date={{ current_date }}&view=issues" class="view-btn{% if current_view == 'issues' %} active{% endif %}" data-view="issues">Missed Punch
-                        <span class="tab-lock-icon" data-view="issues" data-label="Missed Punch" data-action="{% if lock_status.issues %}unlock{% else %}lock{% endif %}" title="{% if lock_status.issues %}Unlock{% else %}Lock{% endif %} Missed Punch">{% if lock_status.issues %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
-                    </a>
-                </div>
-            </div>
+        </div>
+
+        <div class="card">
             <div class="grid-scroll">
                 <table class="month">
                     <colgroup>
@@ -723,6 +788,32 @@
     {% endif %}
     </div>
     <script>
+        // "Summary" tab (header) <-> #deptPanel (its own card below the
+        // header, the by-department breakdown) — plain JS instead of
+        // native <details> since the trigger and the content it opens
+        // live in two different places in the page.
+        var deptToggleBtn = document.getElementById('deptToggleBtn');
+        var deptPanel = document.getElementById('deptPanel');
+        if (deptToggleBtn && deptPanel) {
+            deptToggleBtn.addEventListener('click', function () {
+                var willOpen = deptPanel.style.display === 'none';
+                deptPanel.style.display = willOpen ? '' : 'none';
+                deptToggleBtn.classList.toggle('open', willOpen);
+            });
+        }
+
+        // "Legend" tab (header) <-> #legendPanel — same pattern as
+        // "Summary"/#deptPanel above.
+        var legendToggleBtn = document.getElementById('legendToggleBtn');
+        var legendPanel = document.getElementById('legendPanel');
+        if (legendToggleBtn && legendPanel) {
+            legendToggleBtn.addEventListener('click', function () {
+                var willOpen = legendPanel.style.display === 'none';
+                legendPanel.style.display = willOpen ? '' : 'none';
+                legendToggleBtn.classList.toggle('open', willOpen);
+            });
+        }
+
         var isMonthLocked = {{ is_locked|yesno:"true,false" }};
         if (isMonthLocked) {
             var monthTable = document.querySelector('table.month');

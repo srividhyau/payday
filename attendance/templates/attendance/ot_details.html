@@ -7,7 +7,7 @@
     <title>Payday — OT Details</title>
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; padding: 1.5rem 2rem 3rem; }
+                                .page { width: 100%; padding: 1.5rem 1rem 3rem; }
 
                         h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 700px; }
@@ -16,29 +16,30 @@
             padding: 0.6rem 0.9rem; max-width: none;
         }
 
-        .month-nav { display: flex; align-items: center; gap: 0.9rem; }
-        .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; }
-        .month-nav a {
-            color: var(--navy);
-            text-decoration: none;
-            font-size: 1rem;
-            width: 2rem;
-            height: 2rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border);
-            border-radius: 50%;
-            background: var(--surface);
-            box-shadow: var(--shadow);
+        /* Single yellow header bar — title, date-nav, KPIs, the OT
+           View/Monthly Summary tabs, and the download/WhatsApp icons
+           all in one line (same convention as Device Records' header). */
+        .month-nav {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
+            background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+        }
+        .month-nav h1 { font-size: 0.92rem; margin: 0; }
+        .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
+        .month-nav .nav-arrow {
+            color: var(--navy); text-decoration: none; font-size: 0.8rem;
+            width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
             transition: background .15s ease, color .15s ease;
         }
-        .month-nav a:hover { background: var(--navy); color: var(--yellow); }
+        .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
 
-        .kpi-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-left: auto; }
-        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.6rem 0.9rem; min-width: 130px; }
-        .kpi .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.2rem; }
-        .kpi .value { font-size: 1.15rem; font-weight: 700; color: var(--navy); }
+        /* One line, each KPI its own boxed cell. */
+        .kpi-row { display: flex; flex-wrap: nowrap; gap: 0.4rem; margin-left: auto; }
+        .kpi { padding: 0.2rem 0.55rem; min-width: 0; border: 1px solid rgba(0,47,102,0.3); border-radius: 6px; background: rgba(255,255,255,0.35); }
+        .kpi .label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: rgba(0,47,102,0.75); white-space: normal; line-height: 1.15; }
+        .kpi .value { font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-top: 0.02rem; }
+        .month-nav .tab-row { margin: 0; }
 
                         .report-status { font-size: 0.8rem; color: var(--text-muted); }
         .report-status.error { color: #b3261e; }
@@ -108,13 +109,13 @@
            horizontally-scrolling inner box would have silently made
            these bind to that box instead of the page, undoing the
            "freeze while scrolling the page" effect entirely. With
-           nothing clipping in between, they bind to the real viewport,
-           same as the sticky .topbar already does — hence the 56px
-           offset below, matching its rendered height (see
-           piecerate/rate_card.html's identical sticky-header offset).
+           nothing clipping in between, they bind to the real viewport —
+           top: 0 now that the nav is a left sidebar rather than a
+           horizontal bar eating vertical space at the top (it used to
+           need a 56px offset matching that bar's height).
            Borders don't travel with sticky cells under border-collapse,
            so an inset box-shadow redraws them. */
-        table.month thead th { position: sticky; top: 56px; z-index: 3; box-shadow: inset 0 -1px 0 #666; }
+        table.month thead th { position: sticky; top: 0; z-index: 3; box-shadow: inset 0 -1px 0 #666; }
         /* Scoped to tbody only — the tfoot's own "Total" label cell
            spans every column (colspan); sticking it left too, on top of
            that huge a colspan, renders unreliably across browsers and
@@ -398,21 +399,17 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="ot_details" %}
+    {% include "attendance/_topbar.html" with current="ot_details" page_title="OT Details" %}
     <div class="page">
         {% for message in messages %}
         <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
-        <div class="page-header-row">
-            <h1>OT Details</h1>
-            {% if has_data %}
-            <div class="month-nav">
-                <a href="?date={{ prev_date }}">&larr;</a>
-                <h2>{{ month_name }} {{ year }}</h2>
-                <a href="?date={{ next_date }}">&rarr;</a>
-            </div>
-            {% endif %}
-            {% if has_data and not empty %}
+        {% if has_data %}
+        <div class="month-nav">
+            <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
+            <span class="current-month">{{ month_name }} {{ year }}</span>
+            <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
+            {% if not empty %}
             <div class="kpi-row">
                 <div class="kpi">
                     <div class="label">Employees with OT</div>
@@ -427,8 +424,22 @@
                     <div class="value">{{ summary_total_amount }}</div>
                 </div>
             </div>
+            <div class="tab-row">
+                <button type="button" class="tab-btn active" data-tab="otview">OT View
+                    <span class="tab-lock-icon" data-label="OT View" data-action="{% if is_locked_ot %}unlock{% else %}lock{% endif %}" title="{% if is_locked_ot %}Unlock{% else %}Lock{% endif %} OT View">{% if is_locked_ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="summary">Monthly Summary</button>
+                <a class="icon-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+                </a>
+                <button type="button" class="icon-btn" id="sendOtWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
+                </button>
+                <span id="sendOtWhatsappStatus" class="report-status"></span>
+            </div>
             {% endif %}
         </div>
+        {% endif %}
 
         {% if not has_data %}
             <div class="card"><p class="empty-state">No attendance data uploaded yet.</p></div>
@@ -437,20 +448,6 @@
                 <div class="card"><p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p></div>
             {% else %}
                 <div class="card">
-                    <div class="tab-row">
-                        <button type="button" class="tab-btn active" data-tab="otview">OT View
-                            <span class="tab-lock-icon" data-label="OT View" data-action="{% if is_locked_ot %}unlock{% else %}lock{% endif %}" title="{% if is_locked_ot %}Unlock{% else %}Lock{% endif %} OT View">{% if is_locked_ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
-                        </button>
-                        <button type="button" class="tab-btn" data-tab="summary">Monthly Summary</button>
-                        <a class="icon-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
-                        </a>
-                        <button type="button" class="icon-btn" id="sendOtWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
-                        </button>
-                        <span id="sendOtWhatsappStatus" class="report-status"></span>
-                    </div>
-
                     <div class="tab-panel" data-panel="otview">
                         {% if is_locked_ot %}
                             <p class="lock-banner">🔒 OT View is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>

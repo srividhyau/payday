@@ -7,7 +7,7 @@
     <title>Payday — WhatsApp Setup</title>
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
     <style>
-        .page { width: 100%; max-width: 720px; margin: 0; padding: 1.5rem 2rem 3rem; }
+        .page { width: 100%; max-width: 720px; margin: 0; padding: 1.5rem 1rem 3rem; }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1.25rem; line-height: 1.5; }
         .connect-btn {
             background: #25D366; color: #fff; font-weight: 700; border: none;
@@ -30,10 +30,9 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="whatsapp_setup" %}
+    {% include "attendance/_topbar.html" with current="whatsapp_setup" page_title="WhatsApp Setup" %}
 
     <div class="page">
-        <h1>WhatsApp Setup</h1>
         <p class="caption">
             Connects (or reconnects) the business's own WhatsApp number via Meta's official Embedded
             Signup flow — the same thing Business Manager's UI does, run from inside this app instead.

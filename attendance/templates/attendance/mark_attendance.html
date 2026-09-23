@@ -9,11 +9,31 @@
 <style>
                                 .page { width: 100%; margin: 0; padding: 1rem 1rem 5rem; }
 
-        
-        .view-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.9rem; }
+        /* Single yellow header bar — title, date-nav, department
+           picker, and the Day view/Month view tabs all in one line
+           (same convention as Device Records' header). */
+        .month-nav {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
+            background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+        }
+        .month-nav h1 { font-size: 0.92rem; margin: 0; }
+        .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
+        .month-nav .nav-arrow {
+            color: var(--navy); text-decoration: none; font-size: 0.8rem;
+            width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
+            transition: background .15s ease, color .15s ease;
+        }
+        .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
+        .month-nav select.dept-picker {
+            padding: 0.3rem 0.6rem; border: 1px solid rgba(0,47,102,0.3); border-radius: 8px;
+            font-size: 0.8rem; font-weight: 600; color: var(--navy); background: var(--surface); max-width: 100%;
+        }
+        .view-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-left: auto; }
         .view-toggle a {
             font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.9rem; border-radius: 999px;
-            text-decoration: none; border: 1px solid var(--navy); color: var(--navy);
+            text-decoration: none; border: 1px solid var(--navy); color: var(--navy); background: var(--surface);
         }
         .view-toggle a.active { background: var(--navy); color: var(--yellow); }
         .view-toggle #sendReportBtn {
@@ -68,49 +88,6 @@
         table.month td.status-H { background: #ececec; color: #555; }
         table.month td.status-HD { background: #fff6cc; color: #8a6d00; }
 
-        /* --- controls bar: date nav + department picker --- */
-        .controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.6rem;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 0.9rem 1rem;
-            margin-bottom: 1rem;
-        }
-        .date-nav { display: flex; align-items: center; gap: 0.4rem; flex: 1 1 auto; min-width: 0; }
-        .date-nav a {
-            flex: none;
-            width: 2.4rem; height: 2.4rem;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 8px; border: 1px solid var(--border);
-            color: var(--navy); text-decoration: none; font-weight: 700; font-size: 1.1rem;
-        }
-        .date-nav a:hover { background: var(--bg); }
-        .date-nav .current-date {
-            flex: 1 1 auto; min-width: 0;
-            text-align: center;
-            font-weight: 700;
-            font-size: 1rem;
-            color: var(--navy);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        select.dept-picker {
-            flex: none;
-            padding: 0.5rem 0.7rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--navy);
-            background: var(--surface);
-            max-width: 100%;
-        }
 
         .locked-banner {
             background: #fff4e5; color: #8a4b00; border: 1px solid #ffddaa;
@@ -210,35 +187,30 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="mark_attendance" %}
+    {% include "attendance/_topbar.html" with current="mark_attendance" page_title="Mark Attendance" %}
 
     <div class="page">
-        <h1>Mark Attendance</h1>
-
-        <div class="view-toggle">
-            <a href="#" class="active">Day view</a>
-            <a href="{% url 'mark_attendance_month' %}{% if dept %}?department={{ dept.id }}{% endif %}">Month view</a>
-        </div>
-
-        {% for message in messages %}
-            <div class="msg {{ message.tags }}">{{ message }}</div>
-        {% endfor %}
-
-        <form method="get" id="filterForm">
-            <div class="controls">
-                <div class="date-nav">
-                    <a href="?date={{ prev_date }}{% if dept %}&department={{ dept.id }}{% endif %}" aria-label="Previous day">&lsaquo;</a>
-                    <span class="current-date">{{ target_date|date:"D, d M Y" }}</span>
-                    <a href="?date={{ next_date }}{% if dept %}&department={{ dept.id }}{% endif %}" aria-label="Next day">&rsaquo;</a>
-                </div>
+        <div class="month-nav">
+            <a href="?date={{ prev_date }}{% if dept %}&department={{ dept.id }}{% endif %}" class="nav-arrow" aria-label="Previous day">&larr;</a>
+            <span class="current-month">{{ target_date|date:"D, d M Y" }}</span>
+            <a href="?date={{ next_date }}{% if dept %}&department={{ dept.id }}{% endif %}" class="nav-arrow" aria-label="Next day">&rarr;</a>
+            <form method="get" id="filterForm" style="display:contents;">
                 <select name="department" class="dept-picker" onchange="document.getElementById('filterForm').submit()">
                     {% for d in departments %}
                         <option value="{{ d.id }}" {% if dept.id == d.id %}selected{% endif %}>{{ d.name }}</option>
                     {% endfor %}
                 </select>
                 <input type="hidden" name="date" value="{{ target_date|date:'Y-m-d' }}">
+            </form>
+            <div class="view-toggle">
+                <a href="#" class="active">Day view</a>
+                <a href="{% url 'mark_attendance_month' %}{% if dept %}?department={{ dept.id }}{% endif %}">Month view</a>
             </div>
-        </form>
+        </div>
+
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
 
         {% if is_locked %}
             <div class="locked-banner">This month is locked. Unlock it from the dashboard before marking attendance.</div>

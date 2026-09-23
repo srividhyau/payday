@@ -7,27 +7,39 @@
     <title>Payday — Cash Register</title>
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+                                .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
                 
                                 
                 .card h2 { font-size: 1rem; margin: 0 0 1rem; color: var(--navy); }
 
-        .month-nav { display: flex; align-items: center; gap: 0.9rem; }
-        .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; color: var(--navy); }
-        .month-nav a {
-            color: var(--navy); text-decoration: none; font-size: 1rem; width: 2rem; height: 2rem;
-            display: inline-flex; align-items: center; justify-content: center;
-            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
+        /* Single yellow header bar — title, date-nav, KPIs, and the
+           download icon all in one line (same convention as Device
+           Records' header). */
+        .month-nav {
+            display: flex; flex-direction: column; gap: 0.4rem; margin: 0 0 1.25rem;
+            background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
         }
-        .month-nav a:hover { background: var(--navy); color: var(--yellow); }
+        .month-nav h1 { font-size: 0.92rem; margin: 0; }
+        .month-nav-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; width: 100%; }
+        .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
+        .month-nav .nav-arrow {
+            color: var(--navy); text-decoration: none; font-size: 0.8rem;
+            width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
+            transition: background .15s ease, color .15s ease;
+        }
+        .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
 
-        .kpi-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-left: auto; }
-        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.6rem 0.9rem; min-width: 130px; }
-        .kpi .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 0.2rem; }
-        .kpi .value { font-size: 1.15rem; font-weight: 700; color: var(--navy); }
+        /* One line, each KPI its own boxed cell. */
+        .kpi-row { display: flex; flex-wrap: nowrap; gap: 0.4rem; margin-left: auto; }
+        .kpi { padding: 0.2rem 0.55rem; min-width: 0; border: 1px solid rgba(0,47,102,0.3); border-radius: 6px; background: rgba(255,255,255,0.35); }
+        .kpi .label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: rgba(0,47,102,0.75); white-space: normal; line-height: 1.15; }
+        .kpi .value { font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-top: 0.02rem; }
         .kpi.balance .value { color: #1e7e34; }
         .kpi.balance.negative .value { color: #b3261e; }
+        .action-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0; }
 
         .row-input {
             width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 6px;
@@ -93,21 +105,20 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="cash_register" %}
+    {% include "attendance/_topbar.html" with current="cash_register" page_title="Cash Register" %}
 
     <div class="page">
-        <div class="page-header-row">
-            <h1>Cash Register</h1>
-            <div class="month-nav">
-                <a href="?date={{ prev_date }}">&larr;</a>
-                <h2>{{ month_name }} {{ year }}</h2>
-                <a href="?date={{ next_date }}">&rarr;</a>
-            </div>
-            <div class="kpi-row">
-                <div class="kpi"><div class="label">Opening Balance</div><div class="value">{{ opening_balance }}</div></div>
-                <div class="kpi"><div class="label">Cash In</div><div class="value">{{ total_in }}</div></div>
-                <div class="kpi"><div class="label">Cash Out</div><div class="value">{{ total_out }}</div></div>
-                <div class="kpi balance{% if closing_balance < 0 %} negative{% endif %}"><div class="label">Closing Balance</div><div class="value">{{ closing_balance }}</div></div>
+        <div class="month-nav">
+            <div class="month-nav-row title-row">
+                <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
+                <span class="current-month">{{ month_name }} {{ year }}</span>
+                <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
+                <div class="kpi-row">
+                    <div class="kpi"><div class="label">Opening Balance</div><div class="value">{{ opening_balance }}</div></div>
+                    <div class="kpi"><div class="label">Cash In</div><div class="value">{{ total_in }}</div></div>
+                    <div class="kpi"><div class="label">Cash Out</div><div class="value">{{ total_out }}</div></div>
+                    <div class="kpi balance{% if closing_balance < 0 %} negative{% endif %}"><div class="label">Closing Balance</div><div class="value">{{ closing_balance }}</div></div>
+                </div>
             </div>
         </div>
 

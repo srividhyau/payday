@@ -17,6 +17,7 @@
     --yellow: #fde047;
     --radius: 12px;
     --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+    --sidebar-w: 190px;
 }
 * { box-sizing: border-box; }
 body {
@@ -26,50 +27,154 @@ body {
     color: var(--text);
     -webkit-font-smoothing: antialiased;
 }
+/* Only a page that actually renders the sidebar (every page except the
+   login screen) gets the matching gutter — :has() lets this stay a
+   single shared rule instead of every page's own <style> needing it. */
+body:has(.topbar) { padding-left: var(--sidebar-w); transition: padding-left .16s ease, padding-top .16s ease; }
+/* Collapsed reclaims the sidebar's width entirely — the page's own
+   header no longer needs to dodge a corner-pinned icon (see
+   .header-nav-toggle below, which floats centered over the header
+   instead of sitting at the edge), so no compensating indent is
+   needed here the way there used to be. */
+body:has(.topbar.collapsed) { padding-left: 0; }
 
+/* ---------- sidebar (was a horizontal topbar) ---------- */
 .topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0.85rem 2rem; background: var(--yellow); border-bottom: 1px solid rgba(0,47,102,0.15);
-    position: sticky; top: 0; z-index: 30; flex-wrap: wrap; gap: 0.5rem;
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+    background: var(--yellow); border-right: 1px solid rgba(0,47,102,0.15);
+    display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;
+    padding: 0.6rem 0.5rem 0.8rem; z-index: 30;
+    transition: width .16s ease, padding .16s ease;
 }
-.topbar .brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--navy); text-decoration: none; }
-.topbar .brand .brand-logo { width: 24px; height: 24px; display: block; }
-.topbar nav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+/* Collapsed: leaves the layout entirely (width 0) so the page reclaims
+   the space — the persistent .header-nav-toggle (below) stays on
+   screen either way so it's obvious there's a menu to bring back. */
+.topbar.collapsed { width: 0; padding: 0.6rem 0 0.8rem; border-right-color: transparent; }
+.topbar.collapsed .brand-row, .topbar.collapsed nav { opacity: 0; pointer-events: none; }
+.sidebar-collapse-btn {
+    flex: none; width: 1.5rem; height: 1.5rem; border-radius: 6px; border: 1px solid rgba(0,47,102,0.25);
+    background: transparent; color: var(--navy); cursor: pointer; font-size: 0.8rem; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; margin-left: auto;
+}
+.sidebar-collapse-btn:hover { background: rgba(0,47,102,0.08); }
+/* One control, always on screen regardless of collapsed/expanded —
+   icon + the current page's own name (passed in as page_title; see
+   the pages that {% include %} this partial), pinned at the top-left
+   of the content area rather than sitting mid-row — that way it never
+   has to overlap the header's own left-edge content (date-nav arrows,
+   etc.) the way a vertically-centered version would. Doubles as both
+   "what page is this" (now that the page's own <h1> is gone — its
+   text became this button's label) and the sidebar toggle. Each
+   page's .month-nav reserves matching room at its own top (see
+   .page > .month-nav below) so its content starts clear of this
+   instead of tucking in underneath it. */
+.header-nav-toggle {
+    position: fixed; top: 0.6rem; left: calc(var(--sidebar-w) + 0.85rem); z-index: 32;
+    display: flex; align-items: center; gap: 0.45rem;
+    border: 1px solid rgba(0,47,102,0.3); border-radius: 999px;
+    background: var(--yellow); color: var(--navy); cursor: pointer; font-family: inherit;
+    font-size: 0.85rem; font-weight: 700; letter-spacing: -0.01em;
+    padding: 0.35rem 0.9rem 0.35rem 0.35rem; box-shadow: var(--shadow);
+    transition: left .16s ease;
+}
+body:has(.topbar.collapsed) .header-nav-toggle { left: 0.85rem; }
+.header-nav-toggle .brand-logo { width: 1.6rem; height: 1.6rem; display: block; border-radius: 50%; flex: none; }
+.header-nav-toggle span { white-space: nowrap; }
+/* Every page's own yellow .month-nav card sets its own padding (a
+   plain shorthand, so it always wins there against a same-specificity
+   app.css rule regardless of source order) — reserving room at the
+   top needs a rule specific enough to survive that: .page > :first-
+   child (a class plus a pseudo-class) beats a page's own bare
+   .month-nav or .card rule (one class) outright, regardless of source
+   order. Targets the page's first element generically — not just
+   .month-nav — since a handful of pages (Roles, WhatsApp Setup, ...)
+   have no header card at all and would otherwise have their own
+   first line of text sit right under the toggle instead of below it.
+   This also gives every page's header the same reserved top strip
+   regardless of how much content is in it, which is most of why
+   header heights don't wildly vary page to page anymore. */
+.page > :first-child { padding-top: 2.2rem; }
+.brand-row { display: flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.15rem 0.6rem 0.3rem; }
+.topbar .brand {
+    display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 0.86rem;
+    letter-spacing: -0.01em; color: var(--navy); text-decoration: none; min-width: 0;
+}
+.topbar .brand .brand-logo { width: 20px; height: 20px; display: block; border-radius: 4px; flex: none; }
+.topbar nav { display: flex; flex-direction: column; gap: 0.05rem; flex: 1 1 auto; }
+.topbar nav .nav-spacer { flex: 1 1 auto; }
+.topbar nav form { margin-top: auto; padding-top: 0.5rem; border-top: 1px solid rgba(0,47,102,0.15); }
 .topbar nav a {
-    color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600;
-    padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+    color: var(--navy); text-decoration: none; font-size: 0.72rem; font-weight: 600;
+    padding: 0.32rem 0.45rem; border-radius: 6px; transition: background .15s ease, color .15s ease;
 }
 .topbar nav a:hover, .topbar nav a.current { background: var(--navy); color: var(--yellow); }
 .topbar nav button {
+    display: block; width: 100%; text-align: left;
     color: var(--navy); background: none; border: none; cursor: pointer;
-    font-size: 0.85rem; font-weight: 600; font-family: inherit;
-    padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+    font-size: 0.72rem; font-weight: 600; font-family: inherit;
+    padding: 0.32rem 0.45rem; border-radius: 6px; transition: background .15s ease, color .15s ease;
 }
 .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
-.topbar nav details.nav-dropdown { position: relative; }
+.topbar nav details.nav-dropdown + details.nav-dropdown,
+.topbar nav details.nav-dropdown + a,
+.topbar nav a + details.nav-dropdown { margin-top: 0.18rem; }
 .topbar nav details.nav-dropdown summary {
-    list-style: none; cursor: pointer; color: var(--navy); font-size: 0.85rem; font-weight: 600;
-    padding: 0.4rem 0.85rem; border-radius: 999px; transition: background .15s ease, color .15s ease;
+    list-style: none; cursor: pointer; color: var(--navy); font-size: 0.68rem; font-weight: 700;
+    padding: 0.32rem 0.45rem; border-radius: 6px; transition: background .15s ease, color .15s ease;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    display: flex; align-items: center; justify-content: space-between;
 }
 .topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
+.topbar nav details.nav-dropdown summary::after { content: "▸"; font-size: 0.6rem; opacity: .6; transition: transform .15s ease; }
+.topbar nav details.nav-dropdown[open] summary::after { transform: rotate(90deg); }
 .topbar nav details.nav-dropdown summary:hover,
-.topbar nav details.nav-dropdown[open] summary,
 .topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
 .topbar nav .nav-dropdown-menu {
-    position: absolute; top: 100%; right: 0; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
-    padding: 0.35rem; min-width: 170px; z-index: 50;
+    display: flex; flex-direction: column; gap: 0.02rem; padding: 0.15rem 0 0.2rem;
 }
-.topbar nav .nav-dropdown-menu a { display: block; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: var(--navy); text-decoration: none; white-space: nowrap; }
+.topbar nav .nav-dropdown-menu a { display: block; padding: 0.32rem 0.45rem 0.32rem 0.85rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600; color: var(--navy); text-decoration: none; line-height: 1.2; }
 .topbar nav .nav-dropdown-menu a:hover { background: var(--navy); color: var(--yellow); }
-.topbar nav .nav-dropdown-menu a.current { background: var(--bg); color: var(--navy-deep); }
-.topbar nav .nav-dropdown-menu .nav-dropdown-divider { height: 1px; background: var(--border); margin: 0.35rem 0.2rem; }
+.topbar nav .nav-dropdown-menu a.current { background: var(--navy); color: var(--yellow); }
+.topbar nav .nav-dropdown-menu .nav-dropdown-divider { height: 1px; background: rgba(0,47,102,0.15); margin: 0.25rem 0.4rem; }
 .topbar nav .nav-dropdown-menu .nav-dropdown-group-alt {
-    background: var(--bg); border-radius: 8px; padding: 0.25rem;
+    background: rgba(0,47,102,0.06); border-radius: 6px; padding: 0.15rem;
 }
 
 h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
 .page-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+
+@media (max-width: 700px) {
+    /* The desktop collapse-to-nothing state doesn't apply here — the
+       drawer open/close (via transform, below) is the only concept of
+       "hidden" at this width. Without this reset, a .collapsed class
+       carried over from a desktop-width visit in the same browser (the
+       cookie persists across both) would fight the open drawer's
+       transform with a stale width:0/no-padding, leaving it open but
+       zero-width. */
+    .topbar.collapsed { width: var(--sidebar-w); padding: 0.6rem 0.5rem 0.8rem; border-right-color: rgba(0,47,102,0.15); }
+    .topbar.collapsed .brand-row, .topbar.collapsed nav { opacity: 1; pointer-events: auto; }
+    .topbar { transform: translateX(-100%); transition: transform .16s ease; }
+    .topbar.open { transform: translateX(0); box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 8px 0 24px rgba(0,0,0,0.18); }
+    /* The hamburger toggle (below) is always floating at the top-left
+       at this width, open or closed — same "share its row instead of a
+       blank strip above it" treatment as the desktop collapsed reopen
+       tab. */
+    body:has(.topbar) { padding-left: 0; }
+    body:has(.topbar) .page > :first-child { padding-left: 3.2rem; }
+    /* The hamburger toggle is the only show/hide control at this width
+       — the desktop header-nav-toggle pill and in-sidebar collapse
+       button would be redundant (tapping outside the open drawer
+       already closes it), and there's little room to float a labeled
+       pill over the header at this width anyway. */
+    .header-nav-toggle { display: none !important; }
+    .sidebar-collapse-btn { display: none; }
+    .sidebar-mobile-toggle {
+        position: fixed; top: 0.6rem; left: 0.6rem; z-index: 32; width: 2.2rem; height: 2.2rem;
+        border-radius: 8px; border: 1px solid var(--navy); background: var(--yellow); color: var(--navy);
+        font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+    }
+}
+@media (min-width: 701px) { .sidebar-mobile-toggle { display: none; } }
 
 .msg { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.9rem; font-size: 0.85rem; }
 .msg.success { background: #e6f4ea; color: #1e7e34; }

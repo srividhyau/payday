@@ -7,18 +7,29 @@
     <title>Payday — EL &amp; Comp-Off</title>
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+                                .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
                 
 
-        .month-nav { display: flex; align-items: center; gap: 0.9rem; }
-        .month-nav h2 { font-size: 1.1rem; margin: 0; min-width: 160px; text-align: center; color: var(--navy); }
-        .month-nav a {
-            color: var(--navy); text-decoration: none; font-size: 1rem; width: 2rem; height: 2rem;
-            display: inline-flex; align-items: center; justify-content: center;
-            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
+        /* Single yellow header bar — title, date-nav, and the "Post
+           this month" button all in one line (same convention as
+           Device Records' header). */
+        .month-nav {
+            display: flex; flex-direction: column; gap: 0.4rem; margin: 0 0 1.25rem;
+            background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
         }
-        .month-nav a:hover { background: var(--navy); color: var(--yellow); }
+        .month-nav h1 { font-size: 0.92rem; margin: 0; }
+        .month-nav-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; width: 100%; }
+        .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
+        .month-nav .nav-arrow {
+            color: var(--navy); text-decoration: none; font-size: 0.8rem;
+            width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
+            transition: background .15s ease, color .15s ease;
+        }
+        .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
+        .month-nav .action-row { margin-left: auto; margin-bottom: 0; }
 
         .caption { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1rem; line-height: 1.5; }
 
@@ -102,15 +113,22 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="leave_ledger" %}
+    {% include "attendance/_topbar.html" with current="leave_ledger" page_title="EL & Comp-Off" %}
 
     <div class="page">
-        <div class="page-header-row">
-            <h1>EL &amp; Comp-Off</h1>
-            <div class="month-nav">
-                <a href="?date={{ prev_date }}">&larr;</a>
-                <h2>{{ month_name }} {{ year }}</h2>
-                <a href="?date={{ next_date }}">&rarr;</a>
+        <div class="month-nav">
+            <div class="month-nav-row title-row">
+                <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
+                <span class="current-month">{{ month_name }} {{ year }}</span>
+                <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
+                <div class="action-row">
+                    <form method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                        <input type="hidden" name="action" value="post">
+                        <button type="submit" class="post-btn">Post this month</button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -121,15 +139,6 @@
         <p class="caption">
             Staff only. Hover any column header for what it means. EL balance is capped at {{ el_cap }} days running — worked days that would push it over the cap are encashed instead (tracked here, paid by hand); a day actually taken is marked as "Earned Leave" on the Attendance page. Comp-Off has no cap. Rows not yet posted show a live preview; use "Post this month" to save it, or "Edit" one row to set a balance by hand (e.g. to seed a starting balance from before this page existed).
         </p>
-
-        <div class="action-row">
-            <form method="post" style="display:inline;">
-                {% csrf_token %}
-                <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
-                <input type="hidden" name="action" value="post">
-                <button type="submit" class="post-btn">Post this month</button>
-            </form>
-        </div>
 
         <div class="card">
             <div class="table-wrap">

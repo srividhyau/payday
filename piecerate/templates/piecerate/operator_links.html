@@ -7,7 +7,7 @@
     <title>Payday — Operator Links</title>
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.4rem 0.6rem; font-size: 0.85rem; vertical-align: middle; }
     table.simple thead th { background: #fef9c3; color: var(--navy); }
@@ -30,12 +30,9 @@
 </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="piece_rate_operator_links" %}
+    {% include "attendance/_topbar.html" with current="piece_rate_operator_links" page_title="Operator Links" %}
 
     <div class="page">
-        <div class="page-header-row">
-            <h1>Operator Links</h1>
-        </div>
         {% if can_manage %}
         <p class="empty-state" style="padding-top:0;">
             Each link is a private URL for one operator's phone — no username or password.

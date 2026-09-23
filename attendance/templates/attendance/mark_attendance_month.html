@@ -11,24 +11,57 @@
 
         
                         
-        .view-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.9rem; }
-        .view-toggle a {
-            font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.9rem; border-radius: 999px;
-            text-decoration: none; border: 1px solid var(--navy); color: var(--navy);
+        /* Single yellow header bar — title, date-nav, and the Day
+           view/Month view/Legend tabs all in one line (same convention
+           as Device Records' header). */
+        .month-nav {
+            display: flex; flex-direction: column; gap: 0.4rem; margin: 0 0 1.25rem;
+            background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
         }
-        .view-toggle a.active { background: var(--navy); color: var(--yellow); }
-        .view-toggle #sendReportBtn {
+        /* Collapsed-sidebar spacing/alignment for this card (margin
+           instead of padding, and recentering the reopen icon) is
+           handled once, generically, in app.css — for every page whose
+           header is this same .month-nav card, not just this one. */
+        .month-nav h1 { font-size: 0.92rem; margin: 0; }
+        .month-nav-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; width: 100%; }
+        .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
+        .month-nav .nav-arrow {
+            color: var(--navy); text-decoration: none; font-size: 0.8rem;
+            width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: 50%; background: var(--surface); box-shadow: var(--shadow);
+            transition: background .15s ease, color .15s ease;
+        }
+        .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
+        .view-switch-row { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
+        .view-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: var(--bg); padding: 3px; }
+        .view-switch .view-btn {
+            padding: 0.4rem 1rem; font-size: 0.82rem; border: none; border-radius: 999px;
+            background: transparent; color: var(--text-muted); cursor: pointer; text-decoration: none;
+            display: inline-block; transition: background .15s ease, color .15s ease;
+        }
+        .view-switch .view-btn:hover { color: var(--text); }
+        .view-switch .view-btn.active { background: var(--navy); color: var(--yellow); font-weight: 600; }
+        .view-switch .view-btn.active:hover { background: var(--navy); }
+        /* "Legend" — same look as Device Records' Summary/Legend tabs:
+           darker text than the plain muted grey the other .view-btns
+           use (which was nearly invisible on that page's pill), a
+           touch smaller since it's a secondary control, not a view. */
+        .view-switch .view-btn.legend-toggle-btn { font-size: 0.76rem; padding: 0.3rem 0.75rem; color: var(--navy); font-weight: 500; }
+        .legend-toggle-btn.open { background: var(--navy); color: var(--yellow); font-weight: 600; }
+        .legend-toggle-btn.open:hover { background: var(--navy); color: var(--yellow); }
+        #sendReportBtn {
             position: relative;
             display: inline-flex; align-items: center; justify-content: center;
             width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
             border: 1px solid var(--navy); background: var(--navy); color: var(--yellow); cursor: pointer;
         }
-        .view-toggle #sendReportBtn svg { display: block; }
-        .view-toggle #sendReportBtn:hover { background: var(--navy-deep); }
-        .view-toggle #sendReportBtn:disabled { opacity: 0.6; cursor: default; }
+        #sendReportBtn svg { display: block; }
+        #sendReportBtn:hover { background: var(--navy-deep); }
+        #sendReportBtn:disabled { opacity: 0.6; cursor: default; }
         /* Custom tooltip instead of relying on the native title attribute
            (inconsistent delay/visibility across browsers). */
-        .view-toggle #sendReportBtn[data-tooltip]:hover::after {
+        #sendReportBtn[data-tooltip]:hover::after {
             content: attr(data-tooltip);
             position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
             margin-bottom: 8px; background: var(--navy-deep); color: #fff;
@@ -36,8 +69,7 @@
             padding: 0.35rem 0.65rem; border-radius: 6px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
         }
-        .view-toggle .report-status { margin-left: auto; }
-        .report-status { font-size: 0.8rem; color: var(--text-muted); }
+        .report-status { font-size: 0.8rem; color: var(--text-muted); margin-left: 0.4rem; }
         .report-status.error { color: #b3261e; }
         .report-status.success { color: #1e7e34; }
         /* html2canvas can't render position:sticky reliably — flatten the
@@ -47,41 +79,28 @@
         body.capturing table.month th,
         body.capturing table.month td.label { position: static !important; }
 
-        .controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.6rem;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 0.9rem 1rem;
-            margin-bottom: 1rem;
-        }
-        .date-nav { display: flex; align-items: center; gap: 0.4rem; flex: 1 1 auto; min-width: 0; }
-        .date-nav a {
-            flex: none;
-            width: 2.4rem; height: 2.4rem;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 8px; border: 1px solid var(--border);
-            color: var(--navy); text-decoration: none; font-weight: 700; font-size: 1.1rem;
-        }
-        .date-nav a:hover { background: var(--bg); }
-        .date-nav .current-date { flex: 1 1 auto; min-width: 0; text-align: center; font-weight: 700; font-size: 1rem; color: var(--navy); white-space: nowrap; }
+        /* Sits inside the table's first (otherwise-empty) header cell
+           now, not the yellow header bar — narrow to fit that cell's
+           fixed width (see col.label-col below) rather than sizing to
+           the longest department name. */
         select.dept-picker {
-            flex: none; padding: 0.5rem 0.7rem; border: 1px solid var(--border); border-radius: 8px;
-            font-size: 0.85rem; font-weight: 600; color: var(--navy); background: var(--surface); max-width: 100%;
+            width: 100%; padding: 0.2rem 0.3rem; border: 1px solid rgba(0,47,102,0.3); border-radius: 6px;
+            font-size: 0.72rem; font-weight: 600; color: var(--navy); background: var(--surface);
         }
+        th.label form { margin: 0; }
 
         .locked-banner {
             background: #fff4e5; color: #8a4b00; border: 1px solid #ffddaa;
             border-radius: var(--radius); padding: 0.7rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; font-weight: 600;
         }
         .empty { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem 1rem; text-align: center; color: var(--text-muted); }
-        .hint { font-size: 0.78rem; color: var(--text-muted); margin: -0.4rem 0 0.9rem; }
-
-        .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; margin-bottom: 0.9rem; font-size: 0.75rem; color: var(--text-muted); }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.9rem 1rem; margin-bottom: 0.75rem; }
+        .card h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
+        /* Toggled open/closed by "Legend" in the header tabs (see the
+           template + script) — same pattern as Device Records' Legend
+           panel, hidden by default so it doesn't take up space
+           whenever the table itself is the point of the page. */
+        .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; font-size: 0.75rem; color: var(--text-muted); }
         .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; margin-right: 0.3rem; vertical-align: middle; border: 1px solid rgba(0,0,0,0.1); }
 
         /* --- month grid: sticky first column, horizontal scroll --- */
@@ -98,7 +117,7 @@
         }
         table.month th { padding: 0.25rem 0.3rem; }
         table.month td.label { padding: 0.25rem 0.35rem; }
-        table.month col.label-col { width: 90px; }
+        table.month col.label-col { width: 110px; }
         table.month col.day-col { width: 38px; }
         table.month col.summary-col { width: 110px; }
         table.month th.summary, table.month td.summary { font-size: 0.72rem; white-space: nowrap; }
@@ -154,41 +173,36 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="mark_attendance_month" %}
+    {% include "attendance/_topbar.html" with current="mark_attendance_month" page_title="Mark Attendance — Month View" %}
 
     <div class="page">
-        <h1>Mark Attendance — Month View</h1>
-
-        <div class="view-toggle">
-            <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}">Day view</a>
-            <a href="#" class="active">Month view</a>
-            {% if dept and table_rows %}
-            <button type="button" class="icon-btn" id="sendWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
-            </button>
-            <span id="sendWhatsappStatus" class="report-status"></span>
-            {% endif %}
-        </div>
 
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
 
-        <form method="get" id="filterForm">
-            <div class="controls">
-                <div class="date-nav">
-                    <a href="?date={{ prev_date }}{% if dept %}&department={{ dept.id }}{% endif %}" aria-label="Previous month">&lsaquo;</a>
-                    <span class="current-date">{{ month_name }} {{ year }}</span>
-                    <a href="?date={{ next_date }}{% if dept %}&department={{ dept.id }}{% endif %}" aria-label="Next month">&rsaquo;</a>
+        <div class="month-nav">
+            <div class="month-nav-row title-row">
+                <a href="?date={{ prev_date }}{% if dept %}&department={{ dept.id }}{% endif %}" class="nav-arrow" aria-label="Previous month">&larr;</a>
+                <span class="current-month">{{ month_name }} {{ year }}</span>
+                <a href="?date={{ next_date }}{% if dept %}&department={{ dept.id }}{% endif %}" class="nav-arrow" aria-label="Next month">&rarr;</a>
+                <div class="view-switch-row">
+                    <div class="view-switch">
+                        <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}" class="view-btn">Day view</a>
+                        <a href="#" class="view-btn active">Month view</a>
+                        {% if table_rows %}
+                        <button type="button" class="view-btn legend-toggle-btn" id="legendToggleBtn">Legend</button>
+                        {% endif %}
+                    </div>
+                    {% if dept and table_rows %}
+                    <button type="button" class="icon-btn" id="sendWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
+                    </button>
+                    <span id="sendWhatsappStatus" class="report-status"></span>
+                    {% endif %}
                 </div>
-                <select name="department" class="dept-picker" onchange="document.getElementById('filterForm').submit()">
-                    {% for d in departments %}
-                        <option value="{{ d.id }}" {% if dept.id == d.id %}selected{% endif %}>{{ d.name }}</option>
-                    {% endfor %}
-                </select>
-                <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
             </div>
-        </form>
+        </div>
 
         {% if is_locked %}
             <div class="locked-banner">This month is locked. Unlock it from the dashboard before editing attendance.</div>
@@ -199,17 +213,20 @@
         {% elif not table_rows %}
             <div class="empty">No employees in {{ dept.name }}.</div>
         {% else %}
-            <p class="hint">Tap a day to toggle Present ⇄ Absent. For other statuses (Paid Holiday, Comp Off, etc.), use the <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}">Day view</a>.</p>
-            <div class="legend">
-                <span><span class="swatch" style="background:#e6f4ea"></span>Present</span>
-                <span><span class="swatch" style="background:#ff8a80"></span>Absent / Unmarked</span>
-                <span><span class="swatch" style="background:#fff;border:1px solid #ccc"></span>Future (not yet due)</span>
-                <span><span class="swatch" style="background:#ffcc80"></span>Half Day</span>
-                <span><span class="swatch" style="background:#D6D6D6"></span>Week Off / Holiday</span>
-                <span><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
-                <span><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
-                <span><span class="swatch" style="background:#f1948a"></span>Personal Leave</span>
-                <span><span class="swatch" style="background:#fff3b0"></span>Summary / Total rows</span>
+            <div class="card" id="legendPanel" style="display:none;">
+                <h2>Legend</h2>
+                <div class="legend">
+                    <span><span class="swatch" style="background:#e6f4ea"></span>Present</span>
+                    <span><span class="swatch" style="background:#ff8a80"></span>Absent / Unmarked</span>
+                    <span><span class="swatch" style="background:#fff;border:1px solid #ccc"></span>Future (not yet due)</span>
+                    <span><span class="swatch" style="background:#ffcc80"></span>Half Day</span>
+                    <span><span class="swatch" style="background:#D6D6D6"></span>Week Off / Holiday</span>
+                    <span><span class="swatch" style="background:#4FB3A9"></span>Paid Holiday</span>
+                    <span><span class="swatch" style="background:#F5A85C"></span>Comp Off</span>
+                    <span><span class="swatch" style="background:#f1948a"></span>Personal Leave</span>
+                    <span><span class="swatch" style="background:#fff3b0"></span>Summary / Total rows</span>
+                </div>
+                <p style="margin:0.75rem 0 0;font-size:0.78rem;color:var(--text-muted);">Tap a day to toggle Present ⇄ Absent. For other statuses (Paid Holiday, Comp Off, etc.), use the <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}" style="color:var(--navy);font-weight:600;">Day view</a>.</p>
             </div>
 
             <div class="grid-scroll">
@@ -221,7 +238,16 @@
                     </colgroup>
                     <thead>
                         <tr>
-                            <th class="label"></th>
+                            <th class="label">
+                                <form method="get" id="filterForm">
+                                    <select name="department" class="dept-picker" onchange="document.getElementById('filterForm').submit()">
+                                        {% for d in departments %}
+                                            <option value="{{ d.id }}" {% if dept.id == d.id %}selected{% endif %}>{{ d.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
+                                </form>
+                            </th>
                             {% for d in day_headers %}<th><span class="dow">{{ d.dow }}</span>{{ d.day }}</th>{% endfor %}
                             <th class="summary">Present</th>
                         </tr>
@@ -270,6 +296,20 @@
     {% if dept and table_rows %}
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
     <script>
+        // "Legend" tab (header) <-> #legendPanel (its own card below the
+        // header) — same pattern as Device Records' Summary/Legend tabs:
+        // plain button + JS since a native <details> can't have its
+        // trigger and content live in two different places.
+        var legendToggleBtn = document.getElementById('legendToggleBtn');
+        var legendPanel = document.getElementById('legendPanel');
+        if (legendToggleBtn && legendPanel) {
+            legendToggleBtn.addEventListener('click', function () {
+                var willOpen = legendPanel.style.display === 'none';
+                legendPanel.style.display = willOpen ? '' : 'none';
+                legendToggleBtn.classList.toggle('open', willOpen);
+            });
+        }
+
         function getCookie(name) {
             var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
             return match ? match.pop() : '';

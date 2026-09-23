@@ -7,9 +7,7 @@
     <title>Payday — {% if instance %}Edit{% else %}Add{% endif %} Employee</title>
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
-
-        
+                                .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem 1.1rem; }
         .form-grid .full { grid-column: 1 / -1; }
@@ -34,11 +32,13 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="employee_list" %}
+    {% if instance %}
+    {% include "attendance/_topbar.html" with current="employee_list" page_title="Edit"|add:" "|add:instance.code|add:" — "|add:instance.name %}
+    {% else %}
+    {% include "attendance/_topbar.html" with current="employee_list" page_title="Add Employee" %}
+    {% endif %}
 
     <div class="page">
-        <h1>{% if instance %}Edit {{ instance.code }} — {{ instance.name }}{% else %}Add Employee{% endif %}</h1>
-
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}

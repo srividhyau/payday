@@ -7,7 +7,7 @@
     <title>Payday — {{ style.name }} Production</title>
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
     /* Extra bottom room inside the scroll container — without it the
        horizontal scrollbar sits flush against the last row, making its
@@ -84,6 +84,23 @@
     .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; font-size: 0.75rem; color: var(--text-muted); }
     .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; margin-right: 0.3rem; vertical-align: middle; border: 1px solid rgba(0,0,0,0.1); }
     .legend .swatch-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
+    /* Single yellow header bar — title/style-switcher, Rate Card/
+       Mobile view links, and the Legend toggle all in one line (same
+       convention as Device Records' header); the swatch list itself
+       moves into a card below, opened by the toggle. */
+    .month-nav {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
+        background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+    }
+    .month-nav h1 { font-size: 0.92rem; margin: 0; }
+    .legend-toggle-btn {
+        border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-family: inherit;
+        padding: 0.3rem 0.7rem; border-radius: 6px; font-size: 0.78rem; color: var(--navy); font-weight: 600;
+    }
+    .legend-toggle-btn.open { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.9rem 1rem; margin-bottom: 0.75rem; }
+    .card h2 { font-size: 1rem; margin: 0 0 0.9rem; color: var(--navy); }
 
     .op-name-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.4rem; }
     .op-name-text { white-space: normal; overflow-wrap: break-word; }
@@ -190,35 +207,38 @@
 </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="piece_rate_production" %}
+    {% include "attendance/_topbar.html" with current="piece_rate_production" page_title="Production — "|add:style.name %}
 
     <div class="page">
-        <div class="page-header-row">
-            <div style="display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap;">
-                <h1 style="display:flex; align-items:center; gap:0.5rem;">
-                    Production —
-                    {% if sibling_styles|length > 1 %}
-                    <select id="styleSwitcher" data-base="{% url 'piece_rate_production' 0 %}">
-                        {% for s in sibling_styles %}
-                        <option value="{{ s.id }}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
-                        {% endfor %}
-                    </select>
-                    {% else %}
-                    {{ style.name }}
-                    {% endif %}
-                </h1>
-                <a href="{% url 'piece_rate_rate_card' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Rate Card</a>
-                <a href="{% url 'piece_rate_production_mobile' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Mobile view</a>
-                <div class="legend">
-                    <span><span class="swatch" style="background:#ececec"></span>Holiday</span>
-                    <span><span class="swatch" style="background:#d3ece9"></span>Paid Holiday</span>
-                    <span><span class="swatch" style="background:#fce3c9"></span>Comp Off</span>
-                    <span><span class="swatch-dot" style="background:#a400a4"></span>More than Order Qty</span>
-                    <span><span class="swatch-dot" style="background:#b3261e"></span>Less than Order Qty</span>
-                    <span><span class="swatch-dot" style="background:#1e7e34"></span>Balanced</span>
-                    <span><span class="swatch" style="background:#dbeafe"></span>Entered by operator</span>
-                    <span><span class="swatch-dot" style="background:#2563eb"></span>Corrected here (was the operator's)</span>
-                </div>
+        <div class="month-nav">
+            <div style="display:flex; align-items:center; gap:0.5rem; font-weight:700; color:var(--navy);">
+                Production —
+                {% if sibling_styles|length > 1 %}
+                <select id="styleSwitcher" data-base="{% url 'piece_rate_production' 0 %}">
+                    {% for s in sibling_styles %}
+                    <option value="{{ s.id }}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                {{ style.name }}
+                {% endif %}
+            </div>
+            <a href="{% url 'piece_rate_rate_card' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Rate Card</a>
+            <a href="{% url 'piece_rate_production_mobile' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Mobile view</a>
+            <button type="button" class="legend-toggle-btn" id="legendToggleBtn">Legend</button>
+        </div>
+
+        <div class="card" id="legendPanel" style="display:none;">
+            <h2>Legend</h2>
+            <div class="legend">
+                <span><span class="swatch" style="background:#ececec"></span>Holiday</span>
+                <span><span class="swatch" style="background:#d3ece9"></span>Paid Holiday</span>
+                <span><span class="swatch" style="background:#fce3c9"></span>Comp Off</span>
+                <span><span class="swatch-dot" style="background:#a400a4"></span>More than Order Qty</span>
+                <span><span class="swatch-dot" style="background:#b3261e"></span>Less than Order Qty</span>
+                <span><span class="swatch-dot" style="background:#1e7e34"></span>Balanced</span>
+                <span><span class="swatch" style="background:#dbeafe"></span>Entered by operator</span>
+                <span><span class="swatch-dot" style="background:#2563eb"></span>Corrected here (was the operator's)</span>
             </div>
         </div>
 
@@ -335,6 +355,18 @@
     {{ days|json_script:"productionDays" }}
     {{ carried_over_dates|json_script:"carriedOverDates" }}
     <script>
+        // "Legend" tab (header) <-> #legendPanel — same pattern as
+        // Device Records' Summary/Legend tabs.
+        var legendToggleBtn = document.getElementById('legendToggleBtn');
+        var legendPanel = document.getElementById('legendPanel');
+        if (legendToggleBtn && legendPanel) {
+            legendToggleBtn.addEventListener('click', function () {
+                var willOpen = legendPanel.style.display === 'none';
+                legendPanel.style.display = willOpen ? '' : 'none';
+                legendToggleBtn.classList.toggle('open', willOpen);
+            });
+        }
+
         var styleSwitcher = document.getElementById('styleSwitcher');
         if (styleSwitcher) {
             styleSwitcher.addEventListener('change', function () {

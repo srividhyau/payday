@@ -7,12 +7,20 @@
     <title>Payday — Employee Details</title>
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+                                .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
-                
+        /* Single yellow header bar — title, Add Employee, the
+           Active/Non-working tabs, and Search all in one line (same
+           convention as Device Records' header). */
+        .month-nav {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
+            background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+        }
+        .month-nav h1 { font-size: 0.92rem; margin: 0; }
+        .month-nav .tab-row { margin: 0; }
+        .month-nav .action-row { margin: 0 0 0 auto; }
 
-                        
-                                        
                         table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
         table.simple tbody tr:last-child td { border-bottom: none; }
@@ -50,32 +58,29 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="employee_list" %}
+    {% include "attendance/_topbar.html" with current="employee_list" page_title="Employee Details" %}
 
     <div class="page">
-        <div class="page-header-row">
-            <h1>Employee Details</h1>
+        <div class="month-nav">
+            <div class="tab-row">
+                <a class="tab-btn{% if tab == "active" %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}&tab=active">Active</a>
+                <a class="tab-btn{% if tab == "inactive" %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}&tab=inactive">Non-working</a>
+            </div>
+            <div class="action-row">
+                <form method="get" style="display:flex; gap:0.5rem;">
+                    <input type="text" name="q" class="search-input" placeholder="Search code, name, or designation" value="{{ query }}">
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="dir" value="{{ dir }}">
+                    <input type="hidden" name="tab" value="{{ tab }}">
+                    <button type="submit" class="post-btn">Search</button>
+                </form>
+            </div>
             <a href="{% url 'employee_create' %}" class="post-btn">+ Add Employee</a>
         </div>
 
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
-
-        <div class="tab-row">
-            <a class="tab-btn{% if tab == "active" %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}&tab=active">Active</a>
-            <a class="tab-btn{% if tab == "inactive" %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}&tab=inactive">Non-working</a>
-        </div>
-
-        <div class="action-row">
-            <form method="get" style="display:flex; gap:0.5rem;">
-                <input type="text" name="q" class="search-input" placeholder="Search code, name, or designation" value="{{ query }}">
-                <input type="hidden" name="sort" value="{{ sort }}">
-                <input type="hidden" name="dir" value="{{ dir }}">
-                <input type="hidden" name="tab" value="{{ tab }}">
-                <button type="submit" class="post-btn">Search</button>
-            </form>
-        </div>
 
         <div class="card">
             {% if employees %}

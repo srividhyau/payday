@@ -29,4 +29,9 @@ def role_flags(request):
         "is_employee_editor": is_employee_editor,
         "is_production_head": is_production_head,
         "is_piece_rate_editor": can_edit_piece_rate(user),
+        # Read server-side (not just client-side JS) so the very first
+        # render already has the sidebar in the right state — otherwise
+        # a collapsed sidebar would flash open on every single page
+        # load before the client-side JS in _topbar.html caught up.
+        "sidebar_collapsed": request.COOKIES.get("sidebarCollapsed") == "1",
     }

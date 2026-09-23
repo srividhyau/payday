@@ -7,7 +7,7 @@
     <title>Payday — Upload Device Records</title>
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+                                .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
                 h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .caption { color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }
@@ -55,9 +55,8 @@
     </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="upload" %}
+    {% include "attendance/_topbar.html" with current="upload" page_title="Upload Daily Attendance" %}
     <div class="page">
-        <h1>Upload Daily Attendance</h1>
         <p class="caption">Upload the DailyAttendance export from the eSSL fingerprint system. Re-uploading a file (or one covering overlapping dates) updates existing records instead of duplicating them.</p>
 
         {% for message in messages %}

@@ -7,7 +7,7 @@
     <title>Payday — Piece Rate Templates</title>
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
     .delete-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
         padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
@@ -32,15 +32,33 @@
     .save-btn:hover { background: var(--bg); }
     .rate-higher { color: #1e7e34; font-weight: 700; }
     .rate-lower { color: #b3261e; font-weight: 700; }
+    /* Single yellow header bar — title and Add Template all in one
+       line (same convention as Device Records' header). */
+    .month-nav {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
+        background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+    }
+    .month-nav h1 { font-size: 0.92rem; margin: 0; }
+    .month-nav .action-row { margin: 0 0 0 auto; }
 </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="piece_rate_templates" %}
+    {% include "attendance/_topbar.html" with current="piece_rate_templates" page_title="Templates" %}
 
     <div class="page">
-        <div class="page-header-row">
-            <h1>Templates</h1>
+        {% if is_piece_rate_editor %}
+        <div class="month-nav">
+            <div class="action-row">
+                <form method="post" style="display:flex; gap:0.5rem;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create_template">
+                    <input type="text" name="name" class="search-input" placeholder="New template name (e.g. L_Pyjama)" required>
+                    <button type="submit" class="post-btn">+ Add Template</button>
+                </form>
+            </div>
         </div>
+        {% endif %}
 
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
@@ -49,17 +67,6 @@
         <p class="caption" style="color:var(--text-muted); font-size:0.85rem; margin: 0 0 1rem;">
             Permanent, reusable rate cards — kept as a reference, never used for production directly.
         </p>
-
-        {% if is_piece_rate_editor %}
-        <div class="action-row">
-            <form method="post" style="display:flex; gap:0.5rem;">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="create_template">
-                <input type="text" name="name" class="search-input" placeholder="New template name (e.g. L_Pyjama)" required>
-                <button type="submit" class="post-btn">+ Add Template</button>
-            </form>
-        </div>
-        {% endif %}
 
         {% if templates %}
         <div class="table-wrap fit-content">

@@ -7,7 +7,18 @@
     <title>Payday — Master Operations</title>
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    /* Single yellow header bar — title, Add Operation, the section
+       tabs, and Search all in one line (same convention as Device
+       Records' header). */
+    .month-nav {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
+        background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+    }
+    .month-nav h1 { font-size: 0.92rem; margin: 0; }
+    .month-nav .tab-row { margin: 0; }
+    .month-nav .action-row { margin: 0 0 0 auto; }
     .edit-link, .delete-btn {
         display: inline; border: none; background: none; padding: 0;
         font-size: 0.7rem; cursor: pointer; font-family: inherit; text-decoration: underline;
@@ -20,7 +31,7 @@
     .table-wrap { overflow: visible; }
     table.simple { border-collapse: collapse; }
     table.simple th, table.simple td { border: 1px solid #b7bcc4; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
-    table.simple th, table.simple th.num { background: #fef9c3; position: sticky; top: 56px; z-index: 5; text-align: center; }
+    table.simple th, table.simple th.num { background: #fef9c3; position: sticky; top: 0; z-index: 5; text-align: center; }
     table.simple th a.sort-link { color: var(--text-muted); text-decoration: none; }
     table.simple th a.sort-link:hover, table.simple th a.sort-link.active { color: var(--navy); }
 
@@ -42,11 +53,25 @@
 </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="piece_rate_operations" %}
+    {% include "attendance/_topbar.html" with current="piece_rate_operations" page_title="Master Operations" %}
 
     <div class="page">
-        <div class="page-header-row">
-            <h1>Master Operations</h1>
+        <div class="month-nav">
+            <div class="tab-row">
+                <a class="tab-btn{% if not section_filter %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}">All</a>
+                {% for sec in sections %}
+                <a class="tab-btn{% if section_filter == sec %} active{% endif %}" href="?section={{ sec|urlencode }}&q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}">{{ sec }}</a>
+                {% endfor %}
+            </div>
+            <div class="action-row">
+                <form method="get" style="display:flex; gap:0.5rem;">
+                    <input type="text" name="q" class="search-input" placeholder="Search operation" value="{{ query }}">
+                    <input type="hidden" name="section" value="{{ section_filter }}">
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="dir" value="{{ dir }}">
+                    <button type="submit" class="post-btn">Search</button>
+                </form>
+            </div>
             {% if is_piece_rate_editor %}
             <button type="button" class="post-btn" id="addOperationBtn">+ Add Operation</button>
             {% endif %}
@@ -55,23 +80,6 @@
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
-
-        <div class="tab-row">
-            <a class="tab-btn{% if not section_filter %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}">All</a>
-            {% for sec in sections %}
-            <a class="tab-btn{% if section_filter == sec %} active{% endif %}" href="?section={{ sec|urlencode }}&q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}">{{ sec }}</a>
-            {% endfor %}
-        </div>
-
-        <div class="action-row">
-            <form method="get" style="display:flex; gap:0.5rem;">
-                <input type="text" name="q" class="search-input" placeholder="Search operation" value="{{ query }}">
-                <input type="hidden" name="section" value="{{ section_filter }}">
-                <input type="hidden" name="sort" value="{{ sort }}">
-                <input type="hidden" name="dir" value="{{ dir }}">
-                <button type="submit" class="post-btn">Search</button>
-            </form>
-        </div>
 
         {% if operations %}
         <div class="table-wrap fit-content">

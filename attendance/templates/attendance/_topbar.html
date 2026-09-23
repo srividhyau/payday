@@ -1,12 +1,22 @@
 {% load static %}
-<header class="topbar">
-    <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% elif is_production_head %}{% url 'piece_rate' %}{% elif is_operator_link_revoker %}{% url 'piece_rate_operator_links' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
-        <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
-        Payday
-    </a>
+<button type="button" class="sidebar-mobile-toggle" id="sidebarMobileToggle" aria-label="Toggle menu">☰</button>
+{% if page_title %}
+<button type="button" class="header-nav-toggle" id="headerNavToggle" aria-label="Show/hide menu" title="Show/hide menu">
+    <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
+    <span>{{ page_title }}</span>
+</button>
+{% endif %}
+<aside class="topbar{% if sidebar_collapsed %} collapsed{% endif %}" id="sidebar">
+    <div class="brand-row">
+        <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% elif is_production_head %}{% url 'piece_rate' %}{% elif is_operator_link_revoker %}{% url 'piece_rate_operator_links' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
+            <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
+            Payday
+        </a>
+        <button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" aria-label="Collapse menu" title="Collapse menu">‹</button>
+    </div>
     <nav>
         {% if not is_salary_viewer and not is_employee_editor and not is_production_head and not is_operator_link_revoker %}
-        <details class="nav-dropdown">
+        <details class="nav-dropdown"{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} open{% endif %}>
             <summary{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} class="current"{% endif %}>Attendance</summary>
             <div class="nav-dropdown-menu">
                 <a href="{% url 'mark_attendance' %}"{% if current == "mark_attendance" %} class="current"{% endif %}>Mark Attendance</a>
@@ -19,7 +29,7 @@
         {% endif %}
         {% if not is_production_head and not is_operator_link_revoker %}
         {% if is_salary_viewer or not is_employee_editor %}
-        <details class="nav-dropdown">
+        <details class="nav-dropdown"{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} open{% endif %}>
             <summary{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} class="current"{% endif %}>Payroll</summary>
             <div class="nav-dropdown-menu">
                 <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
@@ -29,7 +39,7 @@
                 {% endif %}
             </div>
         </details>
-        <details class="nav-dropdown">
+        <details class="nav-dropdown"{% if current == "cash_withdrawal" or current == "cash_register" %} open{% endif %}>
             <summary{% if current == "cash_withdrawal" or current == "cash_register" %} class="current"{% endif %}>Cash</summary>
             <div class="nav-dropdown-menu">
                 <a href="{% url 'cash_withdrawal' %}"{% if current == "cash_withdrawal" %} class="current"{% endif %}>Cash Withdrawal</a>
@@ -39,8 +49,8 @@
         {% endif %}
         {% endif %}
         {% if not is_salary_viewer and not is_employee_editor %}
-        <details class="nav-dropdown">
-            <summary{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" %} class="current"{% endif %}>Piece Rate</summary>
+        <details class="nav-dropdown"{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %} open{% endif %}>
+            <summary{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %} class="current"{% endif %}>Piece Rate</summary>
             <div class="nav-dropdown-menu">
                 {% if not is_operator_link_revoker %}
                 <div class="nav-dropdown-group">
@@ -60,19 +70,18 @@
             </div>
         </details>
         {% endif %}
-        <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit">Logout ({{ user.username }})</button>
         </form>
     </nav>
-</header>
+</aside>
 
 <script>
     // Native <details> doesn't close its siblings on its own, so with
-    // several nav-dropdowns (Attendance/Cash/OT/Admin) a user could stack
-    // more than one open at once — same mutual-exclusivity + click-outside
-    // pattern as the Salary page's tab-pickers, scoped to .nav-dropdown
-    // instead since this partial is shared by every page's header.
+    // several nav-dropdowns (Attendance/Payroll/Cash/Piece Rate) in the
+    // sidebar's accordion, opening one collapses whichever other one was
+    // already open, rather than letting them stack indefinitely.
     document.querySelectorAll('.nav-dropdown').forEach(function (details) {
         details.addEventListener('toggle', function () {
             if (!details.open) return;
@@ -80,26 +89,70 @@
                 if (other !== details) other.open = false;
             });
         });
-        // Desktop-style hover-to-open, on top of the native click-to-open
-        // <details> already gives for free (kept for touch/keyboard). The
-        // close is delayed a touch and cancelled on re-entry — without
-        // that, a fast or slightly-off-course mouse move from the
-        // summary down into the menu can register a leave/enter blip
-        // (sub-pixel gaps, rounded corners) and slam the menu shut
-        // before the pointer visibly reaches it.
-        var closeTimer = null;
-        details.addEventListener('mouseenter', function () {
-            clearTimeout(closeTimer);
-            details.open = true;
+    });
+
+    // Sidebar collapse/expand — remembered across pages via a cookie
+    // (not localStorage: this needs to be readable at server-render
+    // time too, so the very first paint already has the sidebar in the
+    // right state instead of flashing open then collapsing).
+    var sidebar = document.getElementById('sidebar');
+    var headerNavToggle = document.getElementById('headerNavToggle');
+    var collapseBtn = document.getElementById('sidebarCollapseBtn');
+    var mobileToggle = document.getElementById('sidebarMobileToggle');
+
+    function setCookie(name, value) {
+        document.cookie = name + '=' + value + ';path=/;max-age=' + (60 * 60 * 24 * 365);
+    }
+
+    // Initial collapsed/expanded state is already correct from the
+    // server render (see sidebar_collapsed in context_processors.py) —
+    // this only ever reacts to something happening after that.
+    function setCollapsed(collapsed) {
+        sidebar.classList.toggle('collapsed', collapsed);
+        setCookie('sidebarCollapsed', collapsed ? '1' : '0');
+    }
+    collapseBtn.addEventListener('click', function () { setCollapsed(true); });
+    // One toggle button, always visible (icon + current page name),
+    // floating over the page's own header — flips whichever way the
+    // sidebar currently isn't, rather than only ever reopening.
+    if (headerNavToggle) {
+        headerNavToggle.addEventListener('click', function () {
+            setCollapsed(!sidebar.classList.contains('collapsed'));
         });
-        details.addEventListener('mouseleave', function () {
-            closeTimer = setTimeout(function () { details.open = false; }, 150);
-        });
+    }
+
+    // Auto-collapse: picking a destination collapses it immediately
+    // (the new page then renders already-collapsed, per the cookie
+    // above) — same as clicking anywhere outside it would once the
+    // page navigates away. Idle auto-collapse covers "opened it, got
+    // distracted, never picked anything"; any interaction inside the
+    // sidebar resets the idle clock so actually browsing it doesn't get
+    // cut off mid-decision.
+    var IDLE_COLLAPSE_MS = 4000;
+    var idleTimer = null;
+    function scheduleIdleCollapse() {
+        clearTimeout(idleTimer);
+        if (sidebar.classList.contains('collapsed')) return;
+        idleTimer = setTimeout(function () { setCollapsed(true); }, IDLE_COLLAPSE_MS);
+    }
+    sidebar.querySelectorAll('nav a').forEach(function (link) {
+        link.addEventListener('click', function () { setCollapsed(true); });
+    });
+    ['mouseenter', 'mousemove', 'focusin', 'click'].forEach(function (evt) {
+        sidebar.addEventListener(evt, scheduleIdleCollapse);
+    });
+    scheduleIdleCollapse();
+
+    // Mobile (<=700px) uses a slide-in/out drawer instead of the
+    // collapse-to-nothing behavior above — .open is a separate class
+    // from .collapsed so the two don't fight over the same state.
+    mobileToggle.addEventListener('click', function () {
+        sidebar.classList.toggle('open');
     });
     document.addEventListener('click', function (e) {
-        document.querySelectorAll('.nav-dropdown[open]').forEach(function (details) {
-            if (!details.contains(e.target)) details.open = false;
-        });
+        if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== mobileToggle) {
+            sidebar.classList.remove('open');
+        }
     });
 
     // Up/Down arrow keys normally step a number input's value up/down —

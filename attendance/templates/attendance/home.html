@@ -17,7 +17,7 @@
     align-items: center;
     justify-content: center;
     gap: 18px;
-    min-height: calc(100vh - 56px);
+    min-height: 100vh;
     text-align: center;
     padding: 24px;
   }
@@ -65,12 +65,7 @@
 <body>
     {% include "attendance/_topbar.html" with current="home" %}
     <div class="landing">
-        <svg class="logo" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" fill="#002f66" />
-            <path d="M12 2a5 5 0 0 1 0 10 5 5 0 0 0 0 10 10 10 0 0 1 0-20z" fill="#fde047" />
-            <circle cx="12" cy="7" r="1.7" fill="#002f66" />
-            <circle cx="12" cy="17" r="1.7" fill="#fde047" />
-        </svg>
+        <img class="logo" src="{% static 'attendance/mvic_logo.png' %}" alt="Payday logo">
         <h1>Payday</h1>
         <p>Attendance, overtime, and the holiday calendar — in one place.</p>
         <div class="actions">

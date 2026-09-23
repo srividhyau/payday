@@ -7,7 +7,16 @@
     <title>Payday — {{ style.name }} Rate Card</title>
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    /* Single yellow header bar — title, style switcher, bulk Order Qty
+       form, and the Production link all in one line (same convention
+       as Device Records' header). */
+    .month-nav {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
+        background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+    }
+    .month-nav h1 { font-size: 0.92rem; margin: 0; }
     .save-btn, .delete-btn {
         border: none; background: none; padding: 0; cursor: pointer; font-family: inherit;
         font-size: 0.7rem; text-decoration: underline;
@@ -20,7 +29,7 @@
     .table-wrap { overflow: visible; }
     table.simple { border-collapse: collapse; }
     table.simple th, table.simple td { border: 1px solid #b7bcc4; padding: 0.1rem 0.4rem; font-size: 0.78rem; }
-    table.simple th, table.simple th.num { background: #fef9c3; position: sticky; top: 56px; z-index: 5; text-align: center; }
+    table.simple th, table.simple th.num { background: #fef9c3; position: sticky; top: 0; z-index: 5; text-align: center; }
 
     table.simple input[type="text"], table.simple input[type="number"], table.simple select {
         border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.3rem;
@@ -46,30 +55,27 @@
 </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="piece_rate_styles" %}
+    {% include "attendance/_topbar.html" with current="piece_rate_styles" page_title="Rate Card — "|add:style.name %}
 
     <div class="page">
-        <div class="page-header-row">
-            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-                <h1>Rate Card</h1>
-                <select id="styleSwitch" class="search-input" style="min-width:180px;">
-                    {% for s in all_styles %}
-                    <option value="{% url 'piece_rate_rate_card' s.id %}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
-                    {% endfor %}
-                </select>
-                {% if can_edit_this_style %}
-                <form method="post" style="display:flex; gap:0.5rem; align-items:center;" onsubmit="return confirm('Set Order Qty to the entered value on every operation of this rate card?');">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="bulk_order_quantity">
-                    <input type="number" min="0" step="1" name="bulk_order_quantity" id="bulkOrderQuantity" class="search-input" style="min-width:180px;" placeholder="Set Order Qty on all operations" required>
-                    <button type="submit" class="post-btn">Apply to All</button>
-                </form>
-                {% endif %}
-                {% if not style.is_template %}
-                <a href="{% url 'piece_rate_production' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy);">Production</a>
-                {% endif %}
-            </div>
-            <span id="orderSavedNote" style="font-size:0.8rem; color:var(--text-muted); display:none;">Order saved</span>
+        <div class="month-nav">
+            <select id="styleSwitch" class="search-input" style="min-width:180px;">
+                {% for s in all_styles %}
+                <option value="{% url 'piece_rate_rate_card' s.id %}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+            {% if can_edit_this_style %}
+            <form method="post" style="display:flex; gap:0.5rem; align-items:center;" onsubmit="return confirm('Set Order Qty to the entered value on every operation of this rate card?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="bulk_order_quantity">
+                <input type="number" min="0" step="1" name="bulk_order_quantity" id="bulkOrderQuantity" class="search-input" style="min-width:180px;" placeholder="Set Order Qty on all operations" required>
+                <button type="submit" class="post-btn">Apply to All</button>
+            </form>
+            {% endif %}
+            {% if not style.is_template %}
+            <a href="{% url 'piece_rate_production' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Production</a>
+            {% endif %}
+            <span id="orderSavedNote" style="font-size:0.8rem; color:var(--text-muted); display:none; margin-left:auto;">Order saved</span>
         </div>
 
         {% for message in messages %}

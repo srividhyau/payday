@@ -7,7 +7,7 @@
     <title>Payday — Roles</title>
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; margin: 0; padding: 1.5rem 2rem 3rem; }
+                                .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
                 .caption { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1.25rem; line-height: 1.5; }
 
@@ -24,10 +24,9 @@
             </style>
 </head>
 <body>
-    {% include "attendance/_topbar.html" with current="role_assignment" %}
+    {% include "attendance/_topbar.html" with current="role_assignment" page_title="Roles" %}
 
     <div class="page">
-        <h1>Roles</h1>
         <p class="caption">
             Toggle which role(s) each account belongs to. Superusers aren't listed — they're never restricted by any role, so toggling one for them wouldn't change anything.
         </p>
