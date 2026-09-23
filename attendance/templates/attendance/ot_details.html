@@ -316,11 +316,11 @@
             background: #fdecea; color: #b3261e; border: 1px solid #f3c6c1; border-radius: 8px;
             padding: 0.5rem 0.9rem; font-size: 0.85rem; margin: 0 0 1rem;
         }
-        .dept-summary summary { cursor: pointer; list-style: none; margin-bottom: 0.9rem; }
-        .dept-summary summary::-webkit-details-marker { display: none; }
-        .dept-summary summary h2 { display: inline-block; margin: 0; }
-        .dept-summary summary h2::before { content: "▸ "; }
-        .dept-summary[open] summary h2::before { content: "▾ "; }
+        /* "By department" used to be a <details> inside the OT View
+           panel; it's now its own toggle button in the header (next to
+           "Monthly Summary") that shows/hides #deptPanel, its own card
+           below the header — same show/hide-elsewhere pattern as
+           dashboard.html's "Summary" tab / #deptPanel. */
         .tab-lock-icon {
             display: inline-flex; align-items: center; justify-content: center; margin-left: 0.4rem;
             line-height: 1; cursor: pointer; border-radius: 999px; padding: 0.25rem;
@@ -429,6 +429,9 @@
                     <span class="tab-lock-icon" data-label="OT View" data-action="{% if is_locked_ot %}unlock{% else %}lock{% endif %}" title="{% if is_locked_ot %}Unlock{% else %}Lock{% endif %} OT View">{% if is_locked_ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
                 </button>
                 <button type="button" class="tab-btn" data-tab="summary">Monthly Summary</button>
+                {% if dept_ot_summary %}
+                <button type="button" class="tab-btn dept-toggle-btn" id="deptToggleBtn">By department</button>
+                {% endif %}
                 <a class="icon-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
                 </a>
@@ -438,6 +441,26 @@
                 <span id="sendOtWhatsappStatus" class="report-status"></span>
             </div>
             {% endif %}
+        </div>
+        {% endif %}
+
+        {% if dept_ot_summary %}
+        <div class="card" id="deptPanel" style="display:none;">
+            <h2>By department</h2>
+            <div class="table-wrap">
+                <table class="simple">
+                    <tr><th>Department</th><th>Headcount (with OT)</th><th>Most OT</th><th>Least OT</th><th>Total OT hours</th></tr>
+                    {% for d in dept_ot_summary %}
+                    <tr>
+                        <td>{{ d.department }}</td>
+                        <td>{{ d.headcount }}</td>
+                        <td>{{ d.top_name }} ({{ d.top_hours }}h)</td>
+                        <td>{{ d.lowest_name }} ({{ d.lowest_hours }}h)</td>
+                        <td>{{ d.total_hours }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
         </div>
         {% endif %}
 
@@ -451,25 +474,6 @@
                     <div class="tab-panel" data-panel="otview">
                         {% if is_locked_ot %}
                             <p class="lock-banner">🔒 OT View is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>
-                        {% endif %}
-                        {% if dept_ot_summary %}
-                        <details class="dept-summary">
-                            <summary><h2>By department</h2></summary>
-                            <div class="table-wrap">
-                                <table class="simple">
-                                    <tr><th>Department</th><th>Headcount (with OT)</th><th>Most OT</th><th>Least OT</th><th>Total OT hours</th></tr>
-                                    {% for d in dept_ot_summary %}
-                                    <tr>
-                                        <td>{{ d.department }}</td>
-                                        <td>{{ d.headcount }}</td>
-                                        <td>{{ d.top_name }} ({{ d.top_hours }}h)</td>
-                                        <td>{{ d.lowest_name }} ({{ d.lowest_hours }}h)</td>
-                                        <td>{{ d.total_hours }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </table>
-                            </div>
-                        </details>
                         {% endif %}
                         {% if editable_table_rows %}
                         <div class="month-legend">
@@ -737,6 +741,20 @@
     </div>
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
     <script>
+        // "By department" tab (header) <-> #deptPanel (its own card below
+        // the header) — plain JS instead of native <details>, since the
+        // trigger and the panel it opens live in two different places in
+        // the page. Same pattern as dashboard.html's "Summary" toggle.
+        var deptToggleBtn = document.getElementById('deptToggleBtn');
+        var deptPanel = document.getElementById('deptPanel');
+        if (deptToggleBtn && deptPanel) {
+            deptToggleBtn.addEventListener('click', function () {
+                var willOpen = deptPanel.style.display === 'none';
+                deptPanel.style.display = willOpen ? '' : 'none';
+                deptToggleBtn.classList.toggle('active', willOpen);
+            });
+        }
+
         // Scoped to [data-tab] so the Download link (a plain .tab-btn with
         // no data-tab, since it navigates instead of switching panels)
         // doesn't get treated as a switchable tab.
