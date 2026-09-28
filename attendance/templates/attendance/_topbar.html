@@ -3,7 +3,8 @@
 {% if page_title %}
 <button type="button" class="header-nav-toggle" id="headerNavToggle" aria-label="Show/hide menu" title="Show/hide menu">
     <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
-    <span>{{ page_title }}</span>
+    {# Breadcrumb prefix — same section groupings as the sidebar's own nav-dropdowns below, so the collapsed pill reads e.g. "Piece Rate - Production" instead of just the bare page_title. #}
+    <span>{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %}Attendance - {% elif current == "salary" or current == "ot_details" or current == "leave_ledger" %}Payroll - {% elif current == "cash_withdrawal" or current == "cash_register" %}Cash - {% elif current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %}Piece Rate - {% endif %}{{ page_title }}</span>
 </button>
 {% endif %}
 <aside class="topbar{% if sidebar_collapsed %} collapsed{% endif %}" id="sidebar">

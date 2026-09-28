@@ -39,6 +39,11 @@
         display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
         padding: 0.7rem 0.9rem; background: #eef2f7; cursor: pointer;
     }
+    /* Flags an operation with zero operators logged against it yet —
+       same alert red used elsewhere in the app for "needs attention"
+       states (e.g. attendance's missed-punch KPI). */
+    .op-card.no-operators { border-color: #b3261e; box-shadow: inset 3px 0 0 #b3261e; }
+    .op-card.no-operators .op-card-header { background: #fdecea; }
     .op-card-heading { min-width: 0; }
     .toggle-arrow { display: inline-block; transition: transform 0.15s ease; margin-right: 0.25rem; flex-shrink: 0; }
     .op-card.expanded .toggle-arrow { transform: rotate(90deg); }
@@ -114,6 +119,22 @@
     }
     .filter-bar input[type=text]:focus { outline: none; border-color: var(--navy); }
 
+    /* Excess/Shortage/Balanced status filter — same colors as the
+       diff-more/less/balanced total badge. Multiple can be active at
+       once (OR'd together); none active shows every operation. */
+    .status-filter { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .status-filter-btn {
+        border: 1.5px solid currentColor; border-radius: 999px; padding: 0.35rem 0.8rem;
+        font-size: 0.78rem; font-weight: 600; background: #fff; cursor: pointer; font-family: inherit;
+        flex: 1 1 0; min-width: 0;
+    }
+    .status-filter-btn.status-more { color: #a400a4; }
+    .status-filter-btn.status-less { color: #b3261e; }
+    .status-filter-btn.status-balanced { color: #1e7e34; }
+    .status-filter-btn.status-more.active { background: #a400a4; color: #fff; }
+    .status-filter-btn.status-less.active { background: #b3261e; color: #fff; }
+    .status-filter-btn.status-balanced.active { background: #1e7e34; color: #fff; }
+
     .edit-modal { background: #fff; border-radius: 14px; padding: 1.3rem 1.4rem; width: 100%; max-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
     .edit-modal h3 { margin: 0 0 0.9rem; font-size: 1rem; color: var(--navy); }
     .edit-modal label { display: block; font-size: 0.8rem; font-weight: 600; color: #444; margin-bottom: 0.3rem; }
@@ -173,10 +194,15 @@
         <div class="filter-bar">
             <input type="text" id="operationSearch" placeholder="Search operation…" autocomplete="off">
             <input type="text" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
+            <div class="status-filter" role="group" aria-label="Filter by status">
+                <button type="button" class="status-filter-btn status-more" data-status="diff-more">Excess</button>
+                <button type="button" class="status-filter-btn status-less" data-status="diff-less">Shortage</button>
+                <button type="button" class="status-filter-btn status-balanced" data-status="diff-balanced">Balanced</button>
+            </div>
         </div>
         <p class="empty-state" id="noResultsState" hidden>No operations match your search.</p>
         {% for row in op_rows %}
-        <div class="op-card" id="opCard{{ row.op.id }}" data-op-id="{{ row.op.id }}" data-order-qty="{{ row.op.order_quantity }}">
+        <div class="op-card{% if not row.rows %} no-operators{% endif %}" id="opCard{{ row.op.id }}" data-op-id="{{ row.op.id }}" data-order-qty="{{ row.op.order_quantity }}" data-diff-class="{{ row.diff_class }}">
             <div class="op-card-header" data-toggle>
                 <div class="op-card-heading">
                     <span class="op-card-title"><span class="toggle-arrow">▸</span>{{ row.op.op_code }} — {{ row.op.name }}</span>
@@ -294,6 +320,8 @@
         var operationSearchInput = document.getElementById('operationSearch');
         var operatorSearchInput = document.getElementById('operatorSearch');
         var noResultsState = document.getElementById('noResultsState');
+        var statusFilterBtns = Array.prototype.slice.call(document.querySelectorAll('.status-filter-btn'));
+        var activeStatuses = {};
 
         function operatorBlockName(block) {
             var nameSpan = block.querySelector('.operator-block-name');
@@ -303,12 +331,14 @@
         function applyFilters() {
             var opQuery = operationSearchInput.value.trim().toLowerCase();
             var operatorQuery = operatorSearchInput.value.trim().toLowerCase();
+            var anyStatusActive = Object.keys(activeStatuses).some(function (k) { return activeStatuses[k]; });
             var anyVisible = false;
             document.querySelectorAll('.op-card').forEach(function (card) {
                 var titleEl = card.querySelector('.op-card-title');
                 var metaEl = card.querySelector('.op-card-meta');
                 var opText = ((titleEl ? titleEl.textContent : '') + ' ' + (metaEl ? metaEl.textContent : '')).toLowerCase();
                 var opMatches = !opQuery || opText.indexOf(opQuery) !== -1;
+                var statusMatches = !anyStatusActive || !!activeStatuses[card.dataset.diffClass];
                 var operatorBlocks = card.querySelectorAll('.operator-block');
                 var anyOperatorMatches = false;
                 operatorBlocks.forEach(function (block) {
@@ -317,12 +347,21 @@
                     block.classList.toggle('search-match', isMatch);
                 });
                 var operatorMatches = !operatorQuery || anyOperatorMatches;
-                var visible = opMatches && operatorMatches;
+                var visible = opMatches && operatorMatches && statusMatches;
                 if (visible) anyVisible = true;
                 card.hidden = !visible;
             });
             if (noResultsState) noResultsState.hidden = anyVisible;
         }
+
+        statusFilterBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var status = btn.dataset.status;
+                activeStatuses[status] = !activeStatuses[status];
+                btn.classList.toggle('active', activeStatuses[status]);
+                applyFilters();
+            });
+        });
 
         if (operationSearchInput && operatorSearchInput) {
             operationSearchInput.addEventListener('input', applyFilters);
@@ -404,14 +443,18 @@
             }
             var totalEl = document.getElementById('opTotal' + opId);
             var diffHtml = String(total);
+            var diffClass = '';
             totalEl.classList.remove('diff-more', 'diff-less', 'diff-balanced');
             if (orderQty) {
                 var diff = total - orderQty;
-                if (diff > 0) { totalEl.classList.add('diff-more'); diffHtml += ' <span class="diff-value">(+' + diff + ')</span>'; }
-                else if (diff < 0) { totalEl.classList.add('diff-less'); diffHtml += ' <span class="diff-value">(' + diff + ')</span>'; }
-                else { totalEl.classList.add('diff-balanced'); diffHtml += ' <span class="diff-value">(0)</span>'; }
+                if (diff > 0) { diffClass = 'diff-more'; diffHtml += ' <span class="diff-value">(+' + diff + ')</span>'; }
+                else if (diff < 0) { diffClass = 'diff-less'; diffHtml += ' <span class="diff-value">(' + diff + ')</span>'; }
+                else { diffClass = 'diff-balanced'; diffHtml += ' <span class="diff-value">(0)</span>'; }
+                totalEl.classList.add(diffClass);
             }
             totalEl.innerHTML = diffHtml;
+            card.dataset.diffClass = diffClass;
+            if (typeof applyFilters === 'function') applyFilters();
         }
 
         // Day-chip tap -> edit modal (add or revise that day's quantity).
