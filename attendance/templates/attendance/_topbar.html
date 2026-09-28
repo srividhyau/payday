@@ -3,8 +3,8 @@
 {% if page_title %}
 <button type="button" class="header-nav-toggle" id="headerNavToggle" aria-label="Show/hide menu" title="Show/hide menu">
     <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
-    {# Breadcrumb prefix — same section groupings as the sidebar's own nav-dropdowns below, so the collapsed pill reads e.g. "Piece Rate - Production" instead of just the bare page_title. #}
-    <span>{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %}Attendance - {% elif current == "salary" or current == "ot_details" or current == "leave_ledger" %}Payroll - {% elif current == "cash_withdrawal" or current == "cash_register" %}Cash - {% elif current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %}Piece Rate - {% endif %}{{ page_title }}</span>
+    {# Breadcrumb: sidebar section -> page, e.g. "Piece Rate -> Production" — see _crumb.html/_crumb_render.html (same split as stitch360's tracker/_crumb.html). #}
+    <span>{% include "attendance/_crumb.html" %}</span>
 </button>
 {% endif %}
 <aside class="topbar{% if sidebar_collapsed %} collapsed{% endif %}" id="sidebar">
@@ -16,61 +16,80 @@
         <button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" aria-label="Collapse menu" title="Collapse menu">‹</button>
     </div>
     <nav>
+        {# Sidebar section groups — a real Bootstrap accordion (data-bs-toggle/data-bs-parent), same component stitch360's _nav.html uses; gets "only one open" and ARIA behavior for free instead of the old hand-rolled <details>-close-siblings JS. Reskinned to sit flush in the yellow sidebar (transparent bg, no card borders) via app.css's ".topbar nav .accordion" rules. #}
+        <div class="accordion" id="navAccordion">
         {% if not is_salary_viewer and not is_employee_editor and not is_production_head and not is_operator_link_revoker %}
-        <details class="nav-dropdown"{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} open{% endif %}>
-            <summary{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} class="current"{% endif %}>Attendance</summary>
-            <div class="nav-dropdown-menu">
-                <a href="{% url 'mark_attendance' %}"{% if current == "mark_attendance" %} class="current"{% endif %}>Mark Attendance</a>
-                <a href="{% url 'mark_attendance_month' %}"{% if current == "mark_attendance_month" %} class="current"{% endif %}>Monthly Attendance</a>
-                <a href="{% url 'dashboard' %}"{% if current == "dashboard" %} class="current"{% endif %}>Device Records</a>
-                <a href="{% url 'upload' %}"{% if current == "upload" %} class="current"{% endif %}>Upload</a>
-                <a href="{% url 'calendar' %}"{% if current == "calendar" %} class="current"{% endif %}>Holiday Calendar</a>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} current{% else %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#navAttendance" aria-expanded="{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %}true{% else %}false{% endif %}" aria-controls="navAttendance">Attendance</button>
+            </h2>
+            <div id="navAttendance" class="accordion-collapse collapse{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} show{% endif %}" data-bs-parent="#navAccordion">
+                <div class="accordion-body">
+                    <a href="{% url 'mark_attendance' %}"{% if current == "mark_attendance" %} class="current"{% endif %}>Mark Attendance</a>
+                    <a href="{% url 'mark_attendance_month' %}"{% if current == "mark_attendance_month" %} class="current"{% endif %}>Monthly Attendance</a>
+                    <a href="{% url 'dashboard' %}"{% if current == "dashboard" %} class="current"{% endif %}>Device Records</a>
+                    <a href="{% url 'upload' %}"{% if current == "upload" %} class="current"{% endif %}>Upload</a>
+                    <a href="{% url 'calendar' %}"{% if current == "calendar" %} class="current"{% endif %}>Holiday Calendar</a>
+                </div>
             </div>
-        </details>
+        </div>
         {% endif %}
         {% if not is_production_head and not is_operator_link_revoker %}
         {% if is_salary_viewer or not is_employee_editor %}
-        <details class="nav-dropdown"{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} open{% endif %}>
-            <summary{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} class="current"{% endif %}>Payroll</summary>
-            <div class="nav-dropdown-menu">
-                <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
-                {% if not is_salary_viewer and not is_employee_editor %}
-                <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
-                <a href="{% url 'leave_ledger' %}"{% if current == "leave_ledger" %} class="current"{% endif %}>EL &amp; Comp-Off</a>
-                {% endif %}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} current{% else %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#navPayroll" aria-expanded="{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %}true{% else %}false{% endif %}" aria-controls="navPayroll">Payroll</button>
+            </h2>
+            <div id="navPayroll" class="accordion-collapse collapse{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} show{% endif %}" data-bs-parent="#navAccordion">
+                <div class="accordion-body">
+                    <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
+                    {% if not is_salary_viewer and not is_employee_editor %}
+                    <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
+                    <a href="{% url 'leave_ledger' %}"{% if current == "leave_ledger" %} class="current"{% endif %}>EL &amp; Comp-Off</a>
+                    {% endif %}
+                </div>
             </div>
-        </details>
-        <details class="nav-dropdown"{% if current == "cash_withdrawal" or current == "cash_register" %} open{% endif %}>
-            <summary{% if current == "cash_withdrawal" or current == "cash_register" %} class="current"{% endif %}>Cash</summary>
-            <div class="nav-dropdown-menu">
-                <a href="{% url 'cash_withdrawal' %}"{% if current == "cash_withdrawal" %} class="current"{% endif %}>Cash Withdrawal</a>
-                <a href="{% url 'cash_register' %}"{% if current == "cash_register" %} class="current"{% endif %}>Cash Register</a>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button{% if current == "cash_withdrawal" or current == "cash_register" %} current{% else %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#navCash" aria-expanded="{% if current == "cash_withdrawal" or current == "cash_register" %}true{% else %}false{% endif %}" aria-controls="navCash">Cash</button>
+            </h2>
+            <div id="navCash" class="accordion-collapse collapse{% if current == "cash_withdrawal" or current == "cash_register" %} show{% endif %}" data-bs-parent="#navAccordion">
+                <div class="accordion-body">
+                    <a href="{% url 'cash_withdrawal' %}"{% if current == "cash_withdrawal" %} class="current"{% endif %}>Cash Withdrawal</a>
+                    <a href="{% url 'cash_register' %}"{% if current == "cash_register" %} class="current"{% endif %}>Cash Register</a>
+                </div>
             </div>
-        </details>
+        </div>
         {% endif %}
         {% endif %}
         {% if not is_salary_viewer and not is_employee_editor %}
-        <details class="nav-dropdown"{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %} open{% endif %}>
-            <summary{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %} class="current"{% endif %}>Piece Rate</summary>
-            <div class="nav-dropdown-menu">
-                {% if not is_operator_link_revoker %}
-                <div class="nav-dropdown-group">
-                    <a href="{% url 'piece_rate' %}"{% if current == "piece_rate_styles" %} class="current"{% endif %}>Styles</a>
-                    <a href="{% url 'piece_rate_production_shortcut' %}"{% if current == "piece_rate_production" %} class="current"{% endif %}>Production</a>
-                    <a href="{% url 'piece_rate_operator_summary' %}"{% if current == "piece_rate_operator_summary" %} class="current"{% endif %}>Summary</a>
-                </div>
-                <div class="nav-dropdown-divider"></div>
-                {% endif %}
-                <div class="nav-dropdown-group nav-dropdown-group-alt">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %} current{% else %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#navPieceRate" aria-expanded="{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %}true{% else %}false{% endif %}" aria-controls="navPieceRate">Piece Rate</button>
+            </h2>
+            <div id="navPieceRate" class="accordion-collapse collapse{% if current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %} show{% endif %}" data-bs-parent="#navAccordion">
+                <div class="accordion-body">
                     {% if not is_operator_link_revoker %}
-                    <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
-                    <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
+                    <div class="nav-dropdown-group">
+                        <a href="{% url 'piece_rate' %}"{% if current == "piece_rate_styles" %} class="current"{% endif %}>Styles</a>
+                        <a href="{% url 'piece_rate_production_shortcut' %}"{% if current == "piece_rate_production" %} class="current"{% endif %}>Production</a>
+                        <a href="{% url 'piece_rate_operator_summary' %}"{% if current == "piece_rate_operator_summary" %} class="current"{% endif %}>Summary</a>
+                    </div>
+                    <div class="nav-dropdown-divider"></div>
                     {% endif %}
-                    <a href="{% url 'piece_rate_operator_links' %}"{% if current == "piece_rate_operator_links" %} class="current"{% endif %}>Operator Links</a>
+                    <div class="nav-dropdown-group nav-dropdown-group-alt">
+                        {% if not is_operator_link_revoker %}
+                        <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
+                        <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
+                        {% endif %}
+                        <a href="{% url 'piece_rate_operator_links' %}"{% if current == "piece_rate_operator_links" %} class="current"{% endif %}>Operator Links</a>
+                    </div>
                 </div>
             </div>
-        </details>
+        </div>
         {% endif %}
+        </div>
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit">Logout ({{ user.username }})</button>
@@ -79,18 +98,10 @@
 </aside>
 
 <script>
-    // Native <details> doesn't close its siblings on its own, so with
-    // several nav-dropdowns (Attendance/Payroll/Cash/Piece Rate) in the
-    // sidebar's accordion, opening one collapses whichever other one was
-    // already open, rather than letting them stack indefinitely.
-    document.querySelectorAll('.nav-dropdown').forEach(function (details) {
-        details.addEventListener('toggle', function () {
-            if (!details.open) return;
-            document.querySelectorAll('.nav-dropdown').forEach(function (other) {
-                if (other !== details) other.open = false;
-            });
-        });
-    });
+    // "Only one section open" is Bootstrap's own accordion behavior now
+    // (data-bs-parent="#navAccordion" on each .accordion-collapse) — no
+    // custom JS needed; bootstrap.bundle.min.js (see _htmx_scripts.html)
+    // wires up every [data-bs-toggle=collapse] button automatically.
 
     // Sidebar collapse/expand — remembered across pages via a cookie
     // (not localStorage: this needs to be readable at server-render

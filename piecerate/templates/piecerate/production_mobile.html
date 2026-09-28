@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payday — {{ style.name }} Production</title>
+{% include "attendance/_bootstrap_head.html" %}
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
     .page { padding: 1rem 1rem 3rem; max-width: 640px; margin: 0 auto; }
@@ -750,5 +751,6 @@
         }
         document.querySelectorAll('.remove-operator-btn').forEach(attachRemoveHandler);
     </script>
+{% include "attendance/_htmx_scripts.html" %}
 </body>
 </html>

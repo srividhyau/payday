@@ -5,6 +5,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Payday</title>
+{% include "attendance/_bootstrap_head.html" %}
 <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
   :root {
@@ -75,5 +76,6 @@
             <a href="{% url 'calendar' %}" class="secondary">Holiday Calendar</a>
         </div>
     </div>
+{% include "attendance/_htmx_scripts.html" %}
 </body>
 </html>

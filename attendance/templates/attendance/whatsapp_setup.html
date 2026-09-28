@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payday — WhatsApp Setup</title>
+{% include "attendance/_bootstrap_head.html" %}
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
     <style>
         .page { width: 100%; max-width: 720px; margin: 0; padding: 1.5rem 1rem 3rem; }
@@ -205,5 +206,6 @@
         });
     </script>
     {% endif %}
+{% include "attendance/_htmx_scripts.html" %}
 </body>
 </html>

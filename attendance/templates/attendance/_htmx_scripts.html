@@ -1,0 +1,10 @@
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.12/dist/htmx.min.js"></script>
+{% comment %}
+  head-support: an hx-boost swap only replaces the hx-select target by
+  default — it never touches the response's <head> — so a page with its own
+  page-specific <style> would render unstyled until a hard refresh. This
+  extension merges <head> on every boosted navigation so CSS loads
+  immediately, the same way a full page load already would.
+{% endcomment %}
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.12/dist/ext/head-support.js"></script>

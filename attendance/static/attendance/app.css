@@ -80,6 +80,24 @@ body:has(.topbar.collapsed) { padding-left: 0; }
 body:has(.topbar.collapsed) .header-nav-toggle { left: 0.85rem; }
 .header-nav-toggle .brand-logo { width: 1.6rem; height: 1.6rem; display: block; border-radius: 50%; flex: none; }
 .header-nav-toggle span { white-space: nowrap; }
+/* Breadcrumb (see _crumb.html/_crumb_render.html) — the plain-text "A →
+   B" separator used inside .header-nav-toggle (a <button>, so a real
+   nested <a> isn't valid there), plus the real clickable Bootstrap
+   breadcrumb .crumb_render.html can render instead when linked=True is
+   passed from somewhere that isn't a <button> — same split as
+   stitch360's tracker/_nav.html. */
+.crumb-sep { font-style: normal; opacity: 0.55; margin: 0 0.2rem; }
+.crumb-nav { display: inline-flex; min-width: 0; max-width: 100%; overflow: hidden; }
+.crumb-nav .breadcrumb {
+    --bs-breadcrumb-divider: "\2192"; display: flex; flex-wrap: nowrap; align-items: center;
+    margin: 0; padding: 0; min-width: 0; overflow: hidden;
+    font-size: inherit; font-weight: inherit; font-family: inherit;
+}
+.crumb-nav .breadcrumb-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumb-nav .breadcrumb-item::before { color: var(--navy); opacity: 0.55; padding-right: 0.4rem; }
+.crumb-nav .breadcrumb-item a { color: var(--navy); text-decoration: none; }
+.crumb-nav .breadcrumb-item a:hover { text-decoration: underline; }
+.crumb-nav .breadcrumb-item.active { color: var(--navy); overflow: hidden; text-overflow: ellipsis; }
 /* Every page's own yellow .month-nav card sets its own padding (a
    plain shorthand, so it always wins there against a same-specificity
    app.css rule regardless of source order) — reserving room at the
@@ -115,28 +133,36 @@ body:has(.topbar.collapsed) .header-nav-toggle { left: 0.85rem; }
     padding: 0.32rem 0.45rem; border-radius: 6px; transition: background .15s ease, color .15s ease;
 }
 .topbar nav button:hover { background: var(--navy); color: var(--yellow); }
-.topbar nav details.nav-dropdown + details.nav-dropdown,
-.topbar nav details.nav-dropdown + a,
-.topbar nav a + details.nav-dropdown { margin-top: 0.18rem; }
-.topbar nav details.nav-dropdown summary {
-    list-style: none; cursor: pointer; color: var(--navy); font-size: 0.68rem; font-weight: 700;
-    padding: 0.32rem 0.45rem; border-radius: 6px; transition: background .15s ease, color .15s ease;
-    text-transform: uppercase; letter-spacing: 0.03em;
-    display: flex; align-items: center; justify-content: space-between;
+/* Sidebar section groups (Attendance/Payroll/Cash/Piece Rate) — a real
+   Bootstrap accordion (see _topbar.html: data-bs-toggle/data-bs-parent),
+   same component and reskin approach as stitch360's tracker/_nav.html:
+   transparent background and navy/yellow brand colors instead of
+   Bootstrap's default white-card accordion look, sized to sit flush in
+   the narrow yellow sidebar. */
+.topbar nav .accordion {
+    --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-border-radius: 6px;
+    --bs-accordion-inner-border-radius: 6px;
+    --bs-accordion-btn-padding-x: 0.45rem; --bs-accordion-btn-padding-y: 0.32rem;
+    --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 0.15rem;
+    --bs-accordion-btn-color: var(--navy); --bs-accordion-active-color: var(--yellow);
+    --bs-accordion-active-bg: var(--navy);
+    --bs-accordion-btn-focus-box-shadow: 0 0 0 0.2rem rgba(0,47,102,0.25);
+    --bs-accordion-btn-icon: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23002f66'%3e%3cpath fill-rule='evenodd' d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+    --bs-accordion-btn-active-icon: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fde047'%3e%3cpath fill-rule='evenodd' d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
 }
-.topbar nav details.nav-dropdown summary::-webkit-details-marker { display: none; }
-.topbar nav details.nav-dropdown summary::after { content: "▸"; font-size: 0.6rem; opacity: .6; transition: transform .15s ease; }
-.topbar nav details.nav-dropdown[open] summary::after { transform: rotate(90deg); }
-.topbar nav details.nav-dropdown summary:hover,
-.topbar nav details.nav-dropdown summary.current { background: var(--navy); color: var(--yellow); }
-.topbar nav .nav-dropdown-menu {
-    display: flex; flex-direction: column; gap: 0.02rem; padding: 0.15rem 0 0.2rem;
+.topbar nav .accordion-item + .accordion-item { margin-top: 0.18rem; }
+.topbar nav .accordion-button {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    box-shadow: none !important;
 }
-.topbar nav .nav-dropdown-menu a { display: block; padding: 0.32rem 0.45rem 0.32rem 0.85rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600; color: var(--navy); text-decoration: none; line-height: 1.2; }
-.topbar nav .nav-dropdown-menu a:hover { background: var(--navy); color: var(--yellow); }
-.topbar nav .nav-dropdown-menu a.current { background: var(--navy); color: var(--yellow); }
-.topbar nav .nav-dropdown-menu .nav-dropdown-divider { height: 1px; background: rgba(0,47,102,0.15); margin: 0.25rem 0.4rem; }
-.topbar nav .nav-dropdown-menu .nav-dropdown-group-alt {
+.topbar nav .accordion-button.current:not(:hover) { background: var(--navy); color: var(--yellow); }
+.topbar nav .accordion-button::after { width: 0.7rem; height: 0.7rem; background-size: 0.7rem; }
+.topbar nav .accordion-body { display: flex; flex-direction: column; gap: 0.02rem; }
+.topbar nav .accordion-body a { display: block; padding: 0.32rem 0.45rem 0.32rem 0.85rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600; color: var(--navy); text-decoration: none; line-height: 1.2; }
+.topbar nav .accordion-body a:hover { background: var(--navy); color: var(--yellow); }
+.topbar nav .accordion-body a.current { background: var(--navy); color: var(--yellow); }
+.topbar nav .accordion-body .nav-dropdown-divider { height: 1px; background: rgba(0,47,102,0.15); margin: 0.25rem 0.4rem; }
+.topbar nav .accordion-body .nav-dropdown-group-alt {
     background: rgba(0,47,102,0.06); border-radius: 6px; padding: 0.15rem;
 }
 

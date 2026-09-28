@@ -1,0 +1,7 @@
+{% comment %}Renders one resolved crumb (parent + parent_url_name, or just
+current for a top-level page) either as a real Bootstrap breadcrumb with a
+clickable parent link (linked=True — safe to nest a link there, it's a
+plain span/div) or as plain "A → B" text (the default — used inside the
+header's menu-toggle button, where a nested <a> would be invalid HTML
+since buttons can't contain links).{% endcomment %}
+{% if linked and parent %}<nav aria-label="breadcrumb" class="crumb-nav"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url parent_url_name %}">{{ parent }}</a></li><li class="breadcrumb-item active" aria-current="page">{{ current }}</li></ol></nav>{% elif parent %}{{ parent }} <i class="crumb-sep">→</i> {{ current }}{% else %}{{ current }}{% endif %}

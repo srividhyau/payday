@@ -1,0 +1,15 @@
+{% comment %}Header trail: sidebar section → page (e.g. "Piece Rate →
+Production"), same idea as stitch360's tracker/_crumb.html. Needs
+`current` (the page key, already passed to _topbar.html by every page)
+and `page_title` (already passed too — for a few pages it already
+carries page-specific detail, e.g. "Production — B_Shirt" or "Rate Card
+— B_Shirt", which is why this only supplies the *section* name, not a
+full replacement title). Pass linked=True (see _topbar.html) to render a
+real clickable Bootstrap breadcrumb instead of plain "A → B" text.{% endcomment %}
+{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %}{% include "attendance/_crumb_render.html" with parent="Attendance" parent_url_name="dashboard" current=page_title %}
+{% elif current == "salary" or current == "ot_details" or current == "leave_ledger" %}{% include "attendance/_crumb_render.html" with parent="Payroll" parent_url_name="salary" current=page_title %}
+{% elif current == "cash_withdrawal" or current == "cash_register" %}{% include "attendance/_crumb_render.html" with parent="Cash" parent_url_name="cash_withdrawal" current=page_title %}
+{% elif current == "piece_rate_styles" or current == "piece_rate_production" or current == "piece_rate_templates" or current == "piece_rate_operations" or current == "piece_rate_operator_summary" or current == "piece_rate_operator_links" %}{% include "attendance/_crumb_render.html" with parent="Piece Rate" parent_url_name="piece_rate" current=page_title %}
+{% elif page_title %}{% include "attendance/_crumb_render.html" with current=page_title %}
+{% else %}{% include "attendance/_crumb_render.html" with current="Payday" %}
+{% endif %}

@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payday — Upload Device Records</title>
+{% include "attendance/_bootstrap_head.html" %}
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
                                 .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
@@ -146,5 +147,6 @@
             </div>
         </div>
     </div>
+{% include "attendance/_htmx_scripts.html" %}
 </body>
 </html>
