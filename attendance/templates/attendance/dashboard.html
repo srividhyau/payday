@@ -1,4 +1,4 @@
-{% load static %}
+in{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,28 +22,38 @@
         .card { margin-bottom: 0.75rem; }
         .dept-summary summary h2::before { content: "▸ "; }
         .dept-summary[open] summary h2::before { content: "▾ "; }
-        /* "Summary" lives as a third tab in the view-switch row; the
-           actual table it opens (#deptPanel) sits below the header as
-           its own card instead of expanding inside the yellow header
-           bar itself — plain button + JS (see the script below) rather
-           than a native <details>, since summary/content can't live in
-           two different places with that element. */
-        /* Higher specificity than .view-switch .view-btn (2 classes) is
-           needed to actually override these two — a bare .dept-toggle-btn
-           rule loses that specificity fight regardless of source order.
-           Darker text: at the plain muted grey the other .view-btns
-           use, these two were nearly invisible against the pill's pale
-           background. white-space: normal lets a label wrap onto two
-           lines instead of forcing the pill wider if space is tight. */
-        .view-switch .view-btn.dept-toggle-btn {
-            font-size: 0.76rem;
-            padding: 0.3rem 0.75rem;
-            color: var(--navy);
-            font-weight: 500;
-            white-space: normal;
+        /* "Summary" is the same size as "All"/"Missed Punch" (a real
+           nav-pill, not a smaller secondary control) — this only still
+           keeps its text always navy, since Bootstrap's default muted
+           nav-link color (fine for "All"/"Missed Punch", real
+           navigation links) reads too faint on a button whose label
+           doesn't otherwise change. "Legend" (see the markup) is an
+           icon rather than text, so it needs an explicit size to match
+           its text siblings — same idea as Mark Attendance (Month
+           View)'s own icon-only Legend pill, sized to this group's own
+           nav-link height instead of an external icon button. */
+        .view-switch .nav-link.dept-toggle-btn:not(.active) { color: var(--navy); font-weight: 500; }
+        /* An icon-only nav-link has no text line-height to size itself
+           against, so it renders shorter than its "All"/"Missed Punch"/
+           "Summary" text siblings unless given their height explicitly. */
+        .view-switch .nav-link.legend-toggle-btn {
+            display: inline-flex; align-items: center; justify-content: center; position: relative;
+            width: 40px; height: 40px; padding: 0;
         }
-        .dept-toggle-btn.open { background: var(--navy); color: var(--yellow); font-weight: 600; }
-        .dept-toggle-btn.open:hover { background: var(--navy); color: var(--yellow); }
+        .legend-toggle-btn svg { display: block; }
+        /* Same custom-tooltip pattern as .icon-btn[data-tooltip]
+           elsewhere in the app (native title has an inconsistent hover
+           delay across browsers) — duplicated here since .icon-btn also
+           carries its own circular-button chrome, which would fight
+           this pill's sizing. */
+        .legend-toggle-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
+            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+            padding: 0.35rem 0.65rem; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
         .caption:last-child { margin-bottom: 0; }
         .caption a { color: var(--navy); text-decoration: none; font-weight: 600; }
@@ -99,36 +109,19 @@
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.1);
         }
-        /* Sits inside .month-nav now, as its own row below the
-           title/date/KPI row. */
+        /* Moved out of the yellow .month-nav header into its own row
+           below it (see the markup) — same convention as Production's
+           filter-bar and OT Details' "By department" toggle. All/Missed
+           Punch/Summary/Legend is now a Bootstrap nav-pills group
+           instead of bespoke pill links/buttons — bootstrap-theme.css
+           already themes .nav-pills .nav-link.active navy-on-yellow,
+           matching every other active-state in the app. */
         .view-switch-row {
             display: flex;
             align-items: center;
             gap: 1rem;
+            margin: 0 0 0.9rem;
         }
-        .view-switch {
-            display: inline-flex;
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            overflow: hidden;
-            background: var(--bg);
-            padding: 3px;
-        }
-        .view-switch .view-btn {
-            padding: 0.4rem 1rem;
-            font-size: 0.82rem;
-            border: none;
-            border-radius: 999px;
-            background: transparent;
-            color: var(--text-muted);
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            transition: background .15s ease, color .15s ease;
-        }
-        .view-switch .view-btn:hover { color: var(--text); }
-        .view-switch .view-btn.active { background: var(--navy); color: var(--yellow); font-weight: 600; }
-        .view-switch .view-btn.active:hover { background: var(--navy); }
         .tab-lock-icon {
             display: inline-flex;
             align-items: center;
@@ -474,12 +467,13 @@
             transition: background .15s ease, color .15s ease;
         }
         .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
+        /* Keeps its own colors (Bootstrap's stock .alert-danger palette
+           doesn't match) — still gets .alert's role/structure via the
+           markup, just overriding color/spacing here. */
         .lock-banner {
             background: #fdecea;
             color: #b3261e;
-            border: 1px solid #f3c6c1;
-            border-radius: 8px;
-            padding: 0.5rem 0.9rem;
+            border-color: #f3c6c1;
             font-size: 0.85rem;
             margin: -0.5rem 0 1rem;
         }
@@ -492,37 +486,34 @@
            ::after content still has its own z-index, so suppress it
            explicitly rather than relying on stacking order alone. */
         body.modal-open table.month td[data-tooltip]:hover::after { display: none; }
+        /* The three edit-overlay popups' inputs/selects are now Bootstrap
+           form-control/form-select and their Cancel/Save buttons plain
+           .btn/.btn-secondary/.btn-primary (see the markup) — this only
+           still owns the popup box itself and its layout, not any
+           individual form control. */
         .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 300px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
         .edit-modal h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
         .edit-modal .edit-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.9rem; }
         .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
-        .edit-modal input, .edit-modal select {
-            display: block; width: 100%; margin-top: 0.25rem; padding: 0.45rem 0.6rem;
-            border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
-            transition: border-color .15s ease;
-        }
-        .edit-modal input:focus, .edit-modal select:focus { outline: none; border-color: var(--accent); }
-        .edit-modal input:disabled { background: #f0f0f0; color: #999; }
         .edit-modal .edit-staff-note { font-size: 0.75rem; color: #999; margin: -0.3rem 0 0.6rem; }
         .shift-toggle-label { font-size: 0.8rem; color: #444; margin-bottom: 0.35rem; }
-        .shift-toggle { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.7rem; }
-        .shift-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-        .shift-toggle label {
-            padding: 0.4rem 0.7rem; border: 1px solid #ccc; border-radius: 999px;
-            font-size: 0.8rem; font-weight: 600; color: #444; cursor: pointer;
-            user-select: none; margin: 0; transition: background .15s ease, color .15s ease, border-color .15s ease;
-        }
-        .shift-toggle input:checked + label { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
-        .shift-toggle input:disabled + label { background: #f0f0f0; color: #bbb; border-color: #e0e0e0; cursor: default; }
+        /* Shift is now a Bootstrap btn-check + btn-group (see the
+           markup), same pattern as Mark Attendance's Present/Absent
+           toggle — the checked/unchecked/disabled fill states are
+           Bootstrap's own .btn-check behavior, nothing custom needed.
+           The pill radius comes from each button's own
+           --bs-btn-border-radius rather than clipping the group wrapper
+           with overflow:hidden — that combo is a known Chromium
+           rendering bug that cuts off borders on a flex child (see
+           mark_attendance.html's own note on this same fix). */
+        .shift-toggle { flex-wrap: wrap; margin-bottom: 0.7rem; }
+        /* btn-outline-primary's checked fill already resolves navy
+           (--bs-primary is mapped to var(--navy) in bootstrap-theme.css)
+           — only the active TEXT color (Bootstrap's own outline-primary
+           default is white) needs overriding to match the brand's
+           navy/yellow active-state language used everywhere else. */
+        .shift-toggle .btn { --bs-btn-border-radius: 999px; --bs-btn-active-color: var(--yellow); font-size: 0.8rem; }
         .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
-        .edit-modal button {
-            padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
-            background: #fff; cursor: pointer; font-size: 0.85rem; transition: background .15s ease;
-        }
-        .edit-modal button:hover { background: var(--bg); }
-        .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
-        .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
-        .edit-modal button[type="submit"]:disabled { background: #ccc; color: #888; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -548,23 +539,27 @@
                 <div class="kpi"><div class="label">Avg. attendance</div><div class="value">{{ kpi.avg_attendance_pct }}%</div></div>
                 <div class="kpi kpi-alert"><div class="label">Missed punches</div><div class="value">{{ missed_punch_count }}</div></div>
             </div>
-            <div class="view-switch-row">
-                <div class="view-switch">
-                    <a href="?date={{ current_date }}&view=all" class="view-btn{% if current_view == 'all' %} active{% endif %}" data-view="all">All
-                        <span class="tab-lock-icon" data-view="all" data-label="All" data-action="{% if lock_status.all %}unlock{% else %}lock{% endif %}" title="{% if lock_status.all %}Unlock{% else %}Lock{% endif %} All">{% if lock_status.all %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
-                    </a>
-                    <a href="?date={{ current_date }}&view=issues" class="view-btn{% if current_view == 'issues' %} active{% endif %}" data-view="issues">Missed Punch
-                        <span class="tab-lock-icon" data-view="issues" data-label="Missed Punch" data-action="{% if lock_status.issues %}unlock{% else %}lock{% endif %}" title="{% if lock_status.issues %}Unlock{% else %}Lock{% endif %} Missed Punch">{% if lock_status.issues %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
-                    </a>
-                    <button type="button" class="view-btn dept-toggle-btn" id="deptToggleBtn">Summary</button>
-                    <button type="button" class="view-btn dept-toggle-btn" id="legendToggleBtn">Legend</button>
-                </div>
-            </div>
             {% endif %}
         </div>
     </div>
+    {% if not empty %}
+    <div class="view-switch-row">
+        <ul class="nav nav-pills view-switch">
+            <li class="nav-item"><a href="?date={{ current_date }}&view=all" class="nav-link{% if current_view == 'all' %} active{% endif %}" data-view="all">All
+                <span class="tab-lock-icon" data-view="all" data-label="All" data-action="{% if lock_status.all %}unlock{% else %}lock{% endif %}" title="{% if lock_status.all %}Unlock{% else %}Lock{% endif %} All">{% if lock_status.all %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+            </a></li>
+            <li class="nav-item"><a href="?date={{ current_date }}&view=issues" class="nav-link{% if current_view == 'issues' %} active{% endif %}" data-view="issues">Missed Punch
+                <span class="tab-lock-icon" data-view="issues" data-label="Missed Punch" data-action="{% if lock_status.issues %}unlock{% else %}lock{% endif %}" title="{% if lock_status.issues %}Unlock{% else %}Lock{% endif %} Missed Punch">{% if lock_status.issues %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+            </a></li>
+            <li class="nav-item"><button type="button" class="nav-link dept-toggle-btn" id="deptToggleBtn">Summary</button></li>
+            <li class="nav-item"><button type="button" class="nav-link legend-toggle-btn" id="legendToggleBtn" data-tooltip="Legend" aria-label="Legend">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
+            </button></li>
+        </ul>
+    </div>
+    {% endif %}
     {% if is_locked %}
-        <p class="lock-banner">🔒 {{ current_view_label }} is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>
+        <p class="alert lock-banner" role="alert">🔒 {{ current_view_label }} is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>
     {% endif %}
     {% endif %}
 
@@ -686,17 +681,17 @@
                     <input type="hidden" name="view" value="{{ current_view }}">
                     <input type="hidden" name="next" id="editNext" value="{{ request.get_full_path }}">
                     <label>Time In
-                        <input type="text" name="time_in" id="editTimeIn" placeholder="HH:MM">
+                        <input type="text" class="form-control" name="time_in" id="editTimeIn" placeholder="HH:MM">
                     </label>
                     <label>Time Out
-                        <input type="text" name="time_out" id="editTimeOut" placeholder="HH:MM">
+                        <input type="text" class="form-control" name="time_out" id="editTimeOut" placeholder="HH:MM">
                     </label>
                     <p class="msg error" id="editClearWarning" style="display:none;">
                         This cell had real punch times — clearing both Time In and Time Out would
                         wipe them. Save is disabled until at least one is filled in.
                     </p>
                     <label>Status
-                        <select name="status" id="editStatus">
+                        <select name="status" id="editStatus" class="form-select">
                             <option value="">Auto (from Time In/Out)</option>
                             {% for code, label in status_choices %}
                             <option value="{{ code }}">{{ label }}</option>
@@ -705,25 +700,25 @@
                     </label>
                     <div id="editShiftLabel">
                         <p class="shift-toggle-label">Shift</p>
-                        <div class="shift-toggle" id="editShiftGroup">
-                            <input type="radio" name="shift" value="" id="editShift-none">
-                            <label for="editShift-none">—</label>
-                            <input type="radio" name="shift" value="GS" id="editShift-gs">
-                            <label for="editShift-gs">GS</label>
-                            <input type="radio" name="shift" value="M-OT" id="editShift-mot">
-                            <label for="editShift-mot">M-OT</label>
-                            <input type="radio" name="shift" value="E-OT" id="editShift-eot">
-                            <label for="editShift-eot">E-OT</label>
-                            <input type="radio" name="shift" value="ME-OT" id="editShift-meot">
-                            <label for="editShift-meot">ME-OT</label>
-                            <input type="radio" name="shift" value="Full-OT" id="editShift-fullot">
-                            <label for="editShift-fullot">Full-OT</label>
+                        <div class="btn-group shift-toggle" id="editShiftGroup" role="group" aria-label="Shift">
+                            <input type="radio" class="btn-check" autocomplete="off" name="shift" value="" id="editShift-none">
+                            <label class="btn btn-outline-primary" for="editShift-none">—</label>
+                            <input type="radio" class="btn-check" autocomplete="off" name="shift" value="GS" id="editShift-gs">
+                            <label class="btn btn-outline-primary" for="editShift-gs">GS</label>
+                            <input type="radio" class="btn-check" autocomplete="off" name="shift" value="M-OT" id="editShift-mot">
+                            <label class="btn btn-outline-primary" for="editShift-mot">M-OT</label>
+                            <input type="radio" class="btn-check" autocomplete="off" name="shift" value="E-OT" id="editShift-eot">
+                            <label class="btn btn-outline-primary" for="editShift-eot">E-OT</label>
+                            <input type="radio" class="btn-check" autocomplete="off" name="shift" value="ME-OT" id="editShift-meot">
+                            <label class="btn btn-outline-primary" for="editShift-meot">ME-OT</label>
+                            <input type="radio" class="btn-check" autocomplete="off" name="shift" value="Full-OT" id="editShift-fullot">
+                            <label class="btn btn-outline-primary" for="editShift-fullot">Full-OT</label>
                         </div>
                     </div>
                     <p class="edit-staff-note" id="editStaffNote" style="display:none;">Shift isn't editable for Staff — they're excluded from shift-based OT (see EL instead).</p>
                     <div class="edit-actions">
-                        <button type="button" id="editCancel">Cancel</button>
-                        <button type="submit" id="editSaveBtn">Save</button>
+                        <button type="button" class="btn btn-secondary" id="editCancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="editSaveBtn">Save</button>
                     </div>
                 </form>
             </div>
@@ -739,7 +734,7 @@
                     <input type="hidden" name="view" value="{{ current_view }}">
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <label>Shift (all employees except Staff)
-                        <input type="text" name="shift" id="bulkShift" list="shiftOptions" placeholder="GS">
+                        <input type="text" class="form-control" name="shift" id="bulkShift" list="shiftOptions" placeholder="GS">
                         <datalist id="shiftOptions">
                             <option value="GS">
                             <option value="M-OT">
@@ -749,7 +744,7 @@
                         </datalist>
                     </label>
                     <label>Calendar day type
-                        <select name="day_type" id="bulkDayType">
+                        <select name="day_type" id="bulkDayType" class="form-select">
                             <option value="">— none —</option>
                             {% for code, label in day_types %}
                             <option value="{{ code }}">{{ label }}</option>
@@ -757,8 +752,8 @@
                         </select>
                     </label>
                     <div class="edit-actions">
-                        <button type="button" id="bulkCancel">Cancel</button>
-                        <button type="submit">Save</button>
+                        <button type="button" class="btn btn-secondary" id="bulkCancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
                     </div>
                 </form>
             </div>
@@ -776,11 +771,11 @@
                     <input type="hidden" name="action" id="lockAction" value="{% if is_locked %}unlock{% else %}lock{% endif %}">
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <label>PIN
-                        <input type="password" name="pin" id="lockPin" inputmode="numeric" autocomplete="off">
+                        <input type="password" class="form-control" name="pin" id="lockPin" inputmode="numeric" autocomplete="off">
                     </label>
                     <div class="edit-actions">
-                        <button type="button" id="lockCancel">Cancel</button>
-                        <button type="submit" id="lockSubmit">{% if is_locked %}Unlock{% else %}Lock{% endif %}</button>
+                        <button type="button" class="btn btn-secondary" id="lockCancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="lockSubmit">{% if is_locked %}Unlock{% else %}Lock{% endif %}</button>
                     </div>
                 </form>
             </div>
@@ -799,7 +794,7 @@
             deptToggleBtn.addEventListener('click', function () {
                 var willOpen = deptPanel.style.display === 'none';
                 deptPanel.style.display = willOpen ? '' : 'none';
-                deptToggleBtn.classList.toggle('open', willOpen);
+                deptToggleBtn.classList.toggle('active', willOpen);
             });
         }
 
@@ -811,7 +806,7 @@
             legendToggleBtn.addEventListener('click', function () {
                 var willOpen = legendPanel.style.display === 'none';
                 legendPanel.style.display = willOpen ? '' : 'none';
-                legendToggleBtn.classList.toggle('open', willOpen);
+                legendToggleBtn.classList.toggle('active', willOpen);
             });
         }
 

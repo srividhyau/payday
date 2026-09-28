@@ -42,34 +42,41 @@
         .kpi.balance.negative .value { color: #b3261e; }
         .action-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0; }
 
-        .row-input {
-            width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 6px;
-            font-size: 0.85rem; font-family: inherit; box-sizing: border-box;
-        }
-        .row-input:focus { outline: none; border-color: var(--navy); }
-        input.row-input[type="number"] { text-align: right; }
-        select.row-input { background: #fff; }
-        .add-row td { background: #fafbff; }
-        .add-btn {
-            background: var(--navy); color: var(--yellow); font-weight: 700; border: none;
-            padding: 0.45rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.8rem; white-space: nowrap;
-        }
-        .add-btn:hover { background: var(--navy-deep); }
+        /* Table now carries its own full grid border (traditional bordered
+           table), so .table-wrap doesn't need a second boxed border around
+           it too; overflow-x:auto (for a narrow screen) is all that's
+           still needed from it. */
+        .table-wrap { border: none; border-radius: 0; }
 
-                        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        /* Add-row inputs/select, the Add button, per-row Edit/Delete,
+           and the edit modal's inputs/select/buttons are now plain
+           Bootstrap form-control/form-select/btn/btn-outline-*/
+           btn-primary (see the markup). Capped back to a sensible size
+           instead of Bootstrap's default width:100%, which stretched
+           them to match a wide table column sized for real data (e.g.
+           a long Purpose/Description) — Date/Type stay narrower still,
+           matching what they actually need to show. */
+        .row-input { max-width: 260px; }
+        input.row-input[type="date"], select.row-input { max-width: 150px; }
+        input.row-input[type="number"] { max-width: 140px; text-align: right; }
+        .add-row td { background: #fafbff; }
+
+        /* A real Bootstrap table (class="table simple" in the markup) —
+           simplest, clearest way to get genuinely tabular columns
+           (native table cells size to their column's content/header
+           with no col-* width math needed), same convention as every
+           other table.simple on this app. Traditional bordered look:
+           every cell boxed with a full grid (not just row underlines),
+           plus an outer border around the whole table. */
+        table.simple { border: 1px solid rgba(0,47,102,0.2); }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border: 1px solid rgba(0,47,102,0.2); white-space: nowrap; }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
-        table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
         table.simple td.num, table.simple th.num { text-align: right; }
         table.simple tr.opening td, table.simple tr.closing td { font-weight: 700; background: #FFF9B0; }
         table.simple td.type-in { color: #1e7e34; font-weight: 600; }
         table.simple td.type-out { color: #b3261e; font-weight: 600; }
         table.simple td.balance-cell { font-weight: 700; color: var(--navy); }
-        .delete-btn {
-            background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
-            padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
-        }
-        .delete-btn:hover { background: #fdecea; }
 
                                                         .report-status { font-size: 0.8rem; color: var(--text-muted); }
         .report-status.error { color: #b3261e; }
@@ -78,31 +85,17 @@
            ledger data — hidden only while html2canvas is capturing for
            the Telegram send, so the screenshot reads like a clean report. */
         table.simple.capturing .no-capture { display: none; }
-                .edit-btn {
-            background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
-            padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; font-family: inherit; margin-right: 0.3rem;
-        }
-        .edit-btn:hover { background: var(--bg); }
 
         /* Edit popup — same shared-modal pattern used elsewhere in this
-           app (one form reused for every row instead of one per row). */
-                        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+           app (one form reused for every row instead of one per row).
+           Its inputs/select/Cancel/Save are now plain Bootstrap
+           form-control/form-select/btn/btn-secondary/btn-primary (see
+           the markup) — this only still owns the popup box itself and
+           its layout. */
+        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
         .edit-modal h3 { margin: 0 0 0.9rem; font-size: 1.05rem; }
         .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
-        .edit-modal input, .edit-modal select {
-            display: block; width: 100%; margin-top: 0.25rem; padding: 0.45rem 0.6rem;
-            border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
-            transition: border-color .15s ease;
-        }
-        .edit-modal input:focus, .edit-modal select:focus { outline: none; border-color: var(--navy); }
         .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
-        .edit-modal button {
-            padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
-            background: #fff; cursor: pointer; font-size: 0.85rem; transition: background .15s ease;
-        }
-        .edit-modal button:hover { background: var(--bg); }
-        .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
-        .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
     </style>
 </head>
 <body>
@@ -159,72 +152,70 @@
             </a>
         </div>
 
-        <div class="card">
-            <div class="table-wrap">
-                <table class="simple" id="registerTable">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Purpose</th>
-                            <th>Description</th>
-                            <th class="num">Cash In</th>
-                            <th class="num">Cash Out</th>
-                            <th class="num">Balance</th>
-                            <th class="no-capture"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr class="opening">
-                            <td colspan="6">Opening Balance</td>
-                            <td class="num">{{ opening_balance }}</td>
-                            <td class="no-capture"></td>
-                        </tr>
-                        {% if not is_salary_viewer %}
-                        <tr class="add-row no-capture">
-                            <td><input class="row-input" type="date" name="entry_date" form="register-add-form" value="{{ current|date:'Y-m-d' }}" required></td>
-                            <td>
-                                <select class="row-input" name="entry_type" form="register-add-form" required>
-                                    <option value="in">Cash In</option>
-                                    <option value="out">Cash Out</option>
-                                </select>
-                            </td>
-                            <td><input class="row-input" type="text" name="purpose" form="register-add-form" placeholder="e.g. Bank Withdrawal, Office Expenses" required></td>
-                            <td><input class="row-input" type="text" name="description" form="register-add-form" placeholder="Optional notes"></td>
-                            <td colspan="2"><input class="row-input" type="number" name="amount" form="register-add-form" step="0.01" min="0" required placeholder="Amount"></td>
-                            <td></td>
-                            <td><button type="submit" form="register-add-form" class="add-btn">Add</button></td>
-                        </tr>
-                        {% endif %}
-                        {% for row in rows %}
-                        <tr>
-                            <td>{{ row.entry.date|date:"d M Y" }}</td>
-                            <td class="type-{{ row.entry.entry_type }}">{{ row.entry.get_entry_type_display }}</td>
-                            <td>{{ row.entry.purpose }}</td>
-                            <td>{{ row.entry.description }}</td>
-                            <td class="num">{% if row.entry.entry_type == "in" %}{{ row.entry.amount }}{% endif %}</td>
-                            <td class="num">{% if row.entry.entry_type == "out" %}{{ row.entry.amount }}{% endif %}</td>
-                            <td class="num balance-cell">{{ row.balance }}</td>
-                            <td class="no-capture">
-                                {% if not is_salary_viewer %}
-                                <button type="button" class="edit-btn" data-id="{{ row.entry.id }}" data-date="{{ row.entry.date|date:'Y-m-d' }}" data-type="{{ row.entry.entry_type }}" data-purpose="{{ row.entry.purpose }}" data-description="{{ row.entry.description }}" data-amount="{{ row.entry.amount }}">Edit</button>
-                                <button type="submit" form="register-delete-form-{{ row.entry.id }}" class="delete-btn">Delete</button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="8" class="empty-state">No cash register entries for {{ month_name }} {{ year }}.</td></tr>
-                        {% endfor %}
-                        <tr class="closing">
-                            <td colspan="4">Closing Balance</td>
-                            <td class="num">{{ total_in }}</td>
-                            <td class="num">{{ total_out }}</td>
-                            <td class="num">{{ closing_balance }}</td>
-                            <td class="no-capture"></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="table-wrap">
+            <table class="table simple" id="registerTable">
+                <thead>
+                    <tr>
+                        <th style="width:10%">Date</th>
+                        <th style="width:8%">Type</th>
+                        <th style="width:19%">Purpose</th>
+                        <th style="width:19%">Description</th>
+                        <th style="width:10%">Cash In</th>
+                        <th style="width:10%">Cash Out</th>
+                        <th style="width:10%">Balance</th>
+                        <th class="no-capture" style="width:14%"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="opening">
+                        <td colspan="6">Opening Balance</td>
+                        <td>{{ opening_balance }}</td>
+                        <td class="no-capture"></td>
+                    </tr>
+                    {% if not is_salary_viewer %}
+                    <tr class="add-row no-capture">
+                        <td><input class="row-input form-control form-control-sm" type="date" name="entry_date" form="register-add-form" value="{{ current|date:'Y-m-d' }}" required></td>
+                        <td>
+                            <select class="row-input form-select form-select-sm" name="entry_type" form="register-add-form" required>
+                                <option value="in">Cash In</option>
+                                <option value="out">Cash Out</option>
+                            </select>
+                        </td>
+                        <td><input class="row-input form-control form-control-sm" type="text" name="purpose" form="register-add-form" placeholder="e.g. Bank Withdrawal, Office Expenses" required></td>
+                        <td><input class="row-input form-control form-control-sm" type="text" name="description" form="register-add-form" placeholder="Optional notes"></td>
+                        <td colspan="2"><input class="row-input form-control form-control-sm" type="number" name="amount" form="register-add-form" step="0.01" min="0" required placeholder="Amount"></td>
+                        <td></td>
+                        <td><button type="submit" form="register-add-form" class="btn btn-primary btn-sm">Add</button></td>
+                    </tr>
+                    {% endif %}
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.entry.date|date:"d M Y" }}</td>
+                        <td class="type-{{ row.entry.entry_type }}">{{ row.entry.get_entry_type_display }}</td>
+                        <td>{{ row.entry.purpose }}</td>
+                        <td>{{ row.entry.description }}</td>
+                        <td>{% if row.entry.entry_type == "in" %}{{ row.entry.amount }}{% endif %}</td>
+                        <td>{% if row.entry.entry_type == "out" %}{{ row.entry.amount }}{% endif %}</td>
+                        <td class="balance-cell">{{ row.balance }}</td>
+                        <td class="no-capture">
+                            {% if not is_salary_viewer %}
+                            <button type="button" class="edit-btn btn btn-outline-secondary btn-sm" data-id="{{ row.entry.id }}" data-date="{{ row.entry.date|date:'Y-m-d' }}" data-type="{{ row.entry.entry_type }}" data-purpose="{{ row.entry.purpose }}" data-description="{{ row.entry.description }}" data-amount="{{ row.entry.amount }}">Edit</button>
+                            <button type="submit" form="register-delete-form-{{ row.entry.id }}" class="delete-btn btn btn-outline-danger btn-sm">Delete</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="empty-state">No cash register entries for {{ month_name }} {{ year }}.</td></tr>
+                    {% endfor %}
+                    <tr class="closing">
+                        <td colspan="4">Closing Balance</td>
+                        <td>{{ total_in }}</td>
+                        <td>{{ total_out }}</td>
+                        <td>{{ closing_balance }}</td>
+                        <td class="no-capture"></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         {% if not is_salary_viewer %}
@@ -237,26 +228,26 @@
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="entry_id" id="editEntryId">
                     <label>Date
-                        <input type="date" name="entry_date" id="editDate" required>
+                        <input type="date" class="form-control" name="entry_date" id="editDate" required>
                     </label>
                     <label>Type
-                        <select name="entry_type" id="editType" required>
+                        <select name="entry_type" class="form-select" id="editType" required>
                             <option value="in">Cash In</option>
                             <option value="out">Cash Out</option>
                         </select>
                     </label>
                     <label>Purpose
-                        <input type="text" name="purpose" id="editPurpose" required>
+                        <input type="text" class="form-control" name="purpose" id="editPurpose" required>
                     </label>
                     <label>Description
-                        <input type="text" name="description" id="editDescription">
+                        <input type="text" class="form-control" name="description" id="editDescription">
                     </label>
                     <label>Amount
-                        <input type="number" name="amount" id="editAmount" step="0.01" min="0" required>
+                        <input type="number" class="form-control" name="amount" id="editAmount" step="0.01" min="0" required>
                     </label>
                     <div class="edit-actions">
-                        <button type="button" id="editCancel">Cancel</button>
-                        <button type="submit">Save</button>
+                        <button type="button" class="btn btn-secondary" id="editCancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
                     </div>
                 </form>
             </div>

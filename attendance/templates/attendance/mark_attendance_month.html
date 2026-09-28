@@ -34,23 +34,35 @@
             transition: background .15s ease, color .15s ease;
         }
         .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
+        /* Day view/Month view/Legend is now a Bootstrap nav-pills group
+           (see the markup) instead of bespoke pill links/button —
+           bootstrap-theme.css already themes .nav-pills .nav-link.active
+           navy-on-yellow, matching every other active-state in the app.
+           All three are the same size now (Legend is a small icon rather
+           than a differently-sized text label) — this only still centers
+           that icon within its own nav-link, same height as its siblings. */
         .view-switch-row { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
-        .view-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: var(--bg); padding: 3px; }
-        .view-switch .view-btn {
-            padding: 0.4rem 1rem; font-size: 0.82rem; border: none; border-radius: 999px;
-            background: transparent; color: var(--text-muted); cursor: pointer; text-decoration: none;
-            display: inline-block; transition: background .15s ease, color .15s ease;
+        /* Same circle size as the "Send to WhatsApp" icon button next to
+           it (.icon-btn is 2.1rem, see app.css) rather than matching the
+           taller text pills either side of it. */
+        .view-switch .nav-link.legend-toggle-btn {
+            display: inline-flex; align-items: center; justify-content: center; position: relative;
+            width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 50%;
         }
-        .view-switch .view-btn:hover { color: var(--text); }
-        .view-switch .view-btn.active { background: var(--navy); color: var(--yellow); font-weight: 600; }
-        .view-switch .view-btn.active:hover { background: var(--navy); }
-        /* "Legend" — same look as Device Records' Summary/Legend tabs:
-           darker text than the plain muted grey the other .view-btns
-           use (which was nearly invisible on that page's pill), a
-           touch smaller since it's a secondary control, not a view. */
-        .view-switch .view-btn.legend-toggle-btn { font-size: 0.76rem; padding: 0.3rem 0.75rem; color: var(--navy); font-weight: 500; }
-        .legend-toggle-btn.open { background: var(--navy); color: var(--yellow); font-weight: 600; }
-        .legend-toggle-btn.open:hover { background: var(--navy); color: var(--yellow); }
+        .legend-toggle-btn svg { display: block; }
+        /* Same custom-tooltip pattern as .icon-btn[data-tooltip] elsewhere
+           in the app (native title attribute has an inconsistent hover
+           delay across browsers) — duplicated here rather than reusing
+           .icon-btn's own rule since that class also carries its own
+           circular button chrome, which would fight this pill's sizing. */
+        .legend-toggle-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            margin-bottom: 8px; background: var(--navy-deep); color: #fff;
+            font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+            padding: 0.35rem 0.65rem; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
         #sendReportBtn {
             position: relative;
             display: inline-flex; align-items: center; justify-content: center;
@@ -81,13 +93,11 @@
         body.capturing table.month td.label { position: static !important; }
 
         /* Sits inside the table's first (otherwise-empty) header cell
-           now, not the yellow header bar — narrow to fit that cell's
-           fixed width (see col.label-col below) rather than sizing to
-           the longest department name. */
-        select.dept-picker {
-            width: 100%; padding: 0.2rem 0.3rem; border: 1px solid rgba(0,47,102,0.3); border-radius: 6px;
-            font-size: 0.72rem; font-weight: 600; color: var(--navy); background: var(--surface);
-        }
+           now, not the yellow header bar — Bootstrap's own form-select
+           (see the markup) just needs a bit of shrinking to actually
+           fit that cell's fixed width (see col.label-col below) rather
+           than sizing to the longest department name. */
+        select.dept-picker { padding: 0.1rem 1.5rem 0.1rem 0.3rem; font-size: 0.72rem; }
         th.label form { margin: 0; }
 
         .locked-banner {
@@ -105,11 +115,23 @@
         .legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; margin-right: 0.3rem; vertical-align: middle; border: 1px solid rgba(0,0,0,0.1); }
 
         /* --- month grid: sticky first column, horizontal scroll --- */
+        /* Now a real Bootstrap table (class="table month" in the markup)
+           — Bootstrap owns border-collapse/vertical-align/base cell
+           padding via its --bs-table-* vars; every rule below only
+           still overrides what's genuinely specific to this page (fixed
+           day-column widths, the sticky header/first-column, and the
+           per-status cell colors). Bootstrap's .table defaults to
+           width:100%, which would fight table-layout:fixed's explicit
+           <col> widths and force a wide month's day columns to shrink
+           to fit instead of scrolling — width:auto here keeps the
+           horizontal-scroll behavior .grid-scroll (now also carrying
+           Bootstrap's table-responsive, see the markup) provides. */
         .grid-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; background: var(--surface); }
         table.month {
-            border-collapse: collapse;
+            width: auto;
             table-layout: fixed;
             font-size: 0.78rem;
+            margin-bottom: 0;
         }
         table.month th, table.month td {
             border: 1px solid var(--border);
@@ -188,13 +210,15 @@
                 <span class="current-month">{{ month_name }} {{ year }}</span>
                 <a href="?date={{ next_date }}{% if dept %}&department={{ dept.id }}{% endif %}" class="nav-arrow" aria-label="Next month">&rarr;</a>
                 <div class="view-switch-row">
-                    <div class="view-switch">
-                        <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}" class="view-btn">Day view</a>
-                        <a href="#" class="view-btn active">Month view</a>
+                    <ul class="nav nav-pills view-switch">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}">Day view</a></li>
+                        <li class="nav-item"><a class="nav-link active" href="#" aria-current="page">Month view</a></li>
                         {% if table_rows %}
-                        <button type="button" class="view-btn legend-toggle-btn" id="legendToggleBtn">Legend</button>
+                        <li class="nav-item"><button type="button" class="nav-link legend-toggle-btn" id="legendToggleBtn" data-tooltip="Legend" aria-label="Legend">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
+                        </button></li>
                         {% endif %}
-                    </div>
+                    </ul>
                     {% if dept and table_rows %}
                     <button type="button" class="icon-btn" id="sendWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
@@ -230,8 +254,8 @@
                 <p style="margin:0.75rem 0 0;font-size:0.78rem;color:var(--text-muted);">Tap a day to toggle Present ⇄ Absent. For other statuses (Paid Holiday, Comp Off, etc.), use the <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}" style="color:var(--navy);font-weight:600;">Day view</a>.</p>
             </div>
 
-            <div class="grid-scroll">
-                <table class="month{% if is_locked %} locked{% endif %}" id="monthTable">
+            <div class="grid-scroll table-responsive">
+                <table class="table month{% if is_locked %} locked{% endif %}" id="monthTable">
                     <colgroup>
                         <col class="label-col">
                         {% for d in day_headers %}<col class="day-col">{% endfor %}
@@ -241,7 +265,7 @@
                         <tr>
                             <th class="label">
                                 <form method="get" id="filterForm">
-                                    <select name="department" class="dept-picker" onchange="document.getElementById('filterForm').submit()">
+                                    <select name="department" class="form-select form-select-sm dept-picker" onchange="document.getElementById('filterForm').submit()">
                                         {% for d in departments %}
                                             <option value="{{ d.id }}" {% if dept.id == d.id %}selected{% endif %}>{{ d.name }}</option>
                                         {% endfor %}
@@ -307,7 +331,7 @@
             legendToggleBtn.addEventListener('click', function () {
                 var willOpen = legendPanel.style.display === 'none';
                 legendPanel.style.display = willOpen ? '' : 'none';
-                legendToggleBtn.classList.toggle('open', willOpen);
+                legendToggleBtn.classList.toggle('active', willOpen);
             });
         }
 

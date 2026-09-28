@@ -39,55 +39,51 @@
         .kpi .value { font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-top: 0.02rem; }
         .action-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0; }
 
-        .row-input {
-            width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 6px;
-            font-size: 0.85rem; font-family: inherit; box-sizing: border-box;
-        }
-        .row-input:focus { outline: none; border-color: var(--navy); }
-        input.row-input[type="number"] { text-align: right; }
-        .add-row td { background: #fafbff; }
-        .add-btn {
-            background: var(--navy); color: var(--yellow); font-weight: 700; border: none;
-            padding: 0.45rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.8rem; white-space: nowrap;
-        }
-        .add-btn:hover { background: var(--navy-deep); }
+        /* Table now carries its own full grid border (traditional bordered
+           table), so .table-wrap doesn't need a second boxed border around
+           it too; overflow-x:auto (for a narrow screen) is all that's
+           still needed from it. */
+        .table-wrap { border: none; border-radius: 0; }
 
-                        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
-        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
-        table.simple tbody tr:last-child td { border-bottom: none; }
-        table.simple tbody tr:hover td { background: #fafbff; }
-        table.simple td.num, table.simple th.num { text-align: right; }
-        table.simple tfoot td { font-weight: 700; background: #FFF9B0; border-top: 2px solid var(--border); }
-        .delete-btn {
-            background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
-            padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
-        }
-        .delete-btn:hover { background: #fdecea; }
-        .edit-btn {
-            background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
-            padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; font-family: inherit; margin-right: 0.3rem;
-        }
-        .edit-btn:hover { background: var(--bg); }
+        /* Add-row inputs, the Add button, and per-row Edit/Delete are
+           now plain Bootstrap form-control/btn/btn-outline-* (see the
+           markup) — no page-specific styling left for any of them
+           beyond the add-row's own subtle tint. table.simple keeps its
+           usual look (same convention as every other page's copy) plus
+           the real Bootstrap .table class added in the markup. */
+        /* Bootstrap's form-control/form-select default to width:100% —
+           fine for a form laid out in its own column, but here each
+           input sits in a wide table column sized to fit the real data
+           rows below it (e.g. a long Purpose/Description), so 100%
+           stretched it far past a reasonable typing width. Capped back
+           to a sensible size instead. */
+        .row-input { max-width: 260px; }
+        input.row-input[type="number"] { max-width: 140px; text-align: right; }
+        .add-row td { background: #fafbff; }
 
         /* Edit popup — same shared-modal pattern used elsewhere in this
-           app (one form reused for every row instead of one per row). */
-                        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
+           app (one form reused for every row instead of one per row).
+           Its input/Cancel/Save are now plain Bootstrap form-control/
+           btn/btn-secondary/btn-primary (see the markup) — this only
+           still owns the popup box itself and its layout. */
+        .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
         .edit-modal h3 { margin: 0 0 0.9rem; font-size: 1.05rem; }
         .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
-        .edit-modal input {
-            display: block; width: 100%; margin-top: 0.25rem; padding: 0.45rem 0.6rem;
-            border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
-            transition: border-color .15s ease;
-        }
-        .edit-modal input:focus { outline: none; border-color: var(--navy); }
         .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
-        .edit-modal button {
-            padding: 0.45rem 1rem; border-radius: 8px; border: 1px solid var(--border);
-            background: #fff; cursor: pointer; font-size: 0.85rem; transition: background .15s ease;
-        }
-        .edit-modal button:hover { background: var(--bg); }
-        .edit-modal button[type="submit"] { background: var(--navy); color: var(--yellow); border-color: var(--navy); font-weight: 600; }
-        .edit-modal button[type="submit"]:hover { background: var(--navy-deep); }
+
+        /* A real Bootstrap table (class="table simple" in the markup) —
+           simplest, clearest way to get genuinely tabular columns
+           (native table cells size to their column's content/header
+           with no col-* width math needed), same convention as every
+           other table.simple on this app. Traditional bordered look:
+           every cell boxed with a full grid (not just row underlines),
+           plus an outer border around the whole table. */
+        table.simple { border: 1px solid rgba(0,47,102,0.2); }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border: 1px solid rgba(0,47,102,0.2); }
+        table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        table.simple tbody tr:hover td { background: #fafbff; }
+        table.simple td.num, table.simple th.num { text-align: right; }
+        table.simple tfoot td { font-weight: 700; background: #FFF9B0; border-top: 2px solid rgba(0,47,102,0.2); }
 
                                                 /* Custom tooltip instead of relying on the native title attribute
            (inconsistent delay/visibility across browsers). */
@@ -150,49 +146,47 @@
             </a>
         </div>
 
-        <div class="card">
-            <div class="table-wrap">
-                <table class="simple" id="cashTable">
-                    <thead>
-                        <tr>
-                            <th>Purpose</th>
-                            <th>Description</th>
-                            <th class="num">Amount</th>
-                            <th class="no-capture"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if not is_salary_viewer %}
-                        <tr class="add-row no-capture">
-                            <td><input class="row-input" type="text" name="purpose" form="cash-add-form" placeholder="e.g. Petty Cash, Office Expenses" required></td>
-                            <td><input class="row-input" type="text" name="description" form="cash-add-form" placeholder="Optional notes"></td>
-                            <td><input class="row-input" type="number" name="amount" form="cash-add-form" step="0.01" min="0" required></td>
-                            <td><button type="submit" form="cash-add-form" class="add-btn">Add</button></td>
-                        </tr>
-                        {% endif %}
-                        {% for entry in entries %}
-                        <tr>
-                            <td>{{ entry.purpose }}</td>
-                            <td>{{ entry.description }}</td>
-                            <td class="num">{{ entry.amount }}</td>
-                            <td class="no-capture">
-                                {% if not is_salary_viewer %}
-                                <button type="button" class="edit-btn" data-id="{{ entry.id }}" data-purpose="{{ entry.purpose }}" data-description="{{ entry.description }}" data-amount="{{ entry.amount }}">Edit</button>
-                                <button type="submit" form="cash-delete-form-{{ entry.id }}" class="delete-btn">Delete</button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="2">Total</td>
-                            <td class="num">{{ total_amount }}</td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+        <div class="table-wrap">
+            <table class="table simple" id="cashTable">
+                <thead>
+                    <tr>
+                        <th style="width:40%">Purpose</th>
+                        <th style="width:30%">Description</th>
+                        <th style="width:15%">Amount</th>
+                        <th class="no-capture" style="width:15%"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if not is_salary_viewer %}
+                    <tr class="add-row no-capture">
+                        <td><input class="row-input form-control form-control-sm" type="text" name="purpose" form="cash-add-form" placeholder="e.g. Petty Cash, Office Expenses" required></td>
+                        <td><input class="row-input form-control form-control-sm" type="text" name="description" form="cash-add-form" placeholder="Optional notes"></td>
+                        <td><input class="row-input form-control form-control-sm" type="number" name="amount" form="cash-add-form" step="0.01" min="0" required></td>
+                        <td><button type="submit" form="cash-add-form" class="btn btn-primary btn-sm">Add</button></td>
+                    </tr>
+                    {% endif %}
+                    {% for entry in entries %}
+                    <tr>
+                        <td>{{ entry.purpose }}</td>
+                        <td>{{ entry.description }}</td>
+                        <td>{{ entry.amount }}</td>
+                        <td class="no-capture">
+                            {% if not is_salary_viewer %}
+                            <button type="button" class="edit-btn btn btn-outline-secondary btn-sm" data-id="{{ entry.id }}" data-purpose="{{ entry.purpose }}" data-description="{{ entry.description }}" data-amount="{{ entry.amount }}">Edit</button>
+                            <button type="submit" form="cash-delete-form-{{ entry.id }}" class="delete-btn btn btn-outline-danger btn-sm">Delete</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2">Total</td>
+                        <td>{{ total_amount }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
 
         {% if not is_salary_viewer %}
@@ -205,17 +199,17 @@
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="entry_id" id="editEntryId">
                     <label>Purpose
-                        <input type="text" name="purpose" id="editPurpose" required>
+                        <input type="text" class="form-control" name="purpose" id="editPurpose" required>
                     </label>
                     <label>Description
-                        <input type="text" name="description" id="editDescription">
+                        <input type="text" class="form-control" name="description" id="editDescription">
                     </label>
                     <label>Amount
-                        <input type="number" name="amount" id="editAmount" step="0.01" min="0" required>
+                        <input type="number" class="form-control" name="amount" id="editAmount" step="0.01" min="0" required>
                     </label>
                     <div class="edit-actions">
-                        <button type="button" id="editCancel">Cancel</button>
-                        <button type="submit">Save</button>
+                        <button type="button" class="btn btn-secondary" id="editCancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
                     </div>
                 </form>
             </div>

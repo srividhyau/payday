@@ -125,7 +125,12 @@
     }
     .add-operator-btn:hover { background: var(--navy); color: #fff; }
 
-    .operator-name-row { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+    /* .operator-name-row's layout is now the Bootstrap utility classes
+       d-flex/justify-content-between/align-items-center/gap-2 directly
+       on the element (see the markup) instead of a bespoke rule here —
+       .remove-operator-btn keeps its own distinct red-circle look,
+       which doesn't map cleanly onto Bootstrap's .btn-close (a plain
+       grey "×", no color/shape customization worth fighting for here). */
     .remove-operator-btn {
         flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #b3261e;
         background: #fff; color: #b3261e; font-weight: 700; font-size: 0.75rem; line-height: 1;
@@ -182,30 +187,28 @@
 
     .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
 
-    .filter-bar { display: flex; gap: 1.1rem; align-items: center; margin: 0.9rem 0 1rem; flex-wrap: wrap; }
-    .filter-bar label { font-size: 0.78rem; font-weight: 600; color: #444; }
-    .filter-bar .show-all-operators-label { display: flex; align-items: center; gap: 0.35rem; font-weight: 500; }
-    .filter-bar input[type=text] {
-        border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.6rem;
-        font-size: 0.8rem; font-family: inherit; width: 200px; box-sizing: border-box;
-    }
-    .filter-bar input[type=text]:focus { outline: none; border-color: var(--navy); }
+    /* Operation/Operator search, "show all operators" and the status
+       filter are now Bootstrap input-groups/form-check/btn-group (see
+       the markup) laid out in one row with flex-wrap — this only still
+       sizes the row itself and gives the two search boxes a fixed
+       width instead of input-group's normal flex-fill, so they don't
+       stretch to fill the row's remaining space. */
+    .filter-bar { flex-wrap: wrap; margin: 0.9rem 0 1rem; }
+    .filter-bar .input-group { width: 220px; }
 
-    /* Excess/Shortage/Balanced status filter — toggle pills, same
-       diff-more/less/balanced colors as the Legend and the Total column
-       itself. Multiple can be active at once (OR'd together); none
-       active shows every operation, same as an empty search box. */
-    .status-filter { display: flex; gap: 0.4rem; }
-    .status-filter-btn {
-        border: 1.5px solid currentColor; border-radius: 999px; padding: 0.3rem 0.75rem;
-        font-size: 0.78rem; font-weight: 600; background: #fff; cursor: pointer; font-family: inherit;
-    }
-    .status-filter-btn.status-more { color: #a400a4; }
-    .status-filter-btn.status-less { color: #b3261e; }
-    .status-filter-btn.status-balanced { color: #1e7e34; }
-    .status-filter-btn.status-more.active { background: #a400a4; color: #fff; }
-    .status-filter-btn.status-less.active { background: #b3261e; color: #fff; }
-    .status-filter-btn.status-balanced.active { background: #1e7e34; color: #fff; }
+    /* Excess/Shortage/Balanced status filter — same diff-more/less/
+       balanced colors as the Legend and the Total column itself, on
+       top of a real Bootstrap btn-group/btn-outline-* for the
+       structure (borders, spacing, hover/active mechanics). Multiple
+       can be active at once (OR'd together); none active shows every
+       operation, same as an empty search box. */
+    .status-filter .btn { font-weight: 600; background: #fff; }
+    .status-filter .btn.status-more { color: #a400a4; border-color: #a400a4; }
+    .status-filter .btn.status-less { color: #b3261e; border-color: #b3261e; }
+    .status-filter .btn.status-balanced { color: #1e7e34; border-color: #1e7e34; }
+    .status-filter .btn.status-more.active { background: #a400a4; border-color: #a400a4; color: #fff; }
+    .status-filter .btn.status-less.active { background: #b3261e; border-color: #b3261e; color: #fff; }
+    .status-filter .btn.status-balanced.active { background: #1e7e34; border-color: #1e7e34; color: #fff; }
 
     #styleSwitcher {
         font-size: inherit; font-weight: inherit; font-family: inherit; color: var(--navy);
@@ -276,18 +279,23 @@
         {% endfor %}
 
         {% if op_rows %}
-        <div class="filter-bar">
-            <label for="operationSearch">Operation</label>
-            <input type="text" id="operationSearch" placeholder="Search operation…" autocomplete="off">
-            <label for="operatorSearch">Operator</label>
-            <input type="text" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
-            <label class="show-all-operators-label" for="showAllOperators">
-                <input type="checkbox" id="showAllOperators">Show all operators
-            </label>
-            <div class="status-filter" role="group" aria-label="Filter by status">
-                <button type="button" class="status-filter-btn status-more" data-status="diff-more">Excess</button>
-                <button type="button" class="status-filter-btn status-less" data-status="diff-less">Shortage</button>
-                <button type="button" class="status-filter-btn status-balanced" data-status="diff-balanced">Balanced</button>
+        <div class="filter-bar d-flex align-items-center gap-2">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">Operation</span>
+                <input type="text" class="form-control" id="operationSearch" placeholder="Search operation…" autocomplete="off">
+            </div>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">Operator</span>
+                <input type="text" class="form-control" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="showAllOperators">
+                <label class="form-check-label" for="showAllOperators">Show all operators</label>
+            </div>
+            <div class="btn-group btn-group-sm status-filter" role="group" aria-label="Filter by status">
+                <button type="button" class="btn status-more" data-status="diff-more">Excess</button>
+                <button type="button" class="btn status-less" data-status="diff-less">Shortage</button>
+                <button type="button" class="btn status-balanced" data-status="diff-balanced">Balanced</button>
             </div>
         </div>
         <div class="table-wrap fit-content">
@@ -326,7 +334,7 @@
                         <td class="col-opcode"></td>
                         <td class="col-section"></td>
                         <td class="col-label">
-                            <div class="operator-name-row">
+                            <div class="operator-name-row d-flex align-items-center justify-content-between gap-2">
                                 <span>{{ r.employee.name }}</span>
                                 <button type="button" class="remove-operator-btn" data-op-id="{{ row.op.id }}"
                                     data-employee-id="{{ r.employee.id }}" data-employee-name="{{ r.employee.name|escapejs }}"
@@ -426,7 +434,7 @@
         var operatorSearchInput = document.getElementById('operatorSearch');
         var showAllOperatorsCheckbox = document.getElementById('showAllOperators');
         var noResultsRow = document.getElementById('noResultsRow');
-        var statusFilterBtns = Array.prototype.slice.call(document.querySelectorAll('.status-filter-btn'));
+        var statusFilterBtns = Array.prototype.slice.call(document.querySelectorAll('.status-filter .btn'));
         var activeStatuses = {};
 
         function opSearchText(opRow) {
@@ -796,7 +804,7 @@
             var labelTd = document.createElement('td');
             labelTd.className = 'col-label';
             var nameRow = document.createElement('div');
-            nameRow.className = 'operator-name-row';
+            nameRow.className = 'operator-name-row d-flex align-items-center justify-content-between gap-2';
             var nameSpan = document.createElement('span');
             nameSpan.textContent = employeeName;
             nameRow.appendChild(nameSpan);

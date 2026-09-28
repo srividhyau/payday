@@ -27,16 +27,14 @@
             transition: background .15s ease, color .15s ease;
         }
         .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
-        .month-nav select.dept-picker {
-            padding: 0.3rem 0.6rem; border: 1px solid rgba(0,47,102,0.3); border-radius: 8px;
-            font-size: 0.8rem; font-weight: 600; color: var(--navy); background: var(--surface); max-width: 100%;
-        }
-        .view-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-left: auto; }
-        .view-toggle a {
-            font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.9rem; border-radius: 999px;
-            text-decoration: none; border: 1px solid var(--navy); color: var(--navy); background: var(--surface);
-        }
-        .view-toggle a.active { background: var(--navy); color: var(--yellow); }
+        /* The Day/Month view switch is now Bootstrap nav-pills (see the
+           markup) instead of bespoke pill links. The department picker
+           itself moved out of this header row into .filter-row, below,
+           next to the search box and quick actions — .dept-picker only
+           still needs a size cap so it doesn't stretch to form-select's
+           100% default width inside that flex row. */
+        .dept-picker { max-width: 11rem; }
+        .view-toggle { margin-left: auto; }
         .view-toggle #sendReportBtn {
             position: relative;
             display: inline-flex; align-items: center; justify-content: center;
@@ -90,80 +88,52 @@
         table.month td.status-HD { background: #fff6cc; color: #8a6d00; }
 
 
+        /* .locked-banner keeps this page's own colors (Bootstrap's stock
+           .alert-warning palette doesn't match the app's brand) — still
+           gets .alert's role/structure via the markup, just overriding
+           its color/padding here. */
         .locked-banner {
-            background: #fff4e5; color: #8a4b00; border: 1px solid #ffddaa;
-            border-radius: var(--radius); padding: 0.7rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; font-weight: 600;
+            background: #fff4e5; color: #8a4b00; border-color: #ffddaa;
+            font-size: 0.85rem; font-weight: 600;
         }
 
-        input.emp-search {
-            width: 100%;
-            padding: 0.6rem 0.8rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.9rem;
-            color: var(--text);
-            background: var(--surface);
-            margin-bottom: 0.75rem;
-        }
+        /* Department picker, search box and quick-action buttons now
+           share one row (.filter-row, see the markup) instead of the
+           search box sitting in its own full-width line above them. */
+        .emp-search { flex: 1 1 220px; max-width: 320px; }
         .emp-row.hidden-by-search { display: none; }
-
-        .quick-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-        .quick-actions button {
-            background: var(--surface); color: var(--navy); font-weight: 600; border: 1px solid var(--navy);
-            padding: 0.5rem 1rem; border-radius: 999px; cursor: pointer; font-size: 0.82rem;
-        }
-        .quick-actions button:hover { background: var(--navy); color: var(--yellow); }
 
         .empty { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem 1rem; text-align: center; color: var(--text-muted); }
 
-        /* --- employee rows: cards on mobile, single-line on wide screens --- */
-        .emp-list { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 1.25rem; }
-        .emp-row {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 0.4rem 0.75rem;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.4rem 0.6rem;
-        }
-        .emp-info { flex: 1 1 160px; min-width: 0; }
-        .emp-info .emp-name { font-weight: 700; font-size: 0.9rem; color: var(--text); }
+        /* Employees are now rows of one Bootstrap table (see the markup)
+           instead of individually bordered/shadowed cards — Bootstrap's
+           own .table styling (shared row dividers, hover) replaces the
+           per-row background/border/radius/shadow this used to need.
+           table-responsive (wrapping the table in the markup) lets it
+           scroll horizontally rather than crushing the status buttons
+           if a phone is too narrow for all three columns at once. */
+        .emp-list td { padding: 0.5rem 0.6rem; vertical-align: middle; }
+        .emp-list tr:first-child td { border-top: none; }
+        .emp-name { font-weight: 700; font-size: 0.9rem; color: var(--text); white-space: nowrap; }
 
-        .status-toggle {
-            display: flex;
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            overflow: hidden;
-            flex: none;
-        }
-        .status-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-        .status-toggle label {
-            padding: 0.35rem 0.8rem;
-            font-size: 0.8rem;
-            font-weight: 700;
-            cursor: pointer;
-            color: var(--text-muted);
-            user-select: none;
-            min-width: 3rem;
-            text-align: center;
-        }
-        .status-toggle input:checked + label.present { background: #1e7e34; color: #fff; }
-        .status-toggle input:checked + label.absent { background: #1a1a1a; color: #fff; }
+        /* Present/Absent is now a Bootstrap btn-check + btn-group pair
+           (see the markup) — the checked/unchecked fill states are
+           Bootstrap's own .btn-check:checked+.btn-outline-* behavior,
+           nothing custom needed. The pill shape is set via each button's
+           own --bs-btn-border-radius (Bootstrap's own .btn-group rules
+           already zero out the two touching inner corners) rather than
+           clipping the group wrapper with overflow:hidden — that combo
+           (large border-radius + overflow:hidden on a flex container)
+           is a known Chromium rendering bug that cuts off the second
+           button's border. */
+        .status-toggle { flex: none; }
+        .status-toggle .btn { min-width: 4.2rem; --bs-btn-border-radius: 999px; }
 
-        select.status-more {
-            flex: none;
-            padding: 0.5rem 0.6rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.8rem;
-            color: var(--text);
-            background: var(--surface);
-            max-width: 9rem;
-        }
-
+        /* .status-more (the "More…" select) and .quick-actions/.save-bar
+           buttons are now plain Bootstrap form-select/btn/btn-primary
+           (see the markup) — no page-specific CSS left for them beyond
+           .save-bar's own sticky-footer positioning and its button's
+           extra-large tap target below. */
         .save-bar {
             position: sticky;
             bottom: 0;
@@ -171,19 +141,22 @@
             background: var(--bg);
             padding: 0.85rem 0 1.2rem;
             margin-top: -0.5rem;
+            /* Bootstrap's .btn-group gives its *checked* .btn-check button
+               z-index:1 (so its border wins over the adjacent button's
+               overlapping edge) — with nothing else in between set to a
+               higher stacking level, that z-index:1 escaped all the way up
+               and painted a scrolled-under row's checked Absent/Present
+               pill on top of this sticky bar. z-index here (any value >1)
+               fixes it. */
+            z-index: 2;
         }
-        .save-bar button {
-            width: 100%;
-            background: var(--navy); color: var(--yellow); font-weight: 700; border: none;
-            padding: 0.9rem 1.2rem; border-radius: 10px; cursor: pointer; font-size: 1rem;
+        .save-bar .btn {
+            padding: 0.9rem 1.2rem; font-size: 1rem;
             box-shadow: 0 2px 10px rgba(0,47,102,0.25);
         }
-        .save-bar button:hover { background: var(--navy-deep); }
-        .save-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         @media (min-width: 640px) {
             .page { padding-top: 1.5rem; }
-            .emp-row { flex-wrap: nowrap; }
         }
     </style>
 </head>
@@ -195,18 +168,10 @@
             <a href="?date={{ prev_date }}{% if dept %}&department={{ dept.id }}{% endif %}" class="nav-arrow" aria-label="Previous day">&larr;</a>
             <span class="current-month">{{ target_date|date:"D, d M Y" }}</span>
             <a href="?date={{ next_date }}{% if dept %}&department={{ dept.id }}{% endif %}" class="nav-arrow" aria-label="Next day">&rarr;</a>
-            <form method="get" id="filterForm" style="display:contents;">
-                <select name="department" class="dept-picker" onchange="document.getElementById('filterForm').submit()">
-                    {% for d in departments %}
-                        <option value="{{ d.id }}" {% if dept.id == d.id %}selected{% endif %}>{{ d.name }}</option>
-                    {% endfor %}
-                </select>
-                <input type="hidden" name="date" value="{{ target_date|date:'Y-m-d' }}">
-            </form>
-            <div class="view-toggle">
-                <a href="#" class="active">Day view</a>
-                <a href="{% url 'mark_attendance_month' %}{% if dept %}?department={{ dept.id }}{% endif %}">Month view</a>
-            </div>
+            <ul class="nav nav-pills view-toggle">
+                <li class="nav-item"><a class="nav-link active" href="#" aria-current="page">Day view</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'mark_attendance_month' %}{% if dept %}?department={{ dept.id }}{% endif %}">Month view</a></li>
+            </ul>
         </div>
 
         {% for message in messages %}
@@ -214,8 +179,26 @@
         {% endfor %}
 
         {% if is_locked %}
-            <div class="locked-banner">This month is locked. Unlock it from the dashboard before marking attendance.</div>
+            <div class="alert locked-banner" role="alert">This month is locked. Unlock it from the dashboard before marking attendance.</div>
         {% endif %}
+
+        <div class="filter-row d-flex flex-wrap align-items-center gap-2 mb-3">
+            <form method="get" id="filterForm" style="display:contents;">
+                <select name="department" class="form-select form-select-sm dept-picker" onchange="document.getElementById('filterForm').submit()">
+                    {% for d in departments %}
+                        <option value="{{ d.id }}" {% if dept.id == d.id %}selected{% endif %}>{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="date" value="{{ target_date|date:'Y-m-d' }}">
+            </form>
+            {% if rows %}
+            <input type="text" class="form-control emp-search" id="empSearch" placeholder="Search by name…" autocomplete="off">
+            <div class="btn-group quick-actions" role="group" aria-label="Quick actions">
+                <button type="button" class="btn btn-outline-success btn-sm" onclick="markAll('P')">Mark all Present</button>
+                <button type="button" class="btn btn-outline-dark btn-sm" onclick="markAll('A')">Mark all Absent</button>
+            </div>
+            {% endif %}
+        </div>
 
         {% if not dept %}
             <div class="empty">No departments found yet.</div>
@@ -227,39 +210,40 @@
                 <input type="hidden" name="date" value="{{ target_date|date:'Y-m-d' }}">
                 <input type="hidden" name="department" value="{{ dept.id }}">
 
-                <input type="text" class="emp-search" id="empSearch" placeholder="Search by name…" autocomplete="off">
-
-                <div class="quick-actions">
-                    <button type="button" onclick="markAll('P')">Mark all Present</button>
-                    <button type="button" onclick="markAll('A')">Mark all Absent</button>
-                </div>
-
-                <div class="emp-list">
-                    {% for row in rows %}
-                        <div class="emp-row" data-name="{{ row.employee.name|lower }}">
-                            <div class="emp-info">
-                                <div class="emp-name">{{ row.employee.name }}</div>
-                            </div>
-                            <div class="status-toggle" data-emp="{{ row.employee.id }}">
-                                <input type="radio" name="status_{{ row.employee.id }}" value="A" id="a_{{ row.employee.id }}" {% if row.status == "A" %}checked{% endif %}>
-                                <label for="a_{{ row.employee.id }}" class="absent">Absent</label>
-                                <input type="radio" name="status_{{ row.employee.id }}" value="P" id="p_{{ row.employee.id }}" {% if row.status == "P" %}checked{% endif %}>
-                                <label for="p_{{ row.employee.id }}" class="present">Present</label>
-                            </div>
-                            <select name="status_more_{{ row.employee.id }}" class="status-more" data-more-for="{{ row.employee.id }}">
-                                <option value="">More…</option>
-                                {% for code, label in status_choices %}
-                                    {% if code != "P" and code != "A" %}
-                                        <option value="{{ code }}" {% if row.status == code %}selected{% endif %}>{{ label }}</option>
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
-                        </div>
-                    {% endfor %}
+                <div class="table-responsive">
+                    <table class="table align-middle emp-list">
+                        <tbody>
+                        {% for row in rows %}
+                            <tr class="emp-row" data-name="{{ row.employee.name|lower }}">
+                                <td class="emp-info">
+                                    <div class="emp-name">{{ row.employee.name }}</div>
+                                </td>
+                                <td>
+                                    <div class="btn-group status-toggle" data-emp="{{ row.employee.id }}" role="group" aria-label="Attendance status">
+                                        <input type="radio" class="btn-check" autocomplete="off" name="status_{{ row.employee.id }}" value="A" id="a_{{ row.employee.id }}" {% if row.status == "A" %}checked{% endif %}>
+                                        <label for="a_{{ row.employee.id }}" class="btn btn-outline-dark btn-sm absent">Absent</label>
+                                        <input type="radio" class="btn-check" autocomplete="off" name="status_{{ row.employee.id }}" value="P" id="p_{{ row.employee.id }}" {% if row.status == "P" %}checked{% endif %}>
+                                        <label for="p_{{ row.employee.id }}" class="btn btn-outline-success btn-sm present">Present</label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select name="status_more_{{ row.employee.id }}" class="form-select form-select-sm status-more w-auto" data-more-for="{{ row.employee.id }}">
+                                        <option value="">More…</option>
+                                        {% for code, label in status_choices %}
+                                            {% if code != "P" and code != "A" %}
+                                                <option value="{{ code }}" {% if row.status == code %}selected{% endif %}>{{ label }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="save-bar">
-                    <button type="submit" {% if is_locked %}disabled{% endif %}>Save Attendance ({{ rows|length }})</button>
+                    <button type="submit" class="btn btn-primary w-100" {% if is_locked %}disabled{% endif %}>Save Attendance ({{ rows|length }})</button>
                 </div>
             </form>
         {% endif %}

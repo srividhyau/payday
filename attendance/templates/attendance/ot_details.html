@@ -40,14 +40,36 @@
         .kpi { padding: 0.2rem 0.55rem; min-width: 0; border: 1px solid rgba(0,47,102,0.3); border-radius: 6px; background: rgba(255,255,255,0.35); }
         .kpi .label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: rgba(0,47,102,0.75); white-space: normal; line-height: 1.15; }
         .kpi .value { font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-top: 0.02rem; }
-        .month-nav .tab-row { margin: 0; }
+
+        /* OT View/Monthly Summary/By department moved out of the yellow
+           .month-nav header into their own row below it (see the
+           markup) — same convention as Device Records' view-switch row
+           and Production's filter-bar. Styled as real Bootstrap
+           nav-tabs with the app's own navy/yellow scheme (filled navy
+           tab, bold yellow text) instead of Bootstrap's plain bordered-
+           box default or the shared pill .tab-btn look — same "elegant
+           tab" treatment as the Salary page. .tab-btn itself stays
+           untouched in app.css (still needed as the JS hook, data-tab
+           selector); only its pill-specific properties are reset here,
+           scoped via .nav-tabs so Production/Salary's own tab rows
+           (which have their own copy of this same override) are
+           unaffected. */
+        .view-switch-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 0.9rem; }
+        .tab-row.nav-tabs { border-bottom: 1px solid var(--border); gap: 0.15rem; margin: 0; flex: 1 1 auto; }
+        .tab-row.nav-tabs .tab-btn {
+            border-radius: 8px 8px 0 0; border: none; margin-bottom: -1px;
+            background: transparent; color: var(--text-muted); font-weight: 600;
+            transition: background-color .15s ease, color .15s ease;
+        }
+        .tab-row.nav-tabs .tab-btn:hover:not(.active) { background: rgba(0,47,102,0.07); color: var(--navy); }
+        .tab-row.nav-tabs .tab-btn.active { background: var(--navy); color: var(--yellow); }
 
                         .report-status { font-size: 0.8rem; color: var(--text-muted); }
         .report-status.error { color: #b3261e; }
         .report-status.success { color: #1e7e34; }
                                         /* Custom tooltip instead of relying on the native title attribute
            (inconsistent delay/visibility across browsers). */
-                        
+
                 table.simple { border-collapse: collapse; width: auto; }
         table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
@@ -425,31 +447,35 @@
                     <div class="value">{{ summary_total_amount }}</div>
                 </div>
             </div>
-            <div class="tab-row">
-                <button type="button" class="tab-btn active" data-tab="otview">OT View
-                    <span class="tab-lock-icon" data-label="OT View" data-action="{% if is_locked_ot %}unlock{% else %}lock{% endif %}" title="{% if is_locked_ot %}Unlock{% else %}Lock{% endif %} OT View">{% if is_locked_ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
-                </button>
-                <button type="button" class="tab-btn" data-tab="summary">Monthly Summary</button>
-                {% if dept_ot_summary %}
-                <button type="button" class="tab-btn dept-toggle-btn" id="deptToggleBtn">By department</button>
-                {% endif %}
-                <a class="icon-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
-                </a>
-                <button type="button" class="icon-btn" id="sendOtWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
-                </button>
-                <span id="sendOtWhatsappStatus" class="report-status"></span>
-            </div>
             {% endif %}
         </div>
+        {% if not empty %}
+        <div class="view-switch-row">
+            <ul class="nav nav-tabs tab-row">
+                <li class="nav-item"><button type="button" class="nav-link tab-btn active" data-tab="otview">OT View
+                    <span class="tab-lock-icon" data-label="OT View" data-action="{% if is_locked_ot %}unlock{% else %}lock{% endif %}" title="{% if is_locked_ot %}Unlock{% else %}Lock{% endif %} OT View">{% if is_locked_ot %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
+                </button></li>
+                <li class="nav-item"><button type="button" class="nav-link tab-btn" data-tab="summary">Monthly Summary</button></li>
+                {% if dept_ot_summary %}
+                <li class="nav-item"><button type="button" class="nav-link tab-btn dept-toggle-btn" id="deptToggleBtn">By department</button></li>
+                {% endif %}
+            </ul>
+            <a class="icon-btn" href="{% url 'ot_details_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+            </a>
+            <button type="button" class="icon-btn" id="sendOtWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
+            </button>
+            <span id="sendOtWhatsappStatus" class="report-status"></span>
+        </div>
+        {% endif %}
         {% endif %}
 
         {% if dept_ot_summary %}
         <div class="card" id="deptPanel" style="display:none;">
             <h2>By department</h2>
             <div class="table-wrap">
-                <table class="simple">
+                <table class="table simple">
                     <tr><th>Department</th><th>Headcount (with OT)</th><th>Most OT</th><th>Least OT</th><th>Total OT hours</th></tr>
                     {% for d in dept_ot_summary %}
                     <tr>
@@ -578,7 +604,7 @@
                         {% endif %}
                         {% if summary_rows %}
                         <div class="table-wrap">
-                            <table class="simple">
+                            <table class="table simple">
                                 <thead>
                                     <tr>
                                         <th>Code</th>

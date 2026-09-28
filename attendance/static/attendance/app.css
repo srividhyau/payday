@@ -57,17 +57,19 @@ body:has(.topbar.collapsed) { padding-left: 0; }
     display: flex; align-items: center; justify-content: center; margin-left: auto;
 }
 .sidebar-collapse-btn:hover { background: rgba(0,47,102,0.08); }
-/* One control, always on screen regardless of collapsed/expanded —
-   icon + the current page's own name (passed in as page_title; see
-   the pages that {% include %} this partial), pinned at the top-left
-   of the content area rather than sitting mid-row — that way it never
-   has to overlap the header's own left-edge content (date-nav arrows,
-   etc.) the way a vertically-centered version would. Doubles as both
-   "what page is this" (now that the page's own <h1> is gone — its
-   text became this button's label) and the sidebar toggle. Each
-   page's .month-nav reserves matching room at its own top (see
-   .page > .month-nav below) so its content starts clear of this
-   instead of tucking in underneath it. */
+/* Reopen control for a collapsed sidebar — icon + the current page's
+   own name (passed in as page_title; see the pages that {% include %}
+   this partial), pinned at the top-left of the content area rather
+   than sitting mid-row — that way it never has to overlap the header's
+   own left-edge content (date-nav arrows, etc.) the way a vertically-
+   centered version would. Doubles as both "what page is this" (now
+   that the page's own <h1> is gone — its text became this button's
+   label) and the sidebar toggle; hidden once the sidebar is already
+   open (see body:has(.topbar:not(.collapsed)) below), since the
+   sidebar's own collapse button covers that job then. Each page's
+   .month-nav reserves matching room at its own top (see .page >
+   .month-nav below) so its content starts clear of this instead of
+   tucking in underneath it. */
 .header-nav-toggle {
     position: fixed; top: 0.6rem; left: calc(var(--sidebar-w) + 0.85rem); z-index: 32;
     display: flex; align-items: center; gap: 0.45rem;
@@ -78,6 +80,10 @@ body:has(.topbar.collapsed) { padding-left: 0; }
     transition: left .16s ease;
 }
 body:has(.topbar.collapsed) .header-nav-toggle { left: 0.85rem; }
+/* Only needed to reopen a collapsed sidebar — once it's open, the
+   sidebar's own collapse button (.sidebar-collapse-btn) already covers
+   that job, so this pill would just be a redundant floating label. */
+body:has(.topbar:not(.collapsed)) .header-nav-toggle { display: none; }
 .header-nav-toggle .brand-logo { width: 1.6rem; height: 1.6rem; display: block; border-radius: 50%; flex: none; }
 .header-nav-toggle span { white-space: nowrap; }
 /* Breadcrumb (see _crumb.html/_crumb_render.html) — the plain-text "A →
@@ -181,8 +187,8 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
     .topbar.collapsed .brand-row, .topbar.collapsed nav { opacity: 1; pointer-events: auto; }
     .topbar { transform: translateX(-100%); transition: transform .16s ease; }
     .topbar.open { transform: translateX(0); box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 8px 0 24px rgba(0,0,0,0.18); }
-    /* The hamburger toggle (below) is always floating at the top-left
-       at this width, open or closed — same "share its row instead of a
+    /* The hamburger toggle (below) floats at the top-left at this width
+       when the drawer is closed — same "share its row instead of a
        blank strip above it" treatment as the desktop collapsed reopen
        tab. */
     body:has(.topbar) { padding-left: 0; }
@@ -199,6 +205,11 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
         border-radius: 8px; border: 1px solid var(--navy); background: var(--yellow); color: var(--navy);
         font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center;
     }
+    /* Hidden once the drawer is open — tapping outside it (or a nav
+       link) already closes it, so a hamburger floating on top of the
+       open drawer would be redundant, same reasoning as the desktop
+       header-nav-toggle pill above. */
+    body:has(.topbar.open) .sidebar-mobile-toggle { display: none; }
 }
 @media (min-width: 701px) { .sidebar-mobile-toggle { display: none; } }
 
@@ -207,7 +218,13 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
 .msg.error { background: #fdecea; color: #b3261e; }
 .msg.info { background: #e8f0fe; color: var(--navy); }
 
-.card { background: none; border: none; border-radius: 0; box-shadow: none; padding: 0; margin-bottom: 1.5rem; }
+/* display:block explicitly — Bootstrap has its own .card component
+   (display:flex; flex-direction:column) that this app's plain,
+   pre-existing .card class name now collides with now that Bootstrap's
+   CSS loads on every page; every other Bootstrap .card property this
+   already overrides below (background/border/radius/shadow/padding),
+   but display wasn't previously a concern. */
+.card { display: block; background: none; border: none; border-radius: 0; box-shadow: none; padding: 0; margin-bottom: 1.5rem; }
 
 .tab-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
 .tab-btn {

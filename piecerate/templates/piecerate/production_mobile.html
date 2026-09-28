@@ -74,8 +74,12 @@
     .operator-block.search-match { background: #fff3b0; margin: 0 -0.9rem; padding: 0.6rem 0.9rem; }
     .operator-block.search-match .day-chip { background: #fff3b0; }
     .operator-block:first-of-type { border-top: none; padding-top: 0; }
-    .operator-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; gap: 0.5rem; }
-    .operator-block-name { font-weight: 600; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
+    /* .operator-block-header/-name's layout is now the Bootstrap utility
+       classes d-flex/align-items-center/justify-content-between/gap-2
+       directly on the elements (see the markup) instead of bespoke
+       rules here. */
+    .operator-block-header { margin-bottom: 0.4rem; }
+    .operator-block-name { font-weight: 600; font-size: 0.82rem; }
     .operator-block-total { font-weight: 700; color: var(--navy); font-size: 0.85rem; }
     .remove-operator-btn {
         flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #b3261e;
@@ -113,28 +117,24 @@
 
     .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
 
+    /* Search inputs are now Bootstrap form-control (see the markup);
+       stays a stacked column on this narrow layout, unlike desktop
+       production.html's single row. */
     .filter-bar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.9rem; }
-    .filter-bar input[type=text] {
-        border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem;
-        font-size: 0.85rem; font-family: inherit; box-sizing: border-box; width: 100%;
-    }
-    .filter-bar input[type=text]:focus { outline: none; border-color: var(--navy); }
 
-    /* Excess/Shortage/Balanced status filter — same colors as the
-       diff-more/less/balanced total badge. Multiple can be active at
+    /* Excess/Shortage/Balanced status filter — a Bootstrap btn-group
+       (see the markup) for the structure, same diff-more/less/balanced
+       colors as the total badge on top of it. Multiple can be active at
        once (OR'd together); none active shows every operation. */
-    .status-filter { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-    .status-filter-btn {
-        border: 1.5px solid currentColor; border-radius: 999px; padding: 0.35rem 0.8rem;
-        font-size: 0.78rem; font-weight: 600; background: #fff; cursor: pointer; font-family: inherit;
-        flex: 1 1 0; min-width: 0;
+    .status-filter .btn {
+        font-weight: 600; background: #fff; flex: 1 1 0;
     }
-    .status-filter-btn.status-more { color: #a400a4; }
-    .status-filter-btn.status-less { color: #b3261e; }
-    .status-filter-btn.status-balanced { color: #1e7e34; }
-    .status-filter-btn.status-more.active { background: #a400a4; color: #fff; }
-    .status-filter-btn.status-less.active { background: #b3261e; color: #fff; }
-    .status-filter-btn.status-balanced.active { background: #1e7e34; color: #fff; }
+    .status-filter .btn.status-more { color: #a400a4; border-color: #a400a4; }
+    .status-filter .btn.status-less { color: #b3261e; border-color: #b3261e; }
+    .status-filter .btn.status-balanced { color: #1e7e34; border-color: #1e7e34; }
+    .status-filter .btn.status-more.active { background: #a400a4; border-color: #a400a4; color: #fff; }
+    .status-filter .btn.status-less.active { background: #b3261e; border-color: #b3261e; color: #fff; }
+    .status-filter .btn.status-balanced.active { background: #1e7e34; border-color: #1e7e34; color: #fff; }
 
     .edit-modal { background: #fff; border-radius: 14px; padding: 1.3rem 1.4rem; width: 100%; max-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
     .edit-modal h3 { margin: 0 0 0.9rem; font-size: 1rem; color: var(--navy); }
@@ -193,12 +193,12 @@
 
         {% if op_rows %}
         <div class="filter-bar">
-            <input type="text" id="operationSearch" placeholder="Search operation…" autocomplete="off">
-            <input type="text" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
-            <div class="status-filter" role="group" aria-label="Filter by status">
-                <button type="button" class="status-filter-btn status-more" data-status="diff-more">Excess</button>
-                <button type="button" class="status-filter-btn status-less" data-status="diff-less">Shortage</button>
-                <button type="button" class="status-filter-btn status-balanced" data-status="diff-balanced">Balanced</button>
+            <input type="text" class="form-control" id="operationSearch" placeholder="Search operation…" autocomplete="off">
+            <input type="text" class="form-control" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
+            <div class="btn-group status-filter" role="group" aria-label="Filter by status">
+                <button type="button" class="btn status-more" data-status="diff-more">Excess</button>
+                <button type="button" class="btn status-less" data-status="diff-less">Shortage</button>
+                <button type="button" class="btn status-balanced" data-status="diff-balanced">Balanced</button>
             </div>
         </div>
         <p class="empty-state" id="noResultsState" hidden>No operations match your search.</p>
@@ -228,8 +228,8 @@
                 <div class="operator-list">
                     {% for r in row.rows %}
                     <div class="operator-block" data-employee-id="{{ r.employee.id }}">
-                        <div class="operator-block-header">
-                            <span class="operator-block-name">
+                        <div class="operator-block-header d-flex align-items-center justify-content-between gap-2">
+                            <span class="operator-block-name d-flex align-items-center gap-2">
                                 {{ r.employee.name }}
                                 <button type="button" class="remove-operator-btn" data-op-id="{{ row.op.id }}"
                                     data-employee-id="{{ r.employee.id }}" data-employee-name="{{ r.employee.name|escapejs }}">×</button>
@@ -321,7 +321,7 @@
         var operationSearchInput = document.getElementById('operationSearch');
         var operatorSearchInput = document.getElementById('operatorSearch');
         var noResultsState = document.getElementById('noResultsState');
-        var statusFilterBtns = Array.prototype.slice.call(document.querySelectorAll('.status-filter-btn'));
+        var statusFilterBtns = Array.prototype.slice.call(document.querySelectorAll('.status-filter .btn'));
         var activeStatuses = {};
 
         function operatorBlockName(block) {
@@ -624,9 +624,9 @@
             block.dataset.employeeId = employeeId;
 
             var header = document.createElement('div');
-            header.className = 'operator-block-header';
+            header.className = 'operator-block-header d-flex align-items-center justify-content-between gap-2';
             var nameSpan = document.createElement('span');
-            nameSpan.className = 'operator-block-name';
+            nameSpan.className = 'operator-block-name d-flex align-items-center gap-2';
             nameSpan.appendChild(document.createTextNode(employeeName + ' '));
             var removeBtn = document.createElement('button');
             removeBtn.type = 'button';
