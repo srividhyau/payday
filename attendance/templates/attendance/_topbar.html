@@ -1,12 +1,19 @@
 {% load static %}
 <button type="button" class="sidebar-mobile-toggle" id="sidebarMobileToggle" aria-label="Toggle menu">☰</button>
-{% if page_title %}
+{% comment %}
+Always rendered now, even when a page forgets to pass page_title — this
+is the ONLY reopen control on desktop once the sidebar is collapsed
+(see .header-nav-toggle in app.css), so gating it behind a page_title
+check used to leave a page with no page_title completely unable to
+reopen a collapsed menu (the bug that hit home.html). _crumb.html
+already falls back to plain "Payday" when there's no page_title and no
+matching current section, so there's no empty/broken state here.
+{% endcomment %}
 <button type="button" class="header-nav-toggle" id="headerNavToggle" aria-label="Show/hide menu" title="Show/hide menu">
     <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
     {# Breadcrumb: sidebar section -> page, e.g. "Piece Rate -> Production" — see _crumb.html/_crumb_render.html (same split as stitch360's tracker/_crumb.html). #}
     <span>{% include "attendance/_crumb.html" %}</span>
 </button>
-{% endif %}
 <aside class="topbar{% if sidebar_collapsed %} collapsed{% endif %}" id="sidebar">
     <div class="brand-row">
         <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% elif is_production_head %}{% url 'piece_rate' %}{% elif is_operator_link_revoker %}{% url 'piece_rate_operator_links' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
@@ -72,18 +79,18 @@
                 <div class="accordion-body">
                     {% if not is_operator_link_revoker %}
                     <div class="nav-dropdown-group">
+                        <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
+                        <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
                         <a href="{% url 'piece_rate' %}"{% if current == "piece_rate_styles" %} class="current"{% endif %}>Styles</a>
-                        <a href="{% url 'piece_rate_production_shortcut' %}"{% if current == "piece_rate_production" %} class="current"{% endif %}>Production</a>
-                        <a href="{% url 'piece_rate_operator_summary' %}"{% if current == "piece_rate_operator_summary" %} class="current"{% endif %}>Summary</a>
                     </div>
                     <div class="nav-dropdown-divider"></div>
                     {% endif %}
                     <div class="nav-dropdown-group nav-dropdown-group-alt">
-                        {% if not is_operator_link_revoker %}
-                        <a href="{% url 'piece_rate_operations' %}"{% if current == "piece_rate_operations" %} class="current"{% endif %}>Master Operations</a>
-                        <a href="{% url 'piece_rate_templates' %}"{% if current == "piece_rate_templates" %} class="current"{% endif %}>Templates</a>
-                        {% endif %}
                         <a href="{% url 'piece_rate_operator_links' %}"{% if current == "piece_rate_operator_links" %} class="current"{% endif %}>Operator Links</a>
+                        {% if not is_operator_link_revoker %}
+                        <a href="{% url 'piece_rate_production_shortcut' %}"{% if current == "piece_rate_production" %} class="current"{% endif %}>Production</a>
+                        <a href="{% url 'piece_rate_operator_summary' %}"{% if current == "piece_rate_operator_summary" %} class="current"{% endif %}>Summary</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

@@ -74,7 +74,7 @@
             </form>
             {% endif %}
             {% if not style.is_template %}
-            <a href="{% url 'piece_rate_production' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Production</a>
+            <a href="{% url 'piece_rate_production' style.id %}" class="tab-btn">Production</a>
             {% endif %}
             <span id="orderSavedNote" style="font-size:0.8rem; color:var(--text-muted); display:none; margin-left:auto;">Order saved</span>
         </div>

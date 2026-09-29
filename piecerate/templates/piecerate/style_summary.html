@@ -18,6 +18,7 @@
         box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
     }
     .month-nav h1 { font-size: 0.92rem; margin: 0; }
+    .month-nav .tab-row { margin: 0; }
     .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
     .month-nav .date-nav-group { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
     .month-nav .nav-arrow {
@@ -37,15 +38,18 @@
     table.simple td, table.simple th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 
     tr.style-top-row td {
-        background: #a9bdd1; color: var(--navy); font-weight: 700; font-size: 0.75rem; text-align: left;
+        background: #d0e7fb; color: var(--navy); font-weight: 700; font-size: 0.75rem; text-align: left;
     }
     tr.style-top-row td.num { text-align: right; }
     tr.style-top-row { cursor: pointer; }
-    table.simple tr.style-gap td { border: none; padding: 0; height: 0.6rem; background: var(--surface); }
-    table.simple tbody tr.style-top-row:hover td { background: #94aac0; }
+    /* Thin breather, not a tall gap — see Operator Summary's identical
+       comment: a taller gap plus a heavy collapsed-row border made
+       every group read as its own separate card. */
+    table.simple tr.style-gap td { border: none; padding: 0; height: 0.15rem; background: var(--surface); }
+    table.simple tbody tr.style-top-row:hover td { background: #aed6f7; }
     .toggle-arrow { display: inline-block; width: 1rem; transition: transform 0.15s ease; }
     tr.style-top-row.collapsed .toggle-arrow { transform: rotate(-90deg); }
-    tr.style-top-row.collapsed { border-bottom: 3px solid var(--navy); }
+    tr.style-top-row.collapsed { border-bottom: 1px solid var(--navy); }
 
     tr.operator-row td { background: #e1e8f0; color: var(--navy); font-weight: 700; text-align: left; }
     tr.operator-row td.label { padding-left: 1.25rem; }
@@ -73,10 +77,12 @@
 
     <div class="page">
         <div class="month-nav">
-            <a href="{% url 'piece_rate_operator_summary' %}?date={{ current_date }}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Operator View</a>
-            <a href="{% url 'piece_rate_management_summary' %}?date={{ current_date }}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Management View</a>
-            <button type="button" id="expandAllBtn" class="edit-link" style="border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; background:var(--surface); cursor:pointer; font-family:inherit;">Expand All</button>
-            <button type="button" id="collapseAllBtn" class="edit-link" style="border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; background:var(--surface); cursor:pointer; font-family:inherit;">Collapse All</button>
+            <div class="tab-row">
+                <a href="{% url 'piece_rate_operator_summary' %}?date={{ current_date }}" class="tab-btn">Operator View</a>
+                <a href="{% url 'piece_rate_management_summary' %}?date={{ current_date }}" class="tab-btn">Management View</a>
+                <button type="button" id="expandAllBtn" class="tab-btn">Expand All</button>
+                <button type="button" id="collapseAllBtn" class="tab-btn">Collapse All</button>
+            </div>
             <div class="date-nav-group">
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -90,7 +96,7 @@
 
         {% if style_rows %}
         <div class="table-wrap fit-content">
-            <table class="simple">
+            <table class="table simple">
                 <thead>
                     <tr>
                         <th>Style / Operator / Operation</th>
@@ -148,7 +154,13 @@
     </div>
 
     <script>
-        function setCollapsed(topRow, collapsed) {
+        // Named setRowCollapsed, not setCollapsed — _topbar.html's shared
+        // sidebar script already declares a global function setCollapsed
+        // (for the sidebar's own collapse/reopen); both are plain global
+        // function declarations in the same document, so a same-named one
+        // here would silently overwrite it and break the sidebar toggle
+        // app-wide on this page.
+        function setRowCollapsed(topRow, collapsed) {
             topRow.classList.toggle('collapsed', collapsed);
             var styleId = topRow.dataset.styleId;
             document.querySelectorAll(
@@ -160,19 +172,19 @@
 
         document.querySelectorAll('tr.style-top-row').forEach(function (row) {
             row.addEventListener('click', function () {
-                setCollapsed(row, !row.classList.contains('collapsed'));
+                setRowCollapsed(row, !row.classList.contains('collapsed'));
             });
         });
 
         document.getElementById('expandAllBtn').addEventListener('click', function () {
-            document.querySelectorAll('tr.style-top-row').forEach(function (row) { setCollapsed(row, false); });
+            document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, false); });
         });
         document.getElementById('collapseAllBtn').addEventListener('click', function () {
-            document.querySelectorAll('tr.style-top-row').forEach(function (row) { setCollapsed(row, true); });
+            document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, true); });
         });
 
         // Starts collapsed, same reasoning as Management Summary.
-        document.querySelectorAll('tr.style-top-row').forEach(function (row) { setCollapsed(row, true); });
+        document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, true); });
     </script>
 {% include "attendance/_htmx_scripts.html" %}
 </body>

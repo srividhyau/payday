@@ -34,12 +34,6 @@
         }
         .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
         .view-switch-row { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
-        .view-btn.legend-toggle-btn {
-            border: none; background: var(--bg); cursor: pointer; font-family: inherit;
-            padding: 0.3rem 0.9rem; border-radius: 999px; font-size: 0.76rem; color: var(--navy); font-weight: 500;
-        }
-        .legend-toggle-btn.open { background: var(--navy); color: var(--yellow); font-weight: 600; }
-        .legend-toggle-btn.open:hover { background: var(--navy); color: var(--yellow); }
 
         .legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin-bottom: 1.1rem; font-size: 0.8rem; }
         .legend-item {
@@ -125,7 +119,9 @@
                 <span class="current-month">{{ month_name }} {{ year }}</span>
                 <a href="?year={{ next_year }}&month={{ next_month }}" class="nav-arrow">&rarr;</a>
                 <div class="view-switch-row">
-                    <button type="button" class="view-btn legend-toggle-btn" id="legendToggleBtn">Legend</button>
+                    <button type="button" class="icon-btn" id="legendToggleBtn" data-tooltip="Legend" aria-label="Legend">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
+                    </button>
                 </div>
             </div>
         </div>
@@ -205,7 +201,7 @@
             legendToggleBtn.addEventListener('click', function () {
                 var willOpen = legendPanel.style.display === 'none';
                 legendPanel.style.display = willOpen ? '' : 'none';
-                legendToggleBtn.classList.toggle('open', willOpen);
+                legendToggleBtn.classList.toggle('active', willOpen);
             });
         }
 

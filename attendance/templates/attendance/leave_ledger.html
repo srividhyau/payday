@@ -34,9 +34,14 @@
 
         .caption { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1rem; line-height: 1.5; }
 
-                        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        /* Table now carries its own full grid border (traditional bordered
+           table), so .table-wrap doesn't need a second boxed border around
+           it too; overflow-x:auto (for a narrow screen) is all that's
+           still needed from it. */
+        .table-wrap { border: none; border-radius: 0; }
+                        table.simple { border: 1px solid rgba(0,47,102,0.2); }
+        table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border: 1px solid rgba(0,47,102,0.2); white-space: nowrap; }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
-        table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
         table.simple td.num, table.simple th.num { text-align: right; }
         table.simple td.balance-cell { font-weight: 700; color: var(--navy); }
@@ -70,7 +75,7 @@
            no existing color elsewhere in the app yet. */
         table.simple th.grp-el, table.simple td.grp-el { background: #F3EEFC; }
         table.simple th.grp-compoff, table.simple td.grp-compoff { background: #E0F2F1; }
-        table.simple thead tr.group-row th { font-size: 0.7rem; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.08); }
+        table.simple thead tr.group-row th { font-size: 0.7rem; text-align: center; }
         table.simple thead tr.group-row th.grp-el { color: #4A148C; }
         table.simple thead tr.group-row th.grp-compoff { color: #00695C; }
         table.simple thead tr.sub-row th { font-size: 0.68rem; padding-top: 0.35rem; }
@@ -143,7 +148,7 @@
 
         <div class="card">
             <div class="table-wrap">
-                <table class="simple">
+                <table class="table simple">
                     <thead>
                         <tr class="group-row">
                             <th rowspan="2"></th>

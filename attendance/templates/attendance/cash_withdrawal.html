@@ -68,7 +68,7 @@
            still owns the popup box itself and its layout. */
         .edit-modal { background: #fff; border-radius: 14px; padding: 1.4rem 1.6rem; min-width: 320px; box-shadow: 0 12px 32px rgba(16,24,40,0.25); }
         .edit-modal h3 { margin: 0 0 0.9rem; font-size: 1.05rem; }
-        .edit-modal label { display: block; font-size: 0.8rem; color: #444; margin-bottom: 0.7rem; }
+        .edit-modal .form-floating { margin-bottom: 0.7rem; }
         .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
 
         /* A real Bootstrap table (class="table simple" in the markup) —
@@ -198,15 +198,18 @@
                     <input type="hidden" name="action" value="edit">
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="entry_id" id="editEntryId">
-                    <label>Purpose
-                        <input type="text" class="form-control" name="purpose" id="editPurpose" required>
-                    </label>
-                    <label>Description
-                        <input type="text" class="form-control" name="description" id="editDescription">
-                    </label>
-                    <label>Amount
-                        <input type="number" class="form-control" name="amount" id="editAmount" step="0.01" min="0" required>
-                    </label>
+                    <div class="form-floating">
+                        <input type="text" class="form-control" name="purpose" id="editPurpose" placeholder="Purpose" required>
+                        <label for="editPurpose">Purpose *</label>
+                    </div>
+                    <div class="form-floating">
+                        <input type="text" class="form-control" name="description" id="editDescription" placeholder="Description">
+                        <label for="editDescription">Description</label>
+                    </div>
+                    <div class="form-floating">
+                        <input type="number" class="form-control" name="amount" id="editAmount" step="0.01" min="0" placeholder="Amount" required>
+                        <label for="editAmount">Amount *</label>
+                    </div>
                     <div class="edit-actions">
                         <button type="button" class="btn btn-secondary" id="editCancel">Cancel</button>
                         <button type="submit" class="btn btn-primary">Save</button>

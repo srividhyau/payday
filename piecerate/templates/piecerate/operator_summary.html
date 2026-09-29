@@ -18,6 +18,7 @@
         box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
     }
     .month-nav h1 { font-size: 0.92rem; margin: 0; }
+    .month-nav .tab-row { margin: 0; }
     .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
     .month-nav .date-nav-group { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
     .month-nav .nav-arrow {
@@ -32,27 +33,31 @@
     table.simple thead th { background: #fef9c3; color: var(--navy); }
 
     /* Three levels, each a lighter step than the one above — still three
-       distinct steps (not just a color hint: roughly 0.73 / 0.90 / 1.0
-       relative luminance), but toned down from a near-black top tier to
-       a much softer light-blue-gray. print-color-adjust forces these to
-       actually print rather than being dropped by the browser's default. */
+       distinct steps (not just a color hint), lightened further
+       (2026-09-29, level 1 read as too dark) from an already-toned-down
+       near-black top tier to a soft light-blue-gray scale. print-color-
+       adjust forces these to actually print rather than being dropped
+       by the browser's default. */
     table.simple td, table.simple th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 
     tr.employee-row td {
-        background: #a9bdd1; color: var(--navy); font-weight: 700; font-size: 0.75rem; text-align: left;
+        background: #d0e7fb; color: var(--navy); font-weight: 700; font-size: 0.75rem; text-align: left;
     }
     tr.employee-row td.num { text-align: right; }
     tr.employee-row { cursor: pointer; }
-    /* A real blank row between operators reads as a gap, unlike a
-       border — which just looks like one more grid line among many. */
-    table.simple tr.operator-gap td { border: none; padding: 0; height: 0.6rem; background: var(--surface); }
+    /* A thin blank row between operators, just enough breathing room to
+       read as a boundary — not the tall gap this used to be (0.6rem),
+       which combined with the collapsed row's heavy 3px border made
+       every operator read as its own separate card instead of a
+       compact, sleek table. */
+    table.simple tr.operator-gap td { border: none; padding: 0; height: 0.15rem; background: var(--surface); }
     /* Needs the same table.simple/tbody qualifiers as app.css's own
        "table.simple tbody tr:hover td" rule (background: #fafbff) or
        that generic pale hover wins instead, fighting the row's own bg. */
-    table.simple tbody tr.employee-row:hover td { background: #94aac0; }
+    table.simple tbody tr.employee-row:hover td { background: #aed6f7; }
     .toggle-arrow { display: inline-block; width: 1rem; transition: transform 0.15s ease; }
     tr.employee-row.collapsed .toggle-arrow { transform: rotate(-90deg); }
-    tr.employee-row.collapsed { border-bottom: 3px solid var(--navy); }
+    tr.employee-row.collapsed { border-bottom: 1px solid var(--navy); }
 
     tr.style-row td { background: #e1e8f0; color: var(--navy); font-weight: 700; text-align: left; }
     tr.style-row td.label { padding-left: 1.25rem; }
@@ -80,10 +85,12 @@
 
     <div class="page">
         <div class="month-nav">
-            <a href="{% url 'piece_rate_style_summary' %}?date={{ current_date }}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Style View</a>
-            <a href="{% url 'piece_rate_management_summary' %}?date={{ current_date }}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Management View</a>
-            <button type="button" id="expandAllBtn" class="edit-link" style="border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; background:var(--surface); cursor:pointer; font-family:inherit;">Expand All</button>
-            <button type="button" id="collapseAllBtn" class="edit-link" style="border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; background:var(--surface); cursor:pointer; font-family:inherit;">Collapse All</button>
+            <div class="tab-row">
+                <a href="{% url 'piece_rate_style_summary' %}?date={{ current_date }}" class="tab-btn">Style View</a>
+                <a href="{% url 'piece_rate_management_summary' %}?date={{ current_date }}" class="tab-btn">Management View</a>
+                <button type="button" id="expandAllBtn" class="tab-btn">Expand All</button>
+                <button type="button" id="collapseAllBtn" class="tab-btn">Collapse All</button>
+            </div>
             <div class="date-nav-group">
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -97,7 +104,7 @@
 
         {% if operator_rows %}
         <div class="table-wrap fit-content">
-            <table class="simple">
+            <table class="table simple">
                 <thead>
                     <tr>
                         <th>Operator / Style / Operation</th>
@@ -155,7 +162,13 @@
     </div>
 
     <script>
-        function setCollapsed(employeeRow, collapsed) {
+        // Named setRowCollapsed, not setCollapsed — _topbar.html's shared
+        // sidebar script already declares a global function setCollapsed
+        // (for the sidebar's own collapse/reopen); both are plain global
+        // function declarations in the same document, so a same-named one
+        // here would silently overwrite it and break the sidebar toggle
+        // app-wide on this page.
+        function setRowCollapsed(employeeRow, collapsed) {
             employeeRow.classList.toggle('collapsed', collapsed);
             var empId = employeeRow.dataset.employeeId;
             document.querySelectorAll(
@@ -167,19 +180,19 @@
 
         document.querySelectorAll('tr.employee-row').forEach(function (row) {
             row.addEventListener('click', function () {
-                setCollapsed(row, !row.classList.contains('collapsed'));
+                setRowCollapsed(row, !row.classList.contains('collapsed'));
             });
         });
 
         document.getElementById('expandAllBtn').addEventListener('click', function () {
-            document.querySelectorAll('tr.employee-row').forEach(function (row) { setCollapsed(row, false); });
+            document.querySelectorAll('tr.employee-row').forEach(function (row) { setRowCollapsed(row, false); });
         });
         document.getElementById('collapseAllBtn').addEventListener('click', function () {
-            document.querySelectorAll('tr.employee-row').forEach(function (row) { setCollapsed(row, true); });
+            document.querySelectorAll('tr.employee-row').forEach(function (row) { setRowCollapsed(row, true); });
         });
 
         // Starts collapsed, same reasoning as Management Summary.
-        document.querySelectorAll('tr.employee-row').forEach(function (row) { setCollapsed(row, true); });
+        document.querySelectorAll('tr.employee-row').forEach(function (row) { setRowCollapsed(row, true); });
     </script>
 {% include "attendance/_htmx_scripts.html" %}
 </body>

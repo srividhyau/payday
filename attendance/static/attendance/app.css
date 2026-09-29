@@ -167,9 +167,9 @@ body:has(.topbar:not(.collapsed)) .header-nav-toggle { display: none; }
 .topbar nav .accordion-body a { display: block; padding: 0.32rem 0.45rem 0.32rem 0.85rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600; color: var(--navy); text-decoration: none; line-height: 1.2; }
 .topbar nav .accordion-body a:hover { background: var(--navy); color: var(--yellow); }
 .topbar nav .accordion-body a.current { background: var(--navy); color: var(--yellow); }
-.topbar nav .accordion-body .nav-dropdown-divider { height: 1px; background: rgba(0,47,102,0.15); margin: 0.25rem 0.4rem; }
+.topbar nav .accordion-body .nav-dropdown-divider { height: 1px; background: rgba(0,47,102,0.35); margin: 0.4rem 0.4rem; }
 .topbar nav .accordion-body .nav-dropdown-group-alt {
-    background: rgba(0,47,102,0.06); border-radius: 6px; padding: 0.15rem;
+    background: rgba(0,47,102,0.16); border-radius: 6px; padding: 0.2rem;
 }
 
 h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy); }
@@ -227,11 +227,17 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
 .card { display: block; background: none; border: none; border-radius: 0; box-shadow: none; padding: 0; margin-bottom: 1.5rem; }
 
 .tab-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+/* Both states built from the logo's own navy + yellow, not a neutral
+   gray — inactive/rest is navy text on a pale yellow tint, active
+   flips to the solid navy-bg/yellow-text look used everywhere else
+   for a selected state (.accordion-button.current, nav-pills, etc). */
 .tab-btn {
     padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
-    text-decoration: none; color: var(--text-muted); background: var(--bg);
-    border: 1px solid var(--border); cursor: pointer; font-family: inherit;
+    text-decoration: none; color: var(--navy); background: rgba(253,224,71,0.18);
+    border: 1px solid rgba(0,47,102,0.15); cursor: pointer; font-family: inherit;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
+.tab-btn:hover { background: rgba(253,224,71,0.4); }
 .tab-btn.active { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
 .tab-btn:disabled { opacity: 0.6; cursor: default; }
 
@@ -244,9 +250,16 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
 .post-btn:hover { background: var(--navy-deep); }
 .search-input {
     padding: 0.5rem 0.8rem; border: 1px solid var(--border); border-radius: 8px;
-    font-size: 0.85rem; font-family: inherit; min-width: 240px;
+    font-size: 0.85rem; font-family: inherit; min-width: 300px;
 }
 .search-input:focus { outline: none; border-color: var(--navy); }
+
+/* Floating labels (Google Forms' text-question look — label alone at
+   rest, floats to the top-left on focus/fill) are Bootstrap's own
+   built-in .form-floating component (wrap a .form-control/.form-select
+   + <label>, input before label, any placeholder text to trigger
+   :placeholder-shown — see the pages that use it); no custom CSS
+   needed here, just the navy-tinted focus label in bootstrap-theme.css. */
 
 .icon-btn {
     position: relative;
@@ -258,6 +271,11 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
 }
 .icon-btn:hover { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
 .icon-btn:disabled { opacity: 0.6; cursor: default; }
+/* Persistent "currently open" state for a toggleable icon-btn (e.g. a
+   Legend panel toggle) — same solid navy/yellow fill as :hover, but
+   sticks while the thing it opened stays open instead of only showing
+   on mouseover. */
+.icon-btn.active { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
 .icon-btn svg { display: block; }
 .icon-btn[data-tooltip]:hover::after {
     content: attr(data-tooltip);

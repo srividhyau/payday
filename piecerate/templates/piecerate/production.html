@@ -107,11 +107,7 @@
         box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
     }
     .month-nav h1 { font-size: 0.92rem; margin: 0; }
-    .legend-toggle-btn {
-        border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-family: inherit;
-        padding: 0.3rem 0.7rem; border-radius: 6px; font-size: 0.78rem; color: var(--navy); font-weight: 600;
-    }
-    .legend-toggle-btn.open { background: var(--navy); color: var(--yellow); border-color: var(--navy); }
+    .month-nav .tab-row { margin: 0; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.9rem 1rem; margin-bottom: 0.75rem; }
     .card h2 { font-size: 1rem; margin: 0 0 0.9rem; color: var(--navy); }
 
@@ -187,14 +183,13 @@
 
     .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
 
-    /* Operation/Operator search, "show all operators" and the status
-       filter are now Bootstrap input-groups/form-check/btn-group (see
-       the markup) laid out in one row with flex-wrap — this only still
-       sizes the row itself and gives the two search boxes a fixed
-       width instead of input-group's normal flex-fill, so they don't
-       stretch to fill the row's remaining space. */
+    /* Operation/Operator search (Bootstrap's .form-floating), "show
+       all operators" and the status filter are laid out in one row
+       with flex-wrap — this only still sizes the row itself and gives
+       the two search boxes a fixed width so they don't stretch to
+       fill the row's remaining space. */
     .filter-bar { flex-wrap: wrap; margin: 0.9rem 0 1rem; }
-    .filter-bar .input-group { width: 220px; }
+    .filter-bar .form-floating { width: 300px; }
 
     /* Excess/Shortage/Balanced status filter — same diff-more/less/
        balanced colors as the Legend and the Total column itself, on
@@ -209,11 +204,6 @@
     .status-filter .btn.status-more.active { background: #a400a4; border-color: #a400a4; color: #fff; }
     .status-filter .btn.status-less.active { background: #b3261e; border-color: #b3261e; color: #fff; }
     .status-filter .btn.status-balanced.active { background: #1e7e34; border-color: #1e7e34; color: #fff; }
-
-    #styleSwitcher {
-        font-size: inherit; font-weight: inherit; font-family: inherit; color: var(--navy);
-        border: 1px solid var(--border); border-radius: 8px; padding: 0.15rem 0.5rem; background: var(--surface);
-    }
 
     /* Base .edit-modal/.edit-actions were missing from this page (each
        page defines its own per the shared .edit-overlay mechanics in
@@ -243,21 +233,20 @@
 
     <div class="page">
         <div class="month-nav">
-            <div style="display:flex; align-items:center; gap:0.5rem; font-weight:700; color:var(--navy);">
-                Production —
-                {% if sibling_styles|length > 1 %}
-                <select id="styleSwitcher" data-base="{% url 'piece_rate_production' 0 %}">
-                    {% for s in sibling_styles %}
-                    <option value="{{ s.id }}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                {{ style.name }}
-                {% endif %}
+            {% if sibling_styles|length > 1 %}
+            <select id="styleSwitcher" class="form-select form-select-sm" style="width:auto;" data-base="{% url 'piece_rate_production' 0 %}" aria-label="Switch style">
+                {% for s in sibling_styles %}
+                <option value="{{ s.id }}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <div class="tab-row">
+                <a href="{% url 'piece_rate_rate_card' style.id %}" class="tab-btn">Rate Card</a>
+                <a href="{% url 'piece_rate_production_mobile' style.id %}" class="tab-btn">Mobile view</a>
+                <button type="button" class="icon-btn" id="legendToggleBtn" data-tooltip="Legend" aria-label="Legend">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
+                </button>
             </div>
-            <a href="{% url 'piece_rate_rate_card' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Rate Card</a>
-            <a href="{% url 'piece_rate_production_mobile' style.id %}" class="edit-link" style="text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:0.3rem 0.7rem; color:var(--navy); background:var(--surface);">Mobile view</a>
-            <button type="button" class="legend-toggle-btn" id="legendToggleBtn">Legend</button>
         </div>
 
         <div class="card" id="legendPanel" style="display:none;">
@@ -280,13 +269,13 @@
 
         {% if op_rows %}
         <div class="filter-bar d-flex align-items-center gap-2">
-            <div class="input-group input-group-sm">
-                <span class="input-group-text">Operation</span>
-                <input type="text" class="form-control" id="operationSearch" placeholder="Search operation…" autocomplete="off">
+            <div class="form-floating">
+                <input type="text" class="form-control" id="operationSearch" placeholder="Operation" autocomplete="off">
+                <label for="operationSearch">Operation</label>
             </div>
-            <div class="input-group input-group-sm">
-                <span class="input-group-text">Operator</span>
-                <input type="text" class="form-control" id="operatorSearch" placeholder="Search operator…" autocomplete="off">
+            <div class="form-floating">
+                <input type="text" class="form-control" id="operatorSearch" placeholder="Operator" autocomplete="off">
+                <label for="operatorSearch">Operator</label>
             </div>
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="showAllOperators">
@@ -405,7 +394,7 @@
             legendToggleBtn.addEventListener('click', function () {
                 var willOpen = legendPanel.style.display === 'none';
                 legendPanel.style.display = willOpen ? '' : 'none';
-                legendToggleBtn.classList.toggle('open', willOpen);
+                legendToggleBtn.classList.toggle('active', willOpen);
             });
         }
 

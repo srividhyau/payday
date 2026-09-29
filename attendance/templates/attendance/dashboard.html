@@ -11,28 +11,23 @@ in{% load static %}
                                 .page { width: 100%; padding: 0.75rem 1rem 3rem; }
 
                 h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
-        .dept-summary summary { cursor: pointer; list-style: none; }
-        .dept-summary summary::-webkit-details-marker { display: none; }
-        /* No bottom margin here — with the details closed (the default
-           for both "By department" and "Legend"), that margin was the
-           only content left inside the card, so it bled straight
-           through to become dead space below a heading with nothing
-           actually shown under it. */
-        .dept-summary summary h2 { display: inline-block; margin: 0; }
         .card { margin-bottom: 0.75rem; }
-        .dept-summary summary h2::before { content: "▸ "; }
-        .dept-summary[open] summary h2::before { content: "▾ "; }
         /* "Summary" is the same size as "All"/"Missed Punch" (a real
            nav-pill, not a smaller secondary control) — this only still
-           keeps its text always navy, since Bootstrap's default muted
-           nav-link color (fine for "All"/"Missed Punch", real
-           navigation links) reads too faint on a button whose label
-           doesn't otherwise change. "Legend" (see the markup) is an
+           keeps its text always navy when closed, since Bootstrap's
+           default muted nav-link color (fine for "All"/"Missed Punch",
+           real navigation links) reads too faint on a button whose label
+           doesn't otherwise change; flips to the same solid navy-bg/
+           yellow-text look as a selected nav-pill once its panel is open
+           — driven by Bootstrap's own .collapsed class on the trigger
+           (added/removed automatically by data-bs-toggle="collapse"),
+           not a class we toggle by hand. "Legend" (see the markup) is an
            icon rather than text, so it needs an explicit size to match
            its text siblings — same idea as Mark Attendance (Month
            View)'s own icon-only Legend pill, sized to this group's own
            nav-link height instead of an external icon button. */
-        .view-switch .nav-link.dept-toggle-btn:not(.active) { color: var(--navy); font-weight: 500; }
+        .view-switch .nav-link.dept-toggle-btn.collapsed { color: var(--navy); font-weight: 500; }
+        .view-switch .nav-link.dept-toggle-btn:not(.collapsed) { background: var(--navy); color: var(--yellow); }
         /* An icon-only nav-link has no text line-height to size itself
            against, so it renders shorter than its "All"/"Missed Punch"/
            "Summary" text siblings unless given their height explicitly. */
@@ -89,9 +84,11 @@ in{% load static %}
         table.simple tbody tr:last-child td { border-bottom: none; }
         table.simple tbody tr:hover td { background: #fafbff; }
 
-        /* Below the table now, inside its own <details> (see the
-           template) — native open/closed behavior hides/shows it, same
-           as "By department" above, no custom show/hide CSS needed. */
+        /* Below the table now, inside its own #legendPanel card (see the
+           template) — toggled by plain JS (unlike "By department" above,
+           now a real Bootstrap .collapse), since Legend's own trigger
+           doesn't need the two-different-DOM-locations flexibility that
+           made Bootstrap's collapse worth adopting there. */
         .legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin: 0.6rem 0 0; font-size: 0.8rem; }
         .legend-item {
             display: inline-flex;
@@ -551,7 +548,7 @@ in{% load static %}
             <li class="nav-item"><a href="?date={{ current_date }}&view=issues" class="nav-link{% if current_view == 'issues' %} active{% endif %}" data-view="issues">Missed Punch
                 <span class="tab-lock-icon" data-view="issues" data-label="Missed Punch" data-action="{% if lock_status.issues %}unlock{% else %}lock{% endif %}" title="{% if lock_status.issues %}Unlock{% else %}Lock{% endif %} Missed Punch">{% if lock_status.issues %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>
             </a></li>
-            <li class="nav-item"><button type="button" class="nav-link dept-toggle-btn" id="deptToggleBtn">Summary</button></li>
+            <li class="nav-item"><button type="button" class="nav-link dept-toggle-btn collapsed" data-bs-toggle="collapse" data-bs-target="#deptPanel" aria-expanded="false" aria-controls="deptPanel">Summary</button></li>
             <li class="nav-item"><button type="button" class="nav-link legend-toggle-btn" id="legendToggleBtn" data-tooltip="Legend" aria-label="Legend">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
             </button></li>
@@ -568,8 +565,7 @@ in{% load static %}
     {% elif empty %}
         <p class="empty-state">No attendance data for {{ month_name }} {{ year }}.</p>
     {% else %}
-        <div class="card" id="deptPanel" style="display:none;">
-            <h2>By department</h2>
+        <div class="card collapse" id="deptPanel">
             <div class="dept-view" data-view="all">
                 <div class="table-wrap">
                     <table class="simple">
@@ -785,21 +781,13 @@ in{% load static %}
     </div>
     <script>
         // "Summary" tab (header) <-> #deptPanel (its own card below the
-        // header, the by-department breakdown) — plain JS instead of
-        // native <details> since the trigger and the content it opens
-        // live in two different places in the page.
-        var deptToggleBtn = document.getElementById('deptToggleBtn');
-        var deptPanel = document.getElementById('deptPanel');
-        if (deptToggleBtn && deptPanel) {
-            deptToggleBtn.addEventListener('click', function () {
-                var willOpen = deptPanel.style.display === 'none';
-                deptPanel.style.display = willOpen ? '' : 'none';
-                deptToggleBtn.classList.toggle('active', willOpen);
-            });
-        }
+        // header, the by-department breakdown) is now a real Bootstrap
+        // collapse (data-bs-toggle="collapse" on the button, .collapse on
+        // the panel — see the markup) instead of plain JS; Bootstrap's
+        // collapse plugin handles a trigger and target that live in two
+        // different places in the page just fine, unlike native <details>.
 
-        // "Legend" tab (header) <-> #legendPanel — same pattern as
-        // "Summary"/#deptPanel above.
+        // "Legend" tab (header) <-> #legendPanel — still plain JS.
         var legendToggleBtn = document.getElementById('legendToggleBtn');
         var legendPanel = document.getElementById('legendPanel');
         if (legendToggleBtn && legendPanel) {
