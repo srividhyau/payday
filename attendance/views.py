@@ -893,32 +893,29 @@ def _attendance_visible_mask(daily: pd.DataFrame, departments: list[str]):
     return daily["department"].str.lower().isin(wanted)
 
 
-@login_required
-def dashboard_view(request):
-    """Server-rendered Month Attendance dashboard: KPIs, department
-    breakdown, holiday calendar, and the day x employee hours grid.
+def _dashboard_context(date_param, view_param):
+    """Builds dashboard_view's context (KPIs, department breakdown, and
+    the day x employee hours grid) — split out so dashboard_download_view
+    can build the exact same data for its Excel export, same pattern as
+    _ot_details_context/ot_details_download_view.
 
     Scoped to one calendar month at a time (with prev/next nav, like
     ot_view/calendar_view) — otherwise the grid mixes every date ever
-    uploaded into one non-continuous table. Nav is driven by a single
-    "date" query param (any day within the target month)."""
+    uploaded into one non-continuous table."""
     daily_all = _load_daily_data()
     month_keys_all = (
         sorted({(ts.year, ts.month) for ts in daily_all["date"]}) if not daily_all.empty else []
     )
     if not month_keys_all:
-        return render(request, "attendance/dashboard.html", {"empty": True, "has_data": False})
+        return {"empty": True, "has_data": False}
 
     default_date = date_cls(*month_keys_all[-1], 1)
-    date_param = request.GET.get("date")
     current = _parse_month_date(date_param, default_date)
     year, month = current.year, current.month
 
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
-    current_view = request.GET.get("view", "all")
-    if current_view not in ("all", "issues"):
-        current_view = "all"
+    current_view = view_param if view_param in ("all", "issues") else "all"
     locked_views = set(
         MonthLock.objects.filter(year=year, month=month).values_list("view", flat=True)
     )
@@ -952,7 +949,7 @@ def dashboard_view(request):
         )
     ]
     if daily.empty:
-        return render(request, "attendance/dashboard.html", {"empty": True, **month_nav})
+        return {"empty": True, **month_nav}
 
     special_days, downgraded_special_days, skip_special_days = _special_days_and_downgrades()
     daily = metrics.apply_special_days(daily, special_days, downgraded_special_days, skip_special_days)
@@ -984,7 +981,7 @@ def dashboard_view(request):
 
     dept_missed_punch = metrics.department_missed_punch_summary(daily, issues)
 
-    context = {
+    return {
         **month_nav,
         "empty": False,
         "period_start": daily["date"].min(),
@@ -1009,7 +1006,138 @@ def dashboard_view(request):
         "day_types": SpecialDay.TYPE_CHOICES,
         "status_choices": AttendanceRecord.STATUS_CHOICES,
     }
+
+
+@login_required
+def dashboard_view(request):
+    """Server-rendered Month Attendance dashboard: KPIs, department
+    breakdown, holiday calendar, and the day x employee hours grid.
+    Nav is driven by a single "date" query param (any day within the
+    target month) — see _dashboard_context for the actual data."""
+    context = _dashboard_context(request.GET.get("date"), request.GET.get("view", "all"))
     return render(request, "attendance/dashboard.html", context)
+
+
+def _write_dashboard_grid_sheet(ws, context) -> None:
+    """Fills in the Device Records sheet (day x employee hours grid,
+    grouped by department) — mirrors table.month on screen: department
+    rows get the same peach fill as the page's tr.dept, a missed-punch
+    cell is flagged red, Holiday/Paid Holiday/Comp Off/EL/Leave/Present-
+    no-hours cells get their own page colors, anything else gets the
+    page's hours heat-map tint (context["heat_colors"]), and the summary
+    columns (Work Days, EL Earned, ...) are appended after the day
+    columns in the same order as the page."""
+    from openpyxl.styles import Font, PatternFill
+    import openpyxl
+
+    dept_fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
+    special_fills = {
+        "H": PatternFill(start_color="D6D6D6", end_color="D6D6D6", fill_type="solid"),
+        "PH": PatternFill(start_color="4FB3A9", end_color="4FB3A9", fill_type="solid"),
+        "CO": PatternFill(start_color="F5A85C", end_color="F5A85C", fill_type="solid"),
+    }
+    issue_fill = PatternFill(start_color="FF4D4D", end_color="FF4D4D", fill_type="solid")
+    el_fill = PatternFill(start_color="D1C4E9", end_color="D1C4E9", fill_type="solid")
+    leave_fill = PatternFill(start_color="BBDEFB", end_color="BBDEFB", fill_type="solid")
+    heat_fills = {
+        band: PatternFill(start_color=color.lstrip("#"), end_color=color.lstrip("#"), fill_type="solid")
+        for band, color in context["heat_colors"].items()
+    }
+
+    month_label = f"{context['month_name']} {context['year']}"
+    day_headers = context["day_headers"]
+    ws.append([f"Device Records — {context['current_view_label']} — {month_label}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+
+    # day_headers' "label" is a display string (the day-of-month) — write
+    # it as a real number, same fix _write_ot_grid_sheet makes, so the
+    # header row isn't text either.
+    day_number_headers = [
+        int(d["label"]) if d["label"].isdigit() else d["label"] for d in day_headers
+    ]
+    headers = ["Employee"] + day_number_headers + list(context["summary_cols"])
+    ws.append(headers)
+    header_row_num = ws.max_row
+    header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+    for cell in ws[header_row_num]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    for row in context["table_rows"]:
+        if row["is_dept"]:
+            ws.append([row["label"].lstrip("▸ ").strip()])
+            for cell in ws[ws.max_row]:
+                cell.font = Font(bold=True)
+                cell.fill = dept_fill
+            continue
+
+        # Same precedence the on-screen cell template uses: an EL status
+        # day, then a credited EL day, then hand-marked Present with no
+        # hours, then the raw worked hours.
+        day_display = []
+        for cell in row["day_cells"]:
+            if cell["status"] == "EL":
+                day_display.append("EL")
+            elif cell["el_day_credit"]:
+                day_display.append(f"+{cell['el_day_credit']} EL")
+            elif cell["present_no_hours"]:
+                day_display.append("P")
+            elif cell["value"] != "":
+                day_display.append(float(cell["value"]))
+            else:
+                day_display.append(None)
+
+        ws.append([row["label"].strip()] + day_display + list(row["summary_cells"]))
+        data_row_num = ws.max_row
+        for i, cell in enumerate(row["day_cells"]):
+            col = 2 + i
+            if cell["issue"]:
+                fill = issue_fill
+            elif cell["special"]:
+                fill = special_fills.get(cell["special"])
+            elif cell["status"] == "EL" or cell["el_day_credit"]:
+                fill = el_fill
+            elif cell["leave"]:
+                fill = leave_fill
+            elif cell["present_no_hours"]:
+                fill = el_fill
+            else:
+                fill = heat_fills.get(cell["band"])
+            if fill:
+                ws.cell(row=data_row_num, column=col).fill = fill
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+
+    ws.column_dimensions["A"].width = 26
+    for i in range(2, 2 + len(day_headers)):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 5
+
+
+@login_required
+def dashboard_download_view(request):
+    """Downloads the currently-viewed Device Records grid (All or Missed
+    Punch, whichever "view" is active) for one month as a single-sheet
+    .xlsx — via the same _dashboard_context used by the report page, so
+    the sheet and the on-screen table can never drift apart."""
+    import openpyxl
+
+    context = _dashboard_context(request.GET.get("date"), request.GET.get("view", "all"))
+    if not context.get("has_data") or context.get("empty"):
+        raise Http404("No attendance data for that month.")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = context["current_view_label"][:31]
+    _write_dashboard_grid_sheet(ws, context)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"device-records-{context['year']}-{context['month']:02d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 def _build_month_weeks(year, month, special_map, today, early_map: dict | None = None):

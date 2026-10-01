@@ -26,6 +26,35 @@
     .save-btn:hover { color: var(--navy-deep); }
     .delete-btn { color: #b3261e; }
     .delete-btn:hover { color: #7a1a15; }
+    .toggle-btn { color: var(--text-muted); }
+    .toggle-btn:hover { color: var(--navy); }
+    .toggle-btn.is-enable { color: #1e7e34; }
+    .toggle-btn.is-enable:hover { color: #14532d; }
+    /* Disabled — stays on the rate card (toggle it back on any time) but
+       is excluded from the Production page entirely; dimmed here so it
+       reads as "off" without needing a separate column. */
+    tr.op-row-disabled td { background: #f5f5f5; color: var(--text-muted); }
+    tr.op-row-disabled .col-name select, tr.op-row-disabled input { color: var(--text-muted); }
+    /* Zero operators (Production data) — same pink-row + red-left-edge
+       flag as Production's own tr.op-row.no-operators, so an operation
+       nobody's actually working stands out here too. Doesn't apply to a
+       disabled operation (see the template) — zero operators there is
+       expected, not something needing attention. */
+    tr.no-operators td { background: #fdecea; }
+    tr.no-operators td.col-op-code { box-shadow: inset 3px 0 0 #b3261e; }
+    table.simple td.col-operators { max-width: 220px; white-space: normal; font-size: 0.75rem; color: var(--text-muted); }
+    .no-operators-label { color: #b3261e; font-weight: 600; }
+    .disabled-badge {
+        display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.02em; color: var(--text-muted); background: #e9ecef;
+        padding: 0.1rem 0.4rem; border-radius: 999px; margin-left: 0.4rem;
+    }
+    /* Pay Type not needed in the UI anymore, but every row still submits
+       it (see .pay-type-hidden/fillFromMaster in the script below) so an
+       unrelated edit (rate, order qty, ...) never silently resets an
+       existing operation's pay_type back to the default — just hidden
+       from view, not removed from the form. */
+    table.simple .col-pay-type { display: none; }
 
     .table-wrap { overflow: visible; }
     table.simple { border-collapse: collapse; }
@@ -95,8 +124,9 @@
                             <th>Operation</th>
                             <th>Machine</th>
                             <th class="num">Rate</th>
-                            <th>Pay Type</th>
+                            <th class="col-pay-type">Pay Type</th>
                             <th class="num">Order Qty</th>
+                            <th>Operators</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -130,12 +160,13 @@
                                 <input type="hidden" name="pay_type" class="pay-type-hidden" value="operator">
                             </td>
                             <td class="col-order-qty"><input type="number" step="1" min="0" name="order_quantity"></td>
+                            <td class="col-operators"></td>
                             <td><button type="submit" name="action" value="create" class="save-btn">+ Add</button></td>
                         </tr>
                         {% endif %}
                         {% for op in operations %}
                         {% if can_edit_this_style %}
-                        <tr data-op-id="{{ op.id }}">
+                        <tr data-op-id="{{ op.id }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled {% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
                             <td class="col-drag" draggable="true" title="Drag to reorder">⠿</td>
                             <td class="col-op-code">{{ forloop.counter }}</td>
                             <td class="col-section"><input type="text" name="section_{{ op.id }}" value="{{ op.section }}" readonly></td>
@@ -151,6 +182,7 @@
                                     </optgroup>
                                     {% endfor %}
                                 </select>
+                                {% if not op.is_enabled %}<span class="disabled-badge">Disabled</span>{% endif %}
                             </td>
                             <td class="col-machine"><input type="text" name="machine_{{ op.id }}" value="{{ op.machine }}" readonly></td>
                             <td class="col-rate"><input type="number" step="0.01" name="rate_{{ op.id }}" value="{{ op.rate }}"></td>
@@ -163,22 +195,26 @@
                                 <input type="hidden" name="pay_type_{{ op.id }}" class="pay-type-hidden" value="{{ op.pay_type }}">
                             </td>
                             <td class="col-order-qty"><input type="number" step="1" min="0" name="order_quantity_{{ op.id }}" value="{{ op.order_quantity }}"></td>
+                            <td class="col-operators">{% if op.operator_names %}{{ op.operator_names|join:", " }}{% else %}<span class="no-operators-label">No operators</span>{% endif %}</td>
                             <td>
                                 <button type="submit" name="action" value="edit_{{ op.id }}" class="save-btn">Save</button>
+                                &nbsp;
+                                <button type="submit" name="action" value="toggle_enabled_{{ op.id }}" class="toggle-btn{% if not op.is_enabled %} is-enable{% endif %}">{% if op.is_enabled %}Disable{% else %}Enable{% endif %}</button>
                                 &nbsp;
                                 <button type="submit" name="action" value="delete_{{ op.id }}" class="delete-btn" data-confirm-name="{{ op.name|escapejs }}">Delete</button>
                             </td>
                         </tr>
                         {% else %}
-                        <tr>
+                        <tr{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled{% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
                             <td></td>
                             <td class="col-op-code">{{ forloop.counter }}</td>
                             <td>{{ op.section|default:"—" }}</td>
-                            <td>{{ op.name }}</td>
+                            <td>{{ op.name }}{% if not op.is_enabled %}<span class="disabled-badge">Disabled</span>{% endif %}</td>
                             <td>{{ op.machine|default:"—" }}</td>
                             <td class="num">{{ op.rate }}</td>
-                            <td>{{ op.get_pay_type_display }}</td>
+                            <td class="col-pay-type">{{ op.get_pay_type_display }}</td>
                             <td class="num">{{ op.order_quantity }}</td>
+                            <td class="col-operators">{% if op.operator_names %}{{ op.operator_names|join:", " }}{% else %}<span class="no-operators-label">No operators</span>{% endif %}</td>
                             <td></td>
                         </tr>
                         {% endif %}

@@ -148,7 +148,15 @@ def piece_rate_view(request):
         if action == "duplicate_template":
             template = get_object_or_404(Style, id=request.POST.get("template_id"), is_template=True)
             new_name = _unique_name(f"{template.name} {calendar.month_abbr[month]} {year}")
-            new_style = Style.objects.create(name=new_name, year=year, month=month, start_date=date_cls(year, month, 1))
+            # Shares the template's image file at first (cheap — same
+            # storage path, nothing physically copied) rather than leaving
+            # it blank; uploading a new one via "rename_style" later saves
+            # under its own new filename, so overriding it here never
+            # touches the template's own image.
+            new_style = Style.objects.create(
+                name=new_name, year=year, month=month, start_date=date_cls(year, month, 1),
+                image=template.image,
+            )
             RateCardOperation.objects.bulk_create([
                 RateCardOperation(
                     style=new_style, op_code=op.op_code, section=op.section, name=op.name,
@@ -209,7 +217,8 @@ def piece_rate_view(request):
                 Style, id=action[len("save_as_template_"):], is_template=False,
             )
             new_name = _unique_name(style.name)
-            new_template = Style.objects.create(name=new_name, is_template=True)
+            # Same image-sharing approach as duplicate_template above.
+            new_template = Style.objects.create(name=new_name, is_template=True, image=style.image)
             RateCardOperation.objects.bulk_create([
                 RateCardOperation(
                     style=new_template, op_code=op.op_code, section=op.section, name=op.name,
@@ -316,6 +325,17 @@ def rate_card_view(request, style_id):
             messages.success(request, "Operation deleted.")
             return redirect("piece_rate_rate_card", style_id=style.id)
 
+        if action.startswith("toggle_enabled_"):
+            op = get_object_or_404(RateCardOperation, id=action[len("toggle_enabled_"):], style=style)
+            op.is_enabled = not op.is_enabled
+            op.save(update_fields=["is_enabled"])
+            log_change(
+                actor, "piecerate", "RateCardOperation", op.id, f"{style.name} — {op.name}",
+                "is_enabled", not op.is_enabled, op.is_enabled,
+            )
+            messages.success(request, f'"{op.name}" {"enabled" if op.is_enabled else "disabled"}.')
+            return redirect("piece_rate_rate_card", style_id=style.id)
+
         if action == "reorder":
             order = [int(v) for v in request.POST.get("order_csv", "").split(",") if v.strip()]
             ops = list(RateCardOperation.objects.filter(style=style, id__in=order))
@@ -393,10 +413,28 @@ def rate_card_view(request, style_id):
         }
         for op in master_operations
     }
+
+    operations = list(style.operations.all())
+    # Who's actually worked each operation (Production page data, not
+    # anything rate-card-specific) — every operator name is attached
+    # straight onto its RateCardOperation instance so the template's
+    # existing {% for op in operations %}/op.xxx loop doesn't need to
+    # change shape, same idea as _build_production_context's op_rows but
+    # simpler (just names, not day-by-day quantities).
+    operator_names_by_op = {}
+    for op_id, emp_name in (
+        PieceRateEntry.objects.filter(rate_card_operation__in=operations)
+        .values_list("rate_card_operation_id", "employee__name")
+        .distinct()
+    ):
+        operator_names_by_op.setdefault(op_id, set()).add(emp_name)
+    for op in operations:
+        op.operator_names = sorted(operator_names_by_op.get(op.id, set()))
+
     return render(request, "piecerate/rate_card.html", {
         "style": style,
         "all_styles": Style.objects.all(),
-        "operations": style.operations.all(),
+        "operations": operations,
         "master_operations": master_operations,
         "master_map": master_map,
         "pay_type_choices": PAY_TYPE_CHOICES,
@@ -591,7 +629,11 @@ def _build_production_context(style):
     range_start = min(style.start_date, month_start) if style.start_date else month_start
     base_days = {range_start + timedelta(n) for n in range((month_end - range_start).days + 1)}
 
-    rc_ops = list(style.operations.all())
+    # Disabled operations (Rate Card page) stay on the rate card as a
+    # record but never show here — this is the one place that filters on
+    # is_enabled; everywhere else (Rate Card itself, Summary reports)
+    # still sees every operation regardless of its enabled state.
+    rc_ops = list(style.operations.filter(is_enabled=True))
 
     # A style "shifted to next month" keeps every day that already has an
     # entry logged against it, even the ones from before the shift — so

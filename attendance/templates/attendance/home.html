@@ -37,30 +37,6 @@
     font-size: 1.1rem;
     color: var(--muted);
   }
-  .landing .actions {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-top: 0.5rem;
-  }
-  .landing .actions a {
-    padding: 0.65rem 1.3rem;
-    border-radius: 999px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    text-decoration: none;
-    background: var(--navy);
-    color: var(--yellow);
-    transition: background .15s ease;
-  }
-  .landing .actions a:hover { background: var(--navy-deep); }
-  .landing .actions a.secondary {
-    background: transparent;
-    color: var(--navy);
-    border: 1px solid var(--navy);
-  }
-  .landing .actions a.secondary:hover { background: rgba(0,47,102,0.08); }
 </style>
 </head>
 <body>
@@ -69,12 +45,6 @@
         <img class="logo" src="{% static 'attendance/mvic_logo.png' %}" alt="Payday logo">
         <h1>Payday</h1>
         <p>Attendance, overtime, and the holiday calendar — in one place.</p>
-        <div class="actions">
-            <a href="{% url 'mark_attendance' %}">Mark Attendance</a>
-            <a href="{% url 'dashboard' %}" class="secondary">Open Device Records</a>
-            <a href="{% url 'upload' %}" class="secondary">Upload Device Records</a>
-            <a href="{% url 'calendar' %}" class="secondary">Holiday Calendar</a>
-        </div>
     </div>
 {% include "attendance/_htmx_scripts.html" %}
 </body>

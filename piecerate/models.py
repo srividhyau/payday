@@ -84,6 +84,12 @@ class RateCardOperation(models.Model):
         help_text="Total pieces planned for this operation this month — the "
                    "target every operator's daily entries for it should sum to.",
     )
+    # Disable instead of delete when an operation shouldn't be worked for
+    # now but its rate/history still matters (e.g. temporarily paused,
+    # or kept as a record) — the Rate Card page still lists it (toggle
+    # back on any time), but the Production page excludes it entirely so
+    # operators can't log against it while disabled.
+    is_enabled = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["op_code"]
