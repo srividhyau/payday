@@ -24,17 +24,24 @@ STATUS_WEEK_OFF = "WO"
 STATUS_HOLIDAY = "H"
 
 
+# Fewest hours worked that still earn a half day — anything less counts
+# as Absent/leave for Work Days, and those hours are paid as OT instead
+# (see _short_day_mask/overtime_view). 3.7h = 3h 42m.
+HALF_DAY_MIN_HOURS = 3.7
+
+
 def work_day_credit(work_hours) -> float:
     """Weights a single day's attendance credit from its work_hours,
-    matching the source workbook's Attendance formula: <=3h counts as
-    Absent (0 credit), <=5.5h as a Half day (0.5 credit), otherwise a
+    under HALF_DAY_MIN_HOURS (3.7h) counts as Absent (0 credit), up to
+    5.5h as a Half day (0.5 credit), otherwise a
     full Present (1 credit). Used instead of counting status == "P" so a
     day marked Present with only a couple of logged hours doesn't count
     as a full work day."""
     if work_hours is None or pd.isna(work_hours):
         return 0.0
     work_hours = float(work_hours)
-    if work_hours <= 3:
+    # Rounded so a device value like 3.6999... (3h 42m) isn't a hair short.
+    if round(work_hours, 2) < HALF_DAY_MIN_HOURS:
         return 0.0
     if work_hours <= 5.5:
         return 0.5
@@ -45,7 +52,7 @@ def recompute_from_punch(time_in: str, time_out: str) -> tuple[float, str]:
     """Recomputes work_hours and a status code (A/HD/P) from a corrected
     in/out punch pair — used when HR manually fixes a missed punch via the
     dashboard's edit popup. Mirrors work_day_credit's own thresholds
-    (<=3h Absent, <=5.5h Half Day, otherwise Present)."""
+    (under HALF_DAY_MIN_HOURS Absent, <=5.5h Half Day, otherwise Present)."""
     t_in, t_out = _parse_time_str(time_in), _parse_time_str(time_out)
     if t_in is None or t_out is None:
         return 0.0, STATUS_ABSENT
@@ -53,7 +60,7 @@ def recompute_from_punch(time_in: str, time_out: str) -> tuple[float, str]:
     if minutes < 0:
         minutes += 24 * 60  # overnight shift
     hours = round(minutes / 60, 2)
-    if hours <= 3:
+    if hours < HALF_DAY_MIN_HOURS:
         status = STATUS_ABSENT
     elif hours <= 5.5:
         status = "HD"
@@ -388,7 +395,7 @@ def month_attendance_view(
     marker used elsewhere for a worked Holiday/Paid Holiday/Comp Off,
     which attendance/views.py substitutes in for individual Staff rows
     on top of this) is credited per day using the same tiered thresholds
-    as Work Days (work_day_credit: <=3h -> 0, <=5.5h -> half day, >5.5h
+    as Work Days (work_day_credit: under 3.7h -> 0, <=5.5h -> half day, >5.5h
     -> full day), applied to ot_hours instead of work_hours, then
     summed — and only for employees whose subcategory is "Staff"
     (everyone else shows blank, this metric doesn't apply to them).
@@ -686,7 +693,7 @@ def is_short_hours(value, full_day_hours=8.5) -> bool:
     background of its own.
 
     Excludes anything work_day_credit already counts as less than a full
-    Present (a Half Day, <=5.5h, or an Absent, <=3h) — those are already
+    Present (a Half Day, <=5.5h, or an Absent, under 3.7h) — those are already
     reflected in Work Days/Personal Leave, so flagging them here too
     would double-count the same shortfall under Short Days/Permission
     Hours as well."""
@@ -816,6 +823,24 @@ def apply_special_days(
         daily.loc[worked, "ot_hours"] = daily.loc[worked, ["ot_hours", "work_hours"]].max(axis=1)
         daily.loc[worked, "special_worked"] = True
     return daily
+
+
+def _short_day_mask(daily: pd.DataFrame) -> pd.Series:
+    """Days someone punched both in and out but worked too little to earn
+    even half a day (work_day_credit 0 — under 3.7h). Work Days already gives
+    these 0, so they count as Personal Leave; overtime_view pays the
+    hours actually worked as OT instead. A Holiday/Paid Holiday/Comp Off
+    worked (special_worked) keeps its own existing OT treatment, and a
+    day hand-marked Present with no hours (see _work_day_credit_series)
+    has no punch pair, so neither is ever a short day."""
+    if daily.empty:
+        return pd.Series(False, index=daily.index)
+    both_punches = ~daily["time_in"].apply(_punch_missing) & ~daily["time_out"].apply(_punch_missing)
+    hours = daily["work_hours"].fillna(0).astype(float)
+    mask = both_punches & (hours > 0) & (hours.apply(work_day_credit) == 0)
+    if "special_worked" in daily.columns:
+        mask = mask & ~daily["special_worked"].astype(bool)
+    return mask
 
 
 def _work_day_credit_series(g: pd.DataFrame) -> pd.Series:
@@ -1033,7 +1058,14 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
 
     Both sides round to the nearest 15 minutes and require at least 20
     minutes to count at all. Only rows already marked Present are
-    considered, matching the source query's own pre-filter.
+    considered, matching the source query's own pre-filter — except a
+    "short day" (see _short_day_mask): both punches present but too few
+    hours to earn even half a day (work_day_credit 0, i.e. under 3.7h). That
+    day already counts as leave in Work Days/Personal Leave, so the
+    hours actually worked are paid instead as OT — the whole span, like
+    a Full-OT day, whatever its status or shift — with no EL credit and
+    no full_day_ot flag, so it stays paid OT for Staff too rather than
+    converting to EL (see attendance/views.py's _ot_payable_table).
 
     Returns a flat DataFrame (one row per employee/date with real OT),
     sorted by date then department then employee — empty if nothing
@@ -1042,10 +1074,12 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     columns = [
         "date", "emp_code", "emp_name", "department", "designation", "shift",
         "effective_shift", "time_in", "time_out", "work_hours", "in_ot_hours",
-        "out_ot_hours", "total_ot_hours", "full_day_ot", "el_day_credit",
+        "out_ot_hours", "total_ot_hours", "full_day_ot", "el_day_credit", "short_day_ot",
     ]
     if daily.empty:
         return pd.DataFrame(columns=columns)
+
+    short_day = _short_day_mask(daily)
 
     # status == Present, OR special_worked (apply_special_days overwrites
     # status to H/PH/CO for every employee on a special calendar day, even
@@ -1057,7 +1091,9 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
         present_mask = (daily["status"] == STATUS_PRESENT) | daily["special_worked"]
     else:
         present_mask = daily["status"] == STATUS_PRESENT
+    present_mask = present_mask | short_day
     present = daily[present_mask].copy()
+    present["_short_day"] = short_day[present_mask]
     is_staff = (
         present["subcategory"] == "Staff" if "subcategory" in present.columns
         else pd.Series(False, index=present.index)
@@ -1067,7 +1103,7 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     # ever excluded here just for sitting on the ordinary "GS" shift the
     # way every other department/subcategory is.
     is_house_keeping = present["department"] == "HOUSE KEEPING"
-    present = present[(present["shift"] != "GS") | is_house_keeping | is_staff]
+    present = present[(present["shift"] != "GS") | is_house_keeping | is_staff | present["_short_day"]]
     if present.empty:
         return pd.DataFrame(columns=columns)
 
@@ -1083,6 +1119,7 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
     present["_effective_shift"] = present["shift"].mask(is_staff, "ME-OT")
     if "special_worked" in present.columns:
         present.loc[is_staff & present["special_worked"], "_effective_shift"] = "Full-OT"
+    present.loc[present["_short_day"], "_effective_shift"] = "Full-OT"
 
     def work_hours_span(row) -> float:
         t_in, t_out = _parse_time_str(row["time_in"]), _parse_time_str(row["time_out"])
@@ -1137,9 +1174,12 @@ def overtime_view(daily: pd.DataFrame) -> pd.DataFrame:
         return row["in_ot_hours"] + row["out_ot_hours"]
 
     present["total_ot_hours"] = present.apply(total_ot, axis=1)
-    present["full_day_ot"] = (present["_effective_shift"] == "Full-OT").astype(int)
+    full_ot_mask = (present["_effective_shift"] == "Full-OT") & ~present["_short_day"]
+    present["full_day_ot"] = full_ot_mask.astype(int)
     present["effective_shift"] = present["_effective_shift"]
-    full_ot_mask = present["_effective_shift"] == "Full-OT"
+    # Leave + full OT (see _short_day_mask) — the grids color these cells
+    # on their own so they're easy to spot.
+    present["short_day_ot"] = present["_short_day"].astype(bool)
     present["el_day_credit"] = 0.0
     present.loc[full_ot_mask & (present["work_hours"] > _EL_FULL_DAY_HOURS), "el_day_credit"] = 1.0
     present.loc[full_ot_mask & (present["work_hours"] <= _EL_FULL_DAY_HOURS), "el_day_credit"] = 0.5

@@ -28,9 +28,9 @@ matching current section, so there's no empty/broken state here.
         {% if not is_salary_viewer and not is_employee_editor and not is_production_head and not is_operator_link_revoker %}
         <div class="accordion-item">
             <h2 class="accordion-header">
-                <button class="accordion-button{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} current{% else %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#navAttendance" aria-expanded="{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %}true{% else %}false{% endif %}" aria-controls="navAttendance">Attendance</button>
+                <button class="accordion-button{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "ot_details" or current == "upload" or current == "calendar" %} current{% else %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#navAttendance" aria-expanded="{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "ot_details" or current == "upload" or current == "calendar" %}true{% else %}false{% endif %}" aria-controls="navAttendance">Attendance</button>
             </h2>
-            <div id="navAttendance" class="accordion-collapse collapse{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "upload" or current == "calendar" %} show{% endif %}" data-bs-parent="#navAccordion">
+            <div id="navAttendance" class="accordion-collapse collapse{% if current == "mark_attendance" or current == "mark_attendance_month" or current == "dashboard" or current == "ot_details" or current == "upload" or current == "calendar" %} show{% endif %}" data-bs-parent="#navAccordion">
                 <div class="accordion-body">
                     <a href="{% url 'mark_attendance' %}"{% if current == "mark_attendance" %} class="current"{% endif %}>Mark Attendance</a>
                     <a href="{% url 'mark_attendance_month' %}"{% if current == "mark_attendance_month" %} class="current"{% endif %}>Monthly Attendance</a>
@@ -45,13 +45,12 @@ matching current section, so there's no empty/broken state here.
         {% if is_salary_viewer or not is_employee_editor %}
         <div class="accordion-item">
             <h2 class="accordion-header">
-                <button class="accordion-button{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} current{% else %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#navPayroll" aria-expanded="{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %}true{% else %}false{% endif %}" aria-controls="navPayroll">Payroll</button>
+                <button class="accordion-button{% if current == "salary" or current == "leave_ledger" %} current{% else %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#navPayroll" aria-expanded="{% if current == "salary" or current == "leave_ledger" %}true{% else %}false{% endif %}" aria-controls="navPayroll">Payroll</button>
             </h2>
-            <div id="navPayroll" class="accordion-collapse collapse{% if current == "salary" or current == "ot_details" or current == "leave_ledger" %} show{% endif %}" data-bs-parent="#navAccordion">
+            <div id="navPayroll" class="accordion-collapse collapse{% if current == "salary" or current == "leave_ledger" %} show{% endif %}" data-bs-parent="#navAccordion">
                 <div class="accordion-body">
                     <a href="{% url 'salary' %}"{% if current == "salary" %} class="current"{% endif %}>Salary</a>
                     {% if not is_salary_viewer and not is_employee_editor %}
-                    <a href="{% url 'ot_details' %}"{% if current == "ot_details" %} class="current"{% endif %}>OT Details</a>
                     <a href="{% url 'leave_ledger' %}"{% if current == "leave_ledger" %} class="current"{% endif %}>EL &amp; Comp-Off</a>
                     {% endif %}
                 </div>

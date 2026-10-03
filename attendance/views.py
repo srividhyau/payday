@@ -18,6 +18,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, User
+from django.core.cache import cache
 from django.core.mail import EmailMessage
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
@@ -442,6 +443,12 @@ def _build_month_grid(
         {(r.emp_code, r.date): r.total_ot_hours for r in shift_ot_table.itertuples(index=False)}
         if not shift_ot_table.empty else {}
     )
+    # Days worked too short for a half day — counted as leave, hours paid
+    # as OT (see metrics._short_day_mask) — colored separately on both grids.
+    short_ot_keys = (
+        {(r.emp_code, r.date) for r in shift_ot_table.itertuples(index=False) if r.short_day_ot}
+        if not shift_ot_table.empty else set()
+    )
     # Manual OT correction (OtAdjustment, entered on the OT Details page)
     # — deliberately NOT folded into shift_ot_table/emp_ot_totals: "OT
     # Hours" (and OT Amount/the Monthly Summary, both derived from it)
@@ -652,6 +659,7 @@ def _build_month_grid(
                 "issue": not is_dept and key in issues,
                 "special": emp_status if is_special_cell else "",
                 "leave": not is_dept and emp_status in ("A", "PL"),
+                "short_ot": not is_dept and key in short_ot_keys,
                 "ot": not is_dept and ot_map.get(key, 0) > 0,
                 "emp_code": "" if is_dept else row["Emp Code"],
                 "date_iso": "" if is_dept else pd.Timestamp(date).strftime("%Y-%m-%d"),
@@ -2531,6 +2539,22 @@ def _row_missing_bank_details(row: dict) -> bool:
     return not (emp.account_name and emp.bank_name and emp.account_no and emp.ifsc_code and emp.branch)
 
 
+# (Summary row label, context rows key, context totals key, pay basis) —
+# pay basis names what drives a continuing employee's NET in that group,
+# for the Summary tab's month-over-month "what changed" column (see
+# _salary_summary_changes): "days" = salary prorated by days worked,
+# "manual" = an amount HR types in each month, "fixed" = a set amount.
+_SALARY_SUMMARY_GROUPS = [
+    ("Company Workers", "company_rows", "company_totals", "days"),
+    ("Helpers", "helper_rows", "helper_totals", "days"),
+    ("Staff", "staff_rows", "staff_totals", "days"),
+    ("Contractors", "contractor_rows", "contractor_totals", "days"),
+    ("Operators", "operator_rows", "operator_totals", "manual"),
+    ("Ironing & Bartrack", "ironing_bartrack_rows", "ironing_bartrack_totals", "manual"),
+    ("Fixed Payments", "fixed_payment_rows", "fixed_payment_totals", "fixed"),
+]
+
+
 def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
     """Computes one month's Salary page context — five tabs (Company
     Workers/Helpers/Staff/Contractors/Operators), each a bulk-editable
@@ -2774,6 +2798,12 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
                 # Paid Holiday isn't folded in here even though it does
                 # feed Earned Days/NET (shown as its own column instead).
                 "paid_days": work_days_only,
+                # Every day paid for before Adjust Days — Work Days + Paid
+                # Holiday (+ EL covering Personal Leave, Staff only), so
+                # Earned Days = total_paid_days + adjust_days. Shown as
+                # Staff's "Paid Days" column (their Work Days column is
+                # paid_days above).
+                "total_paid_days": round(paid_days_for_calc, 2),
                 "adjust_days": adjust_days,
                 "earned_days": round(paid_days_for_calc + adjust_days, 2),
                 "deductions": deductions,
@@ -2813,6 +2843,7 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         totals.<field> the same way it references row.<field>."""
         totals = {
             "paid_days": sum((r["paid_days"] for r in rows), Decimal(0)),
+            "total_paid_days": sum((r["total_paid_days"] for r in rows), Decimal(0)),
             "adjust_days": sum((r["adjust_days"] for r in rows), Decimal(0)),
             "earned_days": sum((r["earned_days"] for r in rows), Decimal(0)),
             "deductions": sum((r["deductions"] for r in rows), Decimal(0)),
@@ -2989,10 +3020,28 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         for snap in snapshots:
             row = _restore_decimals(snap.row_data)
             row["employee"] = _FrozenEmployee(snap.employee_data)
+            # Snapshots frozen before total_paid_days existed — it's
+            # Earned Days minus Adjust Days by definition (see build_rows).
+            row.setdefault("total_paid_days", row["earned_days"] - row["adjust_days"])
             frozen_rows.append(row)
         frozen_rows.sort(key=lambda r: r["employee"].name)
         context[f"{kind}_rows"] = frozen_rows
         context[f"{kind}_totals"] = sum_rows(frozen_rows, kind)
+
+    # Each operator's piece-rate earnings this month (pieces x Rate Card
+    # rate, every style — the same figure Piece Rate > Operator Summary
+    # shows), as a reference column on the Operators tab and the source
+    # for its "Load piece-rate amounts" button. Never written into
+    # manual_amount here — HR loads it into the form and saves it
+    # themselves, so a month already entered by hand is never overwritten.
+    from piecerate.views import _operator_month_totals
+    piece_rate_totals = _operator_month_totals(year, month)
+    for row in context["operator_rows"]:
+        total = piece_rate_totals.get(row["employee"].id)
+        row["piece_rate_amount"] = total["total"] if total else None
+    context["operator_piece_rate_total"] = sum(
+        (r["piece_rate_amount"] for r in context["operator_rows"] if r["piece_rate_amount"] is not None), Decimal(0),
+    )
 
     # Summary tab — one row per salary group: headcount and NET total
     # (the one figure every group's rows carry in common — see
@@ -3001,15 +3050,7 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
     # left out of this cross-group rollup), plus a grand total row
     # summing every group together.
     summary_rows = []
-    for label, rows_key, totals_key in [
-        ("Company Workers", "company_rows", "company_totals"),
-        ("Helpers", "helper_rows", "helper_totals"),
-        ("Staff", "staff_rows", "staff_totals"),
-        ("Contractors", "contractor_rows", "contractor_totals"),
-        ("Operators", "operator_rows", "operator_totals"),
-        ("Ironing & Bartrack", "ironing_bartrack_rows", "ironing_bartrack_totals"),
-        ("Fixed Payments", "fixed_payment_rows", "fixed_payment_totals"),
-    ]:
+    for label, rows_key, totals_key, _pay_basis in _SALARY_SUMMARY_GROUPS:
         totals = context[totals_key]
         summary_rows.append({
             "label": label,
@@ -3034,6 +3075,140 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         if _row_missing_bank_details(r)
     ]
     return context
+
+
+def _salary_summary_figures(context: dict) -> dict:
+    """Per-group, per-employee figures the Summary tab's month comparison
+    needs — just numbers, so one month's worth is small enough to cache
+    (see salary_view) instead of recomputing the whole _salary_context."""
+    groups = {}
+    for label, rows_key, _totals_key, _pay_basis in _SALARY_SUMMARY_GROUPS:
+        people = {}
+        for r in context[rows_key]:
+            calc = r["calc"]
+            people[r["employee"].id] = {
+                "name": r["employee"].name,
+                "net": calc.get("net", Decimal(0)),
+                "additions": r["additions"] or Decimal(0),
+                "deductions": r["deductions"] or Decimal(0),
+                "already_paid": calc.get("already_paid", Decimal(0)),
+                "tax": calc.get("profession_tax", Decimal(0)) + calc.get("tds", Decimal(0)),
+                "earned_days": Decimal(r["earned_days"] or 0),
+                "basic_salary": r["employee"].basic_salary or Decimal(0),
+            }
+        groups[label] = people
+    return groups
+
+
+def _signed_money(amount: Decimal, places: int = 2) -> str:
+    sign = "+" if amount > 0 else "−" if amount < 0 else ""
+    return f"{sign}₹{abs(amount):,.{places}f}"
+
+
+def _salary_summary_changes(prev: dict, cur: dict, pay_basis: str) -> list[dict]:
+    """Splits one group's NET change between two months into its causes:
+    people who joined or left the group, then — for everyone paid in both
+    months — changes in Additions, Deductions, company pay already given
+    (Operators), and PT/TDS. Whatever is left is the pay itself (days
+    worked / salary rate, a different manual amount, or a different fixed
+    amount, depending on pay_basis), so the parts always add up exactly
+    to the NET difference. Returns [{"text", "display"}], largest first,
+    causes that round to ₹0 dropped."""
+    changes = []
+    joined = [cur[i] for i in cur.keys() - prev.keys()]
+    left = [prev[i] for i in prev.keys() - cur.keys()]
+    if joined:
+        names = ", ".join(sorted(p["name"] for p in joined))
+        changes.append({"text": f"{len(joined)} new: {names}", "amount": sum(p["net"] for p in joined)})
+    if left:
+        names = ", ".join(sorted(p["name"] for p in left))
+        changes.append({"text": f"{len(left)} not paid this month: {names}", "amount": -sum(p["net"] for p in left)})
+
+    both = cur.keys() & prev.keys()
+
+    def delta(field):
+        return sum((cur[i][field] - prev[i][field] for i in both), Decimal(0))
+
+    d_additions = delta("additions")
+    d_deductions = -delta("deductions")
+    d_already_paid = -delta("already_paid")
+    d_tax = -delta("tax")
+    d_pay = delta("net") - d_additions - d_deductions - d_already_paid - d_tax
+    changes += [
+        {"text": "Additions", "amount": d_additions},
+        {"text": "Deductions", "amount": d_deductions},
+        {"text": "Company pay already given", "amount": d_already_paid},
+        {"text": "PT / TDS", "amount": d_tax},
+    ]
+    if pay_basis == "days":
+        d_days = delta("earned_days")
+        revised = sum(1 for i in both if cur[i]["basic_salary"] != prev[i]["basic_salary"])
+        detail = [f"{format(d_days.normalize(), '+f')} earned days"] if d_days else []
+        if revised:
+            detail.append(f"salary revised for {revised}")
+        text = "Days worked / salary" + (f" ({', '.join(detail)})" if detail else "")
+    elif pay_basis == "manual":
+        text = "Amount entered"
+    else:
+        text = "Fixed amount"
+    changes.append({"text": text, "amount": d_pay})
+
+    changes = [c for c in changes if round(c["amount"]) != 0]
+    changes.sort(key=lambda c: -abs(c["amount"]))
+    return [{"text": c["text"], "display": _signed_money(c["amount"], 0)} for c in changes]
+
+
+def _salary_summary_cache_key(year: int, month: int) -> str:
+    return f"salary_summary_figures:{year}-{month:02d}"
+
+
+@login_required
+def salary_summary_compare_view(request):
+    """JSON for the Salary Summary tab's last-month popup and "Change vs
+    last month" column — fetched by the page after it loads, since
+    computing the previous month's payroll takes several seconds and
+    would otherwise slow every Salary page load. This month's figures
+    come from the cache salary_view just filled, falling back to a fresh
+    computation if it has expired or another worker served the page."""
+    try:
+        current = date_cls.fromisoformat(request.GET.get("date", "")).replace(day=1)
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "Invalid date."}, status=400)
+    prev_month = (current - timedelta(days=1)).replace(day=1)
+
+    cur_figures = cache.get(_salary_summary_cache_key(current.year, current.month))
+    if cur_figures is None:
+        cur_figures = _salary_summary_figures(_salary_context(current))
+    prev_figures = _salary_summary_figures(_salary_context(prev_month))
+
+    def group_net(people):
+        return sum((p["net"] for p in people.values()), Decimal(0))
+
+    groups = []
+    for label, _rows_key, _totals_key, pay_basis in _SALARY_SUMMARY_GROUPS:
+        prev, cur = prev_figures[label], cur_figures[label]
+        groups.append({
+            "label": label,
+            "prev_count": len(prev),
+            "prev_net": f"₹{group_net(prev):,.2f}",
+            "diff_display": _signed_money(group_net(cur) - group_net(prev)),
+            "changes": _salary_summary_changes(prev, cur, pay_basis),
+        })
+    prev_total = sum((group_net(g) for g in prev_figures.values()), Decimal(0))
+    cur_total = sum((group_net(g) for g in cur_figures.values()), Decimal(0))
+    return JsonResponse({
+        "ok": True,
+        "prev_label": f"{py_calendar.month_abbr[prev_month.month]} {prev_month.year}",
+        "prev_locked": MonthLock.objects.filter(
+            year=prev_month.year, month=prev_month.month, view__startswith="salary_",
+        ).exists(),
+        "groups": groups,
+        "total": {
+            "prev_count": sum(len(g) for g in prev_figures.values()),
+            "prev_net": f"₹{prev_total:,.2f}",
+            "diff_display": _signed_money(cur_total - prev_total),
+        },
+    })
 
 
 @login_required
@@ -3118,6 +3293,12 @@ def salary_view(request):
         return redirect(f"{request.path}?date={current.isoformat()}&tab={tab}")
 
     context = _salary_context(current)
+    # Saves the comparison endpoint recomputing this month (see
+    # salary_summary_compare_view) — refreshed on every page load, so it
+    # always matches the figures this page is showing.
+    cache.set(
+        _salary_summary_cache_key(current.year, current.month), _salary_summary_figures(context), 15 * 60,
+    )
     # Which tab a page load should open on — a plain query param (not the
     # old #tab= hash fragment) so a specific tab is a real, shareable,
     # bookmarkable URL rather than something only client-side JS could
@@ -3213,11 +3394,11 @@ def _salary_prorated_sheet_rows(rows, totals, with_tds: bool, basic_salary_label
     TDS? column. basic_salary_label lets Contractors' sheet say "Day
     Rate" instead, since Employee.basic_salary means something different
     there (see build_rows/compute_daily_rate_pay in _salary_context)."""
-    headers = ["Code", "Employee", basic_salary_label, "Paid Days", "Paid Holiday"]
+    headers = ["Code", "Employee", basic_salary_label, "Work Days" if with_tds else "Paid Days", "Paid Holiday"]
     col_groups = [None, None, "fixed", "attendance", "attendance"]
     if with_tds:
-        headers += ["EL", "Total EL", "EL Balance", "EL Used"]
-        col_groups += ["el", "el", "el", "el"]
+        headers += ["EL", "Total EL", "EL Balance", "EL Used", "Paid Days"]
+        col_groups += ["el", "el", "el", "el", "attendance"]
     headers += ["Adjust Days", "Earned Days", "Personal Leave"]
     col_groups += ["attendance", "attendance", "attendance"]
     headers += ["Earned Salary", "Deductions", "Additions", "Hold"]
@@ -3237,6 +3418,7 @@ def _salary_prorated_sheet_rows(rows, totals, with_tds: bool, basic_salary_label
         if with_tds:
             row += [
                 float(r["el_days"]), float(r["total_el"]), float(r["el_balance"]), float(r["el_used"]),
+                float(r["total_paid_days"]),
             ]
         row += [float(r["adjust_days"]), float(r["earned_days"]), float(r["personal_leave"])]
         row += [
@@ -3258,6 +3440,7 @@ def _salary_prorated_sheet_rows(rows, totals, with_tds: bool, basic_salary_label
     if with_tds:
         total_row += [
             float(totals["el_days"]), float(totals["total_el"]), float(totals["el_balance"]), float(totals["el_used"]),
+            float(totals["total_paid_days"]),
         ]
     total_row += [float(totals["adjust_days"]), float(totals["earned_days"]), float(totals["personal_leave"])]
     total_row += [float(c.get("earned_salary", 0)), float(totals["deductions"]), float(totals["additions"]), ""]

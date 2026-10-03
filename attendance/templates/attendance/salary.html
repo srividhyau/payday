@@ -184,6 +184,23 @@
             white-space: nowrap; padding: 0.35rem 0.6rem; border-radius: 6px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
         }
+        /* Summary tab's month comparison — filled in by the script at the
+           bottom of the page once /salary/summary-compare/ answers. */
+        /* Operators tab: piece-rate reference column + "Load" button. */
+        .piece-rate-load { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0 0 0.6rem; }
+        .piece-rate-load-note { font-size: 0.8rem; color: var(--text-muted); }
+        table.simple td.piece-rate-differs { color: #b3261e; font-weight: 700; }
+        .prev-month-btn {
+            border: 0; background: transparent; color: var(--text-muted); padding: 0 0.25rem;
+            font-size: 0.85rem; line-height: 1; cursor: pointer; vertical-align: middle;
+        }
+        .prev-month-btn:hover, .prev-month-btn:focus-visible { color: var(--navy); }
+        td.change-cell { min-width: 16rem; max-width: 26rem; font-size: 0.8rem; }
+        td.change-cell .change-total { font-weight: 700; font-size: 0.85rem; }
+        td.change-cell .change-total.up { color: #1e7e34; }
+        td.change-cell .change-total.down { color: #b3261e; }
+        td.change-cell ul { margin: 0.2rem 0 0; padding-left: 1rem; color: var(--text-muted); }
+        td.change-cell .loading { color: var(--text-muted); }
         table.simple td.net, table.simple th.net { text-align: right; font-weight: 700; color: var(--navy); }
         /* Sub-header row (PF/ESI/PF+ESI under the "Emp"/"Employer" group
            label) — smaller and lighter than the main header row above it. */
@@ -279,7 +296,9 @@
            the markup) — already navy/yellow via bootstrap-theme.css,
            including its own disabled state, so nothing custom is
            needed here beyond the bar's own layout. */
-        .save-bar { display: flex; justify-content: flex-end; }
+        /* Top of each tab's table, so Save is reachable without scrolling past every row. */
+        .save-bar { display: flex; justify-content: flex-end; margin: 0 0 0.6rem; }
+        .save-bar-inline { margin-left: auto; }
 
         /* Per-tab lock (PIN-gated, same mechanism as the Attendance
            dashboard/OT page — see toggle_month_lock_view). The lock icon
@@ -559,22 +578,25 @@
                                 <th>Salary Group</th>
                                 <th class="num">No. of People</th>
                                 <th class="net grp-highlight">NET</th>
+                                <th id="changeHeader">Change vs last month</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for row in summary_rows %}
                             <tr>
-                                <td>{{ row.label }}</td>
+                                <td>{{ row.label }} <button type="button" class="prev-month-btn" data-group="{{ row.label }}" aria-label="Last month for {{ row.label }}" hidden>&#9432;</button></td>
                                 <td class="num">{{ row.count }}</td>
                                 <td class="net grp-highlight">{{ row.net }}</td>
+                                <td class="change-cell" data-group="{{ row.label }}"><span class="loading">Loading…</span></td>
                             </tr>
                             {% endfor %}
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td>Total</td>
+                                <td>Total <button type="button" class="prev-month-btn" data-group="__total__" aria-label="Last month total" hidden>&#9432;</button></td>
                                 <td class="num">{{ summary_grand_total.count }}</td>
                                 <td class="net">{{ summary_grand_total.net }}</td>
+                                <td class="change-cell" data-group="__total__"><span class="loading">Loading…</span></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -589,6 +611,7 @@
                     <input type="hidden" name="tab" value="company">
                     {% if lock_status.company %}<p class="alert lock-banner" role="alert">🔒 Company Workers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.company or is_salary_viewer %}disabled{% endif %}>
+                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Company Workers</button></div>
                     <div class="table-wrap fit-content">
                         <table class="table simple fit-content" id="companyTable">
                             <thead>
@@ -703,7 +726,6 @@
                         </table>
                     </div>
                     <p class="caption" style="margin:0 0 0.75rem;">PF/ESI applicability is set per employee in the Employee admin and already reflected in the figures above (a disabled employee shows 0). PF Employer/ESI Employer are the company's own cost, not deducted from NET.</p>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Company Workers</button></div>
                     </fieldset>
                 </form>
                 {% else %}
@@ -719,6 +741,7 @@
                     <input type="hidden" name="tab" value="helpers">
                     {% if lock_status.helpers %}<p class="alert lock-banner" role="alert">🔒 Helpers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.helpers or is_salary_viewer %}disabled{% endif %}>
+                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Helpers</button></div>
                     <div class="table-wrap fit-content">
                         <table class="table simple fit-content">
                             <thead>
@@ -779,7 +802,6 @@
                             </tfoot>
                         </table>
                     </div>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Helpers</button></div>
                     </fieldset>
                 </form>
                 {% else %}
@@ -795,14 +817,16 @@
                     <input type="hidden" name="tab" value="staff">
                     {% if lock_status.staff %}<p class="alert lock-banner" role="alert">🔒 Staff is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.staff or is_salary_viewer %}disabled{% endif %}>
+                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Staff</button></div>
                     <div class="table-wrap fit-content">
                         <table class="table simple fit-content" id="staffTable">
                             <thead>
                                 <tr>
                                     <th rowspan="2">Code</th><th rowspan="2">Employee</th><th rowspan="2" class="num grp-fixed">Basic Salary</th>
-                                    <th rowspan="2" class="num grp-attendance">Paid Days</th>
+                                    <th rowspan="2" class="num grp-attendance">Work Days</th>
                                     <th rowspan="2" class="num grp-attendance">Paid Holiday</th>
                                     <th colspan="1" data-expanded-colspan="4" class="num grp-el group-toggle" data-group="el">EL <span class="group-arrow">&#9656;</span></th>
+                                    <th rowspan="2" class="num grp-attendance sum-cell" title="Work Days + Paid Holiday + EL Used">Paid Days</th>
                                     <th rowspan="2" class="num grp-attendance">Adjust Days</th><th rowspan="2" class="num grp-attendance sum-cell">Earned Days</th>
                                     <th rowspan="2" class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th rowspan="2" class="num sum-cell">Earned Salary</th>
@@ -822,9 +846,9 @@
                             <tbody>
                                 {% regroup staff_rows by employee.department.name as staff_dept_list %}
                                 {% for dept in staff_dept_list %}
-                                <tr class="dept-row"><td colspan="21">{{ dept.grouper|default:"—" }}</td></tr>
+                                <tr class="dept-row"><td colspan="22">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="staff" data-basic-salary="{{ row.employee.basic_salary }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}" data-tds-enabled="{% if row.employee.tds_enabled %}1{% else %}0{% endif %}">
+                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="staff" data-basic-salary="{{ row.employee.basic_salary }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}" data-total-paid-days="{{ row.total_paid_days }}" data-tds-enabled="{% if row.employee.tds_enabled %}1{% else %}0{% endif %}">
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
@@ -835,6 +859,7 @@
                                     <td class="num grp-el value-cell detail-el">{{ row.total_el }}</td>
                                     <td class="num grp-el value-cell detail-el">{{ row.el_balance }}</td>
                                     <td class="num grp-el sum-cell">{{ row.el_used }}</td>
+                                    <td class="num grp-attendance sum-cell">{{ row.total_paid_days }}</td>
                                     <td class="num grp-attendance"><input class="adj-input form-control form-control-sm" type="number" step="0.5" name="adjust_days_{{ row.employee.id }}" value="{{ row.adjust_days }}"></td>
                                     <td class="num grp-attendance sum-cell" data-field="earned_days">{{ row.earned_days }}</td>
                                     <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
@@ -861,6 +886,7 @@
                                     <td class="num detail-el">{{ staff_totals.total_el }}</td>
                                     <td class="num detail-el">{{ staff_totals.el_balance }}</td>
                                     <td class="num">{{ staff_totals.el_used }}</td>
+                                    <td class="num">{{ staff_totals.total_paid_days }}</td>
                                     <td class="num" data-total="adjust_days">{{ staff_totals.adjust_days }}</td>
                                     <td class="num" data-total="earned_days">{{ staff_totals.earned_days }}</td>
                                     <td class="num personal-leave-cell">{{ staff_totals.personal_leave }}</td>
@@ -877,7 +903,6 @@
                             </tfoot>
                         </table>
                     </div>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Staff</button></div>
                     </fieldset>
                 </form>
                 {% else %}
@@ -893,6 +918,7 @@
                     <input type="hidden" name="tab" value="contractors">
                     {% if lock_status.contractors %}<p class="alert lock-banner" role="alert">🔒 Contractors is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.contractors or is_salary_viewer %}disabled{% endif %}>
+                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Contractors</button></div>
                     <div class="table-wrap fit-content">
                         <table class="table simple fit-content">
                             <thead>
@@ -953,7 +979,6 @@
                             </tfoot>
                         </table>
                     </div>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Contractors</button></div>
                     </fieldset>
                 </form>
                 {% else %}
@@ -969,6 +994,14 @@
                     <input type="hidden" name="tab" value="operators">
                     {% if lock_status.operators %}<p class="alert lock-banner" role="alert">🔒 Operators is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.operators or is_salary_viewer %}disabled{% endif %}>
+                    {% if operator_piece_rate_total %}
+                    <div class="piece-rate-load">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="loadPieceRateBtn">Load piece-rate amounts</button>
+                        <span class="piece-rate-load-note" id="loadPieceRateNote">Copies each operator's Piece Rate total into Manual Amount — review, then Save Operators.</span>
+                        <span class="save-bar-inline"><button type="submit" class="btn btn-primary">Save Operators</button></span>
+                    </div>
+                    {% endif %}{% if not operator_piece_rate_total %}
+                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Operators</button></div>{% endif %}
                     <div class="table-wrap fit-content">
                         <table class="table simple fit-content">
                             <thead>
@@ -977,6 +1010,7 @@
                                     <th class="num grp-attendance sum-cell">Earned Days</th>
                                     <th class="num grp-attendance">Paid Holiday</th>
                                     <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
+                                    <th class="num grp-fixed" title="Pieces x Rate Card rate this month — see Piece Rate > Operator Summary">Piece Rate</th>
                                     <th class="num grp-fixed">Manual Amount</th>
                                     <th class="num grp-deduction-emp">Company Pay</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
@@ -993,7 +1027,8 @@
                                     <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
                                     <td class="num grp-attendance">{{ row.paid_holiday }}</td>
                                     <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
-                                    <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
+                                    <td class="num grp-fixed{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} piece-rate-differs{% endif %}"{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} title="Differs from Manual Amount"{% endif %}>{{ row.piece_rate_amount|default_if_none:"—" }}</td>
+                                    <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}" data-piece-rate="{{ row.piece_rate_amount|default_if_none:'' }}"></td>
                                     <td class="num grp-deduction-emp" data-field="already_paid">{% if row.calc.already_paid %}{{ row.calc.already_paid }}{% endif %}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
@@ -1010,6 +1045,7 @@
                                     <td class="num">{{ operator_totals.earned_days }}</td>
                                     <td class="num">{{ operator_totals.paid_holiday }}</td>
                                     <td class="num personal-leave-cell">{{ operator_totals.personal_leave }}</td>
+                                    <td class="num">{{ operator_piece_rate_total }}</td>
                                     <td class="num" data-total="manual_amount">{{ operator_totals.manual_amount }}</td>
                                     <td class="num" data-total="already_paid">{{ operator_totals.calc.already_paid }}</td>
                                     <td class="num" data-total="deductions">{{ operator_totals.deductions }}</td>
@@ -1021,7 +1057,6 @@
                             </tfoot>
                         </table>
                     </div>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Operators</button></div>
                     </fieldset>
                 </form>
                 {% else %}
@@ -1037,6 +1072,7 @@
                     <input type="hidden" name="tab" value="ironing_bartrack">
                     {% if lock_status.ironing_bartrack %}<p class="alert lock-banner" role="alert">🔒 Ironing & Bartrack is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.ironing_bartrack or is_salary_viewer %}disabled{% endif %}>
+                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Ironing &amp; Bartrack</button></div>
                     <div class="table-wrap fit-content">
                         <table class="table simple fit-content">
                             <thead>
@@ -1092,7 +1128,6 @@
                             </tfoot>
                         </table>
                     </div>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Ironing &amp; Bartrack</button></div>
                     </fieldset>
                 </form>
                 {% else %}
@@ -1108,6 +1143,7 @@
                     <input type="hidden" name="tab" value="fixed_payments">
                     {% if lock_status.fixed_payments %}<p class="alert lock-banner" role="alert">🔒 Fixed Payments is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.fixed_payments or is_salary_viewer %}disabled{% endif %}>
+                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Fixed Payments</button></div>
                     <div class="table-wrap fit-content">
                         <table class="table simple fit-content">
                             <thead>
@@ -1161,7 +1197,6 @@
                             </tfoot>
                         </table>
                     </div>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Fixed Payments</button></div>
                     </fieldset>
                 </form>
                 {% else %}
@@ -1272,7 +1307,11 @@
                     };
                 } else if (kind === 'helper' || kind === 'staff') {
                     var basicSalary = num(tr.dataset.basicSalary);
-                    var staticDays2 = num(tr.dataset.paidDays) + num(tr.dataset.paidHoliday);
+                    // Staff rows carry the full paid-day figure (incl. EL
+                    // covering Personal Leave); Helpers have no EL.
+                    var staticDays2 = tr.dataset.totalPaidDays != null
+                        ? num(tr.dataset.totalPaidDays)
+                        : num(tr.dataset.paidDays) + num(tr.dataset.paidHoliday);
                     var earnedDays2 = staticDays2 + adjustDays;
                     var ratio2 = WORKING_DAYS ? earnedDays2 / WORKING_DAYS : 0;
                     var earnedSalary = basicSalary * ratio2;
@@ -1764,5 +1803,105 @@
         })();
     </script>
 {% include "attendance/_htmx_scripts.html" %}
+    <script>
+        // Operators tab: copy each row's Piece Rate total into its Manual
+        // Amount field. Only fills the form — nothing is stored until Save
+        // Operators — and fires the same "input" event typing would, so
+        // NET and the totals row recalculate exactly as for a hand edit.
+        (function () {
+            var btn = document.getElementById('loadPieceRateBtn');
+            if (!btn) return;
+            var note = document.getElementById('loadPieceRateNote');
+            btn.addEventListener('click', function () {
+                var inputs = Array.prototype.filter.call(
+                    document.querySelectorAll('input[data-piece-rate]'),
+                    function (i) { return i.dataset.pieceRate !== ''; }
+                );
+                var differing = inputs.filter(function (i) {
+                    return i.value.trim() !== '' && Number(i.value) !== Number(i.dataset.pieceRate);
+                });
+                var overwrite = true;
+                if (differing.length) {
+                    overwrite = window.confirm(
+                        differing.length + ' operator(s) already have a different Manual Amount.
+
+' +
+                        'OK = replace those with the piece-rate amount too.
+' +
+                        'Cancel = only fill the empty ones.'
+                    );
+                }
+                var filled = 0;
+                inputs.forEach(function (i) {
+                    if (i.value.trim() !== '' && !overwrite) return;
+                    if (Number(i.value) === Number(i.dataset.pieceRate) && i.value.trim() !== '') return;
+                    i.value = i.dataset.pieceRate;
+                    i.dispatchEvent(new Event('input', { bubbles: true }));
+                    filled++;
+                });
+                note.textContent = filled
+                    ? 'Loaded ' + filled + ' amount(s) — not saved yet. Review, then click Save Operators.'
+                    : 'Nothing to load — Manual Amounts already match.';
+            });
+        })();
+    </script>
+    <script>
+        // Summary tab: last month's headcount/NET (popup on each row's ⓘ)
+        // and what made this month's NET differ — fetched after load since
+        // working out last month's payroll takes a few seconds server-side.
+        (function () {
+            var cells = document.querySelectorAll('td.change-cell');
+            if (!cells.length) return;
+            function el(tag, cls, text) {
+                var e = document.createElement(tag);
+                if (cls) e.className = cls;
+                if (text != null) e.textContent = text;
+                return e;
+            }
+            function fail() {
+                cells.forEach(function (c) { c.replaceChildren(el('span', 'loading', 'Couldn’t load last month.')); });
+            }
+            fetch('{% url "salary_summary_compare" %}?date={{ current|date:"Y-m-d" }}', {credentials: 'same-origin'})
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+                .then(function (data) {
+                    if (!data.ok) return fail();
+                    document.getElementById('changeHeader').textContent = 'Change vs ' + data.prev_label;
+                    var byGroup = {};
+                    data.groups.forEach(function (g) { byGroup[g.label] = g; });
+                    byGroup.__total__ = data.total;
+
+                    cells.forEach(function (cell) {
+                        var g = byGroup[cell.dataset.group];
+                        if (!g) return fail();
+                        var cls = g.diff_display.charAt(0) === '+' ? ' up' : g.diff_display.charAt(0) === '−' ? ' down' : '';
+                        var parts = [el('div', 'change-total' + cls, g.diff_display || '₹0.00')];
+                        if (g.changes && g.changes.length) {
+                            var ul = el('ul');
+                            g.changes.forEach(function (c) { ul.appendChild(el('li', null, c.display + ' — ' + c.text)); });
+                            parts.push(ul);
+                        } else if (g.changes) {
+                            parts.push(el('div', 'loading', 'No change'));
+                        }
+                        cell.replaceChildren.apply(cell, parts);
+                    });
+
+                    var note = data.prev_locked ? 'Final (locked) figures.' : 'Not locked — recalculated with current data.';
+                    document.querySelectorAll('.prev-month-btn').forEach(function (btn) {
+                        var g = byGroup[btn.dataset.group];
+                        if (!g) return;
+                        var body = el('div');
+                        body.appendChild(el('div', null, 'People paid: ' + g.prev_count));
+                        body.appendChild(el('div', null, 'Amount paid (NET): ' + g.prev_net));
+                        body.appendChild(el('div', 'loading', note));
+                        new bootstrap.Popover(btn, {
+                            title: data.prev_label, content: body, html: true,
+                            trigger: 'hover focus', placement: 'right',
+                        });
+                        btn.hidden = false;
+                    });
+                })
+                .catch(fail);
+        })();
+    </script>
 </body>
 </html>
