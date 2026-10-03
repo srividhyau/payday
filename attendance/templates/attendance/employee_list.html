@@ -106,6 +106,7 @@
                             <th><a class="sort-link{% if sort == "pf_enabled" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=pf_enabled&dir={% if sort == "pf_enabled" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">PF{% if sort == "pf_enabled" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
                             <th><a class="sort-link{% if sort == "esi_enabled" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=esi_enabled&dir={% if sort == "esi_enabled" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">ESI{% if sort == "esi_enabled" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
                             <th><a class="sort-link{% if sort == "tds_enabled" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=tds_enabled&dir={% if sort == "tds_enabled" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">TDS{% if sort == "tds_enabled" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
+                            <th><a class="sort-link{% if sort == "pt_enabled" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=pt_enabled&dir={% if sort == "pt_enabled" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">PT{% if sort == "pt_enabled" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
                             <th><a class="sort-link{% if sort == "account_name" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=account_name&dir={% if sort == "account_name" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Account Name{% if sort == "account_name" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
                             <th><a class="sort-link{% if sort == "bank_name" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=bank_name&dir={% if sort == "bank_name" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Bank Name{% if sort == "bank_name" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
                             <th><a class="sort-link{% if sort == "account_no" %} active{% endif %}" href="?q={{ query|urlencode }}&sort=account_no&dir={% if sort == "account_no" and dir == "asc" %}desc{% else %}asc{% endif %}&tab={{ tab }}">Account No.{% if sort == "account_no" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
@@ -135,6 +136,7 @@
                                     data-pf-enabled="{{ emp.pf_enabled|yesno:'1,0' }}"
                                     data-esi-enabled="{{ emp.esi_enabled|yesno:'1,0' }}"
                                     data-tds-enabled="{{ emp.tds_enabled|yesno:'1,0' }}"
+                                    data-pt-enabled="{{ emp.pt_enabled|yesno:'1,0' }}"
                                     data-payment-method="{{ emp.payment_method }}"
                                     data-account-name="{{ emp.account_name }}"
                                     data-bank-name="{{ emp.bank_name }}"
@@ -159,6 +161,7 @@
                             <td><input type="checkbox" disabled {% if emp.pf_enabled %}checked{% endif %}></td>
                             <td><input type="checkbox" disabled {% if emp.esi_enabled %}checked{% endif %}></td>
                             <td><input type="checkbox" disabled {% if emp.tds_enabled %}checked{% endif %}></td>
+                            <td><input type="checkbox" disabled {% if emp.pt_enabled %}checked{% endif %}></td>
                             <td>{{ emp.account_name|default:"—" }}</td>
                             <td>{{ emp.bank_name|default:"—" }}</td>
                             <td>{{ emp.account_no|default:"—" }}</td>
@@ -257,6 +260,7 @@
                     <div class="checkbox-field"><input type="checkbox" name="pf_enabled" id="editPfEnabled"><label for="editPfEnabled">PF enabled</label></div>
                     <div class="checkbox-field"><input type="checkbox" name="esi_enabled" id="editEsiEnabled"><label for="editEsiEnabled">ESI enabled</label></div>
                     <div class="checkbox-field"><input type="checkbox" name="tds_enabled" id="editTdsEnabled"><label for="editTdsEnabled">TDS enabled</label></div>
+                    <div class="checkbox-field"><input type="checkbox" name="pt_enabled" id="editPtEnabled"><label for="editPtEnabled">PT enabled</label></div>
 
                     <div class="section-label">Bank details</div>
                     <div>
@@ -331,6 +335,7 @@
                 setChecked('editPfEnabled', data.pf_enabled);
                 setChecked('editEsiEnabled', data.esi_enabled);
                 setChecked('editTdsEnabled', data.tds_enabled);
+                setChecked('editPtEnabled', data.pt_enabled);
                 setField('editPaymentMethod', data.payment_method);
                 setField('editAccountName', data.account_name);
                 setField('editBankName', data.bank_name);
@@ -364,6 +369,7 @@
                         pf_enabled: btn.dataset.pfEnabled === '1',
                         esi_enabled: btn.dataset.esiEnabled === '1',
                         tds_enabled: btn.dataset.tdsEnabled === '1',
+                        pt_enabled: btn.dataset.ptEnabled === '1',
                         payment_method: btn.dataset.paymentMethod,
                         account_name: btn.dataset.accountName,
                         bank_name: btn.dataset.bankName,
@@ -399,6 +405,7 @@
                 pf_enabled: {{ edit_form.pf_enabled.value|yesno:"true,false" }},
                 esi_enabled: {{ edit_form.esi_enabled.value|yesno:"true,false" }},
                 tds_enabled: {{ edit_form.tds_enabled.value|yesno:"true,false" }},
+                pt_enabled: {{ edit_form.pt_enabled.value|yesno:"true,false" }},
                 payment_method: '{{ edit_form.payment_method.value|default:""|escapejs }}',
                 account_name: '{{ edit_form.account_name.value|default:""|escapejs }}',
                 bank_name: '{{ edit_form.bank_name.value|default:""|escapejs }}',

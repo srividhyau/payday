@@ -29,6 +29,11 @@
   .landing h1 {
     margin: 0;
     font-size: clamp(1.8rem, 8vw, 3rem);
+    /* Bootstrap's Reboot resets every heading to font-weight: 500 (its
+       own default, not the browser's normal bold) — without overriding
+       it back, this title rendered noticeably thinner than the sidebar's
+       own bold "Payday" brand text right next to it. */
+    font-weight: 700;
     letter-spacing: 0.02em;
     color: var(--navy);
   }

@@ -7,6 +7,7 @@
     <title>Payday — Management Summary</title>
 {% include "attendance/_bootstrap_head.html" %}
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+    <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
     /* Single yellow header bar — title, view links, Expand/Collapse
@@ -18,9 +19,9 @@
         box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
     }
     .month-nav h1 { font-size: 0.92rem; margin: 0; }
-    .month-nav .tab-row { margin: 0; }
+    .month-nav .tab-row { margin: 0 0 0 auto; }
     .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
-    .month-nav .date-nav-group { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+    .month-nav .date-nav-group { display: flex; align-items: center; gap: 0.5rem; }
     .month-nav .nav-arrow {
         color: var(--navy); text-decoration: none; font-size: 0.8rem;
         width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center;
@@ -31,6 +32,23 @@
 
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
     table.simple thead th { background: #fef9c3; color: var(--navy); }
+    /* Expand All/Collapse All — moved into the first column header as
+       small icons (was a pair of header .tab-btn pills) — reuses
+       .icon-btn's own look/hover/tooltip from app.css, just sized down
+       to fit inside a table header cell instead of its normal 2.1rem. */
+    table.simple thead th .icon-btn {
+        width: 1.25rem; height: 1.25rem; margin-left: 0.3rem; vertical-align: middle;
+        border-color: rgba(0,47,102,0.3);
+    }
+    table.simple thead th .icon-btn svg { width: 12px; height: 12px; }
+    /* Tooltip opens downward here instead of app.css's normal upward
+       (bottom:100%) — these buttons sit right at the top of
+       .table-wrap, which (overflow-x:auto, same as every other page's
+       table-wrap) implicitly clips overflow-y too, so an upward tooltip
+       had nowhere to render and was just invisible. */
+    table.simple thead th .icon-btn[data-tooltip]:hover::after {
+        bottom: auto; top: 100%; margin-top: 6px; margin-bottom: 0;
+    }
     table.simple td, table.simple th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 
     /* Same lightened three-tier scheme as Operator/Style Summary: Style
@@ -40,20 +58,24 @@
     }
     tr.style-top-row td.num { text-align: right; }
     tr.style-top-row { cursor: pointer; }
-    /* Thin breather, not a tall gap — see Operator Summary's identical
-       comment: a taller gap plus a heavy collapsed-row border made
-       every group read as its own separate card. */
-    table.simple tr.style-gap td { border: none; padding: 0; height: 0.15rem; background: var(--surface); }
     table.simple tbody tr.style-top-row:hover td { background: #aed6f7; }
     .toggle-arrow { display: inline-block; width: 1rem; transition: transform 0.15s ease; }
     tr.style-top-row.collapsed .toggle-arrow { transform: rotate(-90deg); }
     tr.style-top-row.collapsed { border-bottom: 1px solid var(--navy); }
+    /* Collapsed (nothing underneath currently showing) — plain white
+       instead of the tier color, so only an actually-expanded group
+       reads as "open" at a glance; the color comes back the moment you
+       expand it again. Same rule for tr.operation-row below (its own
+       collapsible level, operator-detail-rows underneath it). */
+    tr.style-top-row.collapsed td { background: #fff; }
+    table.simple tbody tr.style-top-row.collapsed:hover td { background: #fafbff; }
 
     tr.operation-row td { background: #e1e8f0; color: var(--navy); font-weight: 700; text-align: left; }
     tr.operation-row td.label { padding-left: 1.25rem; }
     tr.operation-row td.num { text-align: right; }
     tr.operation-row:has(.op-toggle-arrow) { cursor: pointer; }
     tr.operation-row.collapsed .op-toggle-arrow { transform: rotate(-90deg); }
+    tr.operation-row.collapsed td { background: #fff; }
 
     tr.operator-detail-row td { background: #fff; font-weight: 400; }
     tr.operator-detail-row td.op-label { padding-left: 2.5rem; text-align: left; }
@@ -74,6 +96,10 @@
     tr.operation-row.diff-more td { color: #a400a4; }
     tr.operation-row.diff-less td { color: #b3261e; }
     tr.operation-row.diff-balanced td { color: #1e7e34; }
+
+    .report-status { font-size: 0.8rem; color: var(--text-muted); }
+    .report-status.error { color: #b3261e; }
+    .report-status.success { color: #1e7e34; }
 </style>
 </head>
 <body>
@@ -81,16 +107,21 @@
 
     <div class="page">
         <div class="month-nav">
-            <div class="tab-row">
-                <a href="{% url 'piece_rate_operator_summary' %}?date={{ current_date }}" class="tab-btn">Operator View</a>
-                <a href="{% url 'piece_rate_style_summary' %}?date={{ current_date }}" class="tab-btn">Style View</a>
-                <button type="button" id="expandAllBtn" class="tab-btn">Expand All</button>
-                <button type="button" id="collapseAllBtn" class="tab-btn">Collapse All</button>
-            </div>
             <div class="date-nav-group">
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
                 <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
+            </div>
+            <div class="tab-row">
+                <a href="{% url 'piece_rate_operator_summary' %}?date={{ current_date }}" class="tab-btn">Operator View</a>
+                <a href="{% url 'piece_rate_style_summary' %}?date={{ current_date }}" class="tab-btn">Style View</a>
+                <a class="icon-btn" href="{% url 'piece_rate_management_summary_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+                </a>
+                <button type="button" class="icon-btn" id="sendManagementSummaryWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
+                </button>
+                <span id="sendManagementSummaryWhatsappStatus" class="report-status"></span>
             </div>
         </div>
 
@@ -100,10 +131,17 @@
 
         {% if style_rows %}
         <div class="table-wrap fit-content">
-            <table class="table simple">
+            <table class="table simple" id="managementSummaryGrid">
                 <thead>
                     <tr>
-                        <th>Style / Operation / Operator</th>
+                        <th>Style / Operation / Operator
+                            <button type="button" id="expandAllBtn" class="icon-btn" data-tooltip="Expand All" aria-label="Expand All">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                            </button>
+                            <button type="button" id="collapseAllBtn" class="icon-btn" data-tooltip="Collapse All" aria-label="Collapse All">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                            </button>
+                        </th>
                         <th>Section</th>
                         <th class="num">Order Qty</th>
                         <th class="num">Rate</th>
@@ -114,9 +152,6 @@
                 </thead>
                 <tbody>
                     {% for row in style_rows %}
-                    {% if not forloop.first %}
-                    <tr class="style-gap"><td colspan="7"></td></tr>
-                    {% endif %}
                     <tr class="style-top-row" data-style-id="{{ forloop.counter }}">
                         <td><span class="toggle-arrow">▾</span>{{ row.style.name }}</td>
                         <td></td>
@@ -223,6 +258,56 @@
         // out, a fully-expanded page load is a wall of rows before you
         // can see anything.
         document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, true); });
+
+        // "Send to WhatsApp" — screenshots the table as currently
+        // expanded/collapsed on screen, same single-table capture as
+        // Device Records' own WhatsApp send.
+        (function () {
+            var btn = document.getElementById('sendManagementSummaryWhatsappBtn');
+            if (!btn) return;
+            var statusEl = document.getElementById('sendManagementSummaryWhatsappStatus');
+            var table = document.getElementById('managementSummaryGrid');
+
+            function getCookie(name) {
+                var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return match ? match.pop() : '';
+            }
+
+            btn.addEventListener('click', function () {
+                btn.disabled = true;
+                statusEl.className = 'report-status';
+                statusEl.textContent = 'Capturing…';
+
+                html2canvas(table, { backgroundColor: '#ffffff', scale: 1.5 })
+                    .then(function (canvas) {
+                        statusEl.textContent = 'Sending…';
+                        canvas.toBlob(function (blob) {
+                            var formData = new FormData();
+                            formData.append('image', blob, 'management-summary.png');
+                            formData.append('caption', 'Management Summary — {{ month_name|escapejs }} {{ year|escapejs }}');
+                            fetch('{% url "send_whatsapp_report" %}', {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                                body: formData,
+                            })
+                                .then(function (r) { return r.json(); })
+                                .catch(function () {
+                                    return { ok: false, error: 'Failed to reach the server.' };
+                                })
+                                .then(function (result) {
+                                    btn.disabled = false;
+                                    statusEl.textContent = result.ok ? 'Sent' : 'Failed (' + (result.error || 'error') + ')';
+                                    statusEl.className = 'report-status ' + (result.ok ? 'success' : 'error');
+                                });
+                        }, 'image/png');
+                    })
+                    .catch(function (err) {
+                        btn.disabled = false;
+                        statusEl.textContent = 'Failed to capture the table: ' + ((err && err.message) || String(err));
+                        statusEl.className = 'report-status error';
+                    });
+            });
+        })();
     </script>
 {% include "attendance/_htmx_scripts.html" %}
 </body>

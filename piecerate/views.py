@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.db.models import Sum
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import translation
@@ -23,6 +23,8 @@ from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from attendance.audit import log_change, log_changes
 from attendance.models import AuditLogEntry, Employee, SpecialDay
+
+from src import metrics, payroll
 
 from .models import (
     PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, OperatorLink, PieceRateEntry, RateCardOperation, Style,
@@ -334,7 +336,12 @@ def rate_card_view(request, style_id):
                 "is_enabled", not op.is_enabled, op.is_enabled,
             )
             messages.success(request, f'"{op.name}" {"enabled" if op.is_enabled else "disabled"}.')
-            return redirect("piece_rate_rate_card", style_id=style.id)
+            # #op-<id> fragment (see the row's own id="op-{{ op.id }}" in
+            # the template) so the page lands back on the row just
+            # toggled instead of jumping to the top — a POST+redirect
+            # round trip otherwise loses scroll position entirely, which
+            # is disorienting on a long rate card.
+            return redirect(f"{reverse('piece_rate_rate_card', args=[style.id])}#op-{op.id}")
 
         if action == "reorder":
             order = [int(v) for v in request.POST.get("order_csv", "").split(",") if v.strip()]
@@ -440,6 +447,73 @@ def rate_card_view(request, style_id):
         "pay_type_choices": PAY_TYPE_CHOICES,
         "can_edit_this_style": not style.is_template or can_edit_piece_rate(request.user),
     })
+
+
+@login_required
+def rate_card_download_view(request, style_id):
+    """Downloads this style's Rate Card (one row per operation — Op
+    Code/Section/Operation/Machine/Rate/Order Qty/Operators) as a
+    single-sheet .xlsx. Pay Type is left out, same as the page itself
+    (hidden there per this session's "Pay Type not needed" decision)."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    from attendance.views import _apply_grid_borders
+
+    style = get_object_or_404(Style, id=style_id)
+    operations = list(style.operations.all())
+    if not operations:
+        raise Http404("No operations on this style's rate card.")
+
+    operator_names_by_op = {}
+    for op_id, emp_name in (
+        PieceRateEntry.objects.filter(rate_card_operation__in=operations)
+        .values_list("rate_card_operation_id", "employee__name")
+        .distinct()
+    ):
+        operator_names_by_op.setdefault(op_id, set()).add(emp_name)
+
+    header_fill = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
+    disabled_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Rate Card"[:31]
+    ws.append([f"Rate Card — {style.name}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+
+    headers = ["Op Code", "Section", "Operation", "Machine", "Rate", "Order Qty", "Operators"]
+    ws.append(headers)
+    header_row_num = ws.max_row
+    for cell in ws[header_row_num]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    for op in operations:
+        operator_names = sorted(operator_names_by_op.get(op.id, set()))
+        name = op.name + (" (Disabled)" if not op.is_enabled else "")
+        ws.append([op.op_code, op.section, name, op.machine, float(op.rate), op.order_quantity, ", ".join(operator_names)])
+        if not op.is_enabled:
+            for cell in ws[ws.max_row]:
+                cell.fill = disabled_fill
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+    ws.column_dimensions["A"].width = 10
+    ws.column_dimensions["B"].width = 14
+    ws.column_dimensions["C"].width = 28
+    ws.column_dimensions["D"].width = 14
+    ws.column_dimensions["E"].width = 10
+    ws.column_dimensions["F"].width = 12
+    ws.column_dimensions["G"].width = 36
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"rate-card-{style.name}.xlsx".replace("/", "-")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 @login_required
@@ -783,6 +857,71 @@ def production_view(request, style_id):
     return render(request, "piecerate/production.html", _build_production_context(style))
 
 
+def production_download_view(request, style_id):
+    """Downloads this style's Production grid (one row per operation,
+    one sub-row per operator, one column per day of the month) as a
+    single-sheet .xlsx — via the same _build_production_context used by
+    the page so the sheet can never drift from what's on screen."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    from attendance.views import _apply_grid_borders
+
+    style = get_object_or_404(Style, id=style_id, is_template=False)
+    context = _build_production_context(style)
+    if not context["op_rows"]:
+        raise Http404("No operations on this style's rate card.")
+
+    op_fill = PatternFill(start_color="E1E8F0", end_color="E1E8F0", fill_type="solid")
+    header_fill = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
+    diff_colors = {"diff-more": "A400A4", "diff-less": "B3261E", "diff-balanced": "1E7E34"}
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Production"[:31]
+    ws.append([f"Production — {style.name}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+
+    day_headers = [f"{dh['day']} {dh['dow']}" for dh in context["day_headers"]]
+    headers = ["Op Code", "Section", "Operation / Operator", "Total"] + day_headers
+    ws.append(headers)
+    header_row_num = ws.max_row
+    for cell in ws[header_row_num]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    for row in context["op_rows"]:
+        total_display = (
+            f"{row['op_total']} / {row['op'].order_quantity} ({row['diff_display']})"
+            if row["op"].order_quantity else row["op_total"]
+        )
+        ws.append([row["op"].op_code, row["op"].section, row["op"].name, total_display] + [None] * len(context["days"]))
+        color = diff_colors.get(row["diff_class"])
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True, color=color) if color else Font(bold=True)
+            cell.fill = op_fill
+        for r in row["rows"]:
+            day_values = [r["days"].get(d.isoformat()) for d in context["days"]]
+            ws.append(["", "", r["employee"].name, r["total"]] + day_values)
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+    ws.column_dimensions["A"].width = 10
+    ws.column_dimensions["B"].width = 14
+    ws.column_dimensions["C"].width = 26
+    ws.column_dimensions["D"].width = 20
+    for i in range(5, 5 + len(context["days"])):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 6
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"production-{style.name}-{style.year}-{style.month:02d}.xlsx".replace("/", "-")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
 def production_mobile_view(request, style_id):
     """Same style, same data, same cell-save endpoint as production_view
     — just a compact, one-operator-row-at-a-time layout instead of the
@@ -819,20 +958,146 @@ def _month_piece_rate_entries(year, month):
     )
 
 
-@login_required
-def operator_summary_view(request):
+def _attendance_summary(year: int, month: int) -> dict:
+    """Each operator's working days this month, counted straight from
+    AttendanceRecord.status (Present/Paid Holiday/Comp Off count as a
+    full day, Half Day as half) — NOT the hour-based "Work Days" credit
+    _salary_context (attendance/views.py) builds for punch-tracked
+    Company/Staff/Helper via metrics.month_attendance_view. Operators
+    are marked Present/Absent by status alone with no real time_in/
+    time_out punches (work_hours is 0 on ~99% of their rows even on a
+    Present day), so work_day_credit's hour tiers graded them 0
+    regardless of actual attendance — this counts status directly
+    instead. Keyed by Employee.code; an operator with no attendance
+    rows that month is simply absent from the dict, so callers should
+    .get(code, 0)."""
+    from attendance.models import AttendanceRecord
+
+    full_day_statuses = ("P", "PH", "CO")
+    counts: dict[str, float] = {}
+    records = AttendanceRecord.objects.filter(
+        date__year=year, date__month=month, status__in=full_day_statuses + ("HD",),
+    ).values("employee__code", "status")
+    for r in records:
+        code = r["employee__code"]
+        counts[code] = counts.get(code, 0) + (0.5 if r["status"] == "HD" else 1)
+    return counts
+
+
+def _operator_month_totals(year: int, month: int, emp_working_days: dict | None = None) -> dict:
+    """employee_id -> {"total", "working_days", "avg_per_day"} for a
+    given month — the lightweight, totals-only version of
+    operator_summary_view's per-employee aggregation (no style/operation
+    breakdown). Used to show last month's figures in the Avg/Day
+    column's tooltip, so that comparison always uses the exact same
+    Amount/Working Days/Avg Day logic as the row itself, just run on
+    prev_date instead of the page's current month."""
+    if emp_working_days is None:
+        emp_working_days = _attendance_summary(year, month)
+    entries = _month_piece_rate_entries(year, month)
+    totals: dict[int, Decimal] = {}
+    employees: dict[int, Employee] = {}
+    for e in entries:
+        amount = e.rate_card_operation.rate * e.quantity
+        totals[e.employee_id] = totals.get(e.employee_id, Decimal("0")) + amount
+        employees[e.employee_id] = e.employee
+
+    result = {}
+    for emp_id, total in totals.items():
+        total = total.quantize(Decimal("0.01"))
+        working_days = emp_working_days.get(employees[emp_id].code, 0)
+        avg_per_day = (total / Decimal(str(working_days))).quantize(Decimal("0.01")) if working_days else Decimal("0")
+        result[emp_id] = {"total": total, "working_days": working_days, "avg_per_day": avg_per_day}
+    return result
+
+
+def _operator_salary_attendance_fallback(employee: Employee, year: int, month: int, working_days) -> dict | None:
+    """When an operator has no PieceRateEntry at all for a given month
+    (Production wasn't tracked that far back, or that month predates
+    this page), falls back to what Salary > Operators actually paid
+    them — SalaryAdjustment.manual_amount, "entered by hand each month"
+    per compute_operator_pay's own docstring, since Operators' pay has
+    never been derivable from piece-rate data alone — combined with
+    their attendance for the same month. Prefers a tab="operators" row,
+    falling back to the blank-tab legacy row the same way _salary_context
+    does. Returns None (not a zeroed dict) when there's truly no
+    SalaryAdjustment either, so the tooltip can still say "No data"
+    rather than claim a false ₹0 month."""
+    from attendance.models import SalaryAdjustment
+
+    adj = (
+        SalaryAdjustment.objects.filter(employee=employee, year=year, month=month, tab="operators").first()
+        or SalaryAdjustment.objects.filter(employee=employee, year=year, month=month, tab="").first()
+    )
+    if not adj or adj.manual_amount is None:
+        return None
+    net = payroll.compute_operator_pay(adj.manual_amount, adj.deductions, adj.additions)["net"]
+    avg_per_day = (net / Decimal(str(working_days))).quantize(Decimal("0.01")) if working_days else Decimal("0")
+    return {"total": net, "working_days": working_days, "avg_per_day": avg_per_day}
+
+
+def _operator_attendance_badges(year: int, month: int) -> dict:
+    """employee_id -> {"total", "working_days", "avg_per_day",
+    "attendance_flag", "prev"} for every operator with PieceRateEntry
+    data this month — this operator's whole-month Working Days/Avg Day,
+    flagged the same way Operator Summary shows them (3 lowest/3 highest
+    Working Days get "low"/"high"; Avg/Day's fixed-threshold colors are
+    applied directly in each template instead, straight off avg_per_day),
+    plus the previous month's figures for the Avg/Day tooltip (falling
+    back to Salary + Attendance — see _operator_salary_attendance_fallback
+    — when Production has no data that far back).
+
+    Shared by Operator/Style/Management Summary so an operator's
+    attendance badge reads identically — same numbers, same colors —
+    no matter which view it's shown on."""
+    emp_working_days = _attendance_summary(year, month)
+    badges = _operator_month_totals(year, month, emp_working_days)
+    for badge in badges.values():
+        badge["attendance_flag"] = None
+
+    k = min(3, len(badges) // 2)
+    if k:
+        ranked = sorted(badges.items(), key=lambda kv: kv[1]["working_days"])
+        for _, badge in ranked[:k]:
+            badge["attendance_flag"] = "low"
+        for _, badge in ranked[-k:]:
+            badge["attendance_flag"] = "high"
+
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+    prev_working_days = _attendance_summary(prev_year, prev_month)
+    prev_totals = _operator_month_totals(prev_year, prev_month, prev_working_days)
+
+    employees_by_id = {e.id: e for e in Employee.objects.filter(id__in=badges.keys())}
+    for emp_id, badge in badges.items():
+        prev = prev_totals.get(emp_id)
+        if prev is None:
+            employee = employees_by_id[emp_id]
+            prev = _operator_salary_attendance_fallback(
+                employee, prev_year, prev_month, prev_working_days.get(employee.code, 0),
+            )
+        badge["prev"] = prev
+    return badges
+
+
+def _operator_summary_context(request) -> dict:
     """What every operator worked on this month, across every style, and
     how much it comes to — quantity x the operation's current Rate Card
     rate. Amounts here always reflect whatever a Rate Card currently
     says (no per-entry rate snapshot), so editing a rate after the fact
     shifts past months' totals too — same as everywhere else rates are
-    used in this app."""
+    used in this app. Shared by operator_summary_view and
+    operator_summary_download_view so the .xlsx can never drift from
+    what the page shows."""
     current = _parse_month_date(request.GET.get("date"))
     year, month = current.year, current.month
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
 
     entries = _month_piece_rate_entries(year, month)
+    badges = _operator_attendance_badges(year, month)
 
     # Operator -> Style -> Operation, each level totaling the ones below it.
     by_employee = {}
@@ -879,38 +1144,133 @@ def operator_summary_view(request):
             employee_total += style_total
             employee_order_qty += style_order_qty
         style_list.sort(key=lambda s: s["style_name"])
+        # Working Days/Avg Day/attendance_flag/prev all come from the
+        # same badge every other Summary view shows for this operator —
+        # see _operator_attendance_badges — so they never drift from one
+        # page to another. Falls back to a zeroed badge on the off chance
+        # an employee is in by_employee but not badges (shouldn't happen,
+        # both are built from the same month's entries).
+        badge = badges.get(emp_data["employee"].id, {
+            "working_days": 0, "avg_per_day": Decimal("0"), "attendance_flag": None, "prev": None,
+        })
         operator_rows.append({
             "employee": emp_data["employee"], "styles": style_list, "total": employee_total,
             "order_quantity": employee_order_qty, "rate_sum": employee_rate, "quantity_sum": employee_quantity,
+            "working_days": badge["working_days"], "avg_per_day": badge["avg_per_day"],
+            "prev": badge["prev"], "attendance_flag": badge["attendance_flag"],
         })
         grand_total += employee_total
 
     operator_rows.sort(key=lambda r: r["employee"].name)
 
-    return render(request, "piecerate/operator_summary.html", {
+    return {
         "operator_rows": operator_rows,
         "grand_total": grand_total,
         "year": year,
         "month": month,
         "month_name": calendar.month_name[month],
+        "prev_month_name": calendar.month_name[prev_date.month],
         "current_date": current.isoformat(),
         "prev_date": prev_date.isoformat(),
         "next_date": next_date.isoformat(),
-    })
+    }
 
 
 @login_required
-def style_summary_view(request):
+def operator_summary_view(request):
+    return render(request, "piecerate/operator_summary.html", _operator_summary_context(request))
+
+
+@login_required
+def operator_summary_download_view(request):
+    """Downloads the currently-viewed Operator Summary grid as a single-
+    sheet .xlsx — same 3-level hierarchy as the page (Operator -> Style
+    -> Operation), via the same _operator_summary_context used by the
+    page so the sheet can never drift from what's on screen."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    from attendance.views import _apply_grid_borders
+
+    context = _operator_summary_context(request)
+    if not context["operator_rows"]:
+        raise Http404("No production entries for that month.")
+
+    employee_fill = PatternFill(start_color="D0E7FB", end_color="D0E7FB", fill_type="solid")
+    style_fill = PatternFill(start_color="E1E8F0", end_color="E1E8F0", fill_type="solid")
+    header_fill = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
+    diff_colors = {"diff-more": "A400A4", "diff-less": "B3261E", "diff-balanced": "1E7E34"}
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Operator Summary"[:31]
+    ws.append([f"Operator Summary — {context['month_name']} {context['year']}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+
+    headers = ["Operator / Style / Operation", "Section", "Order Qty", "Operator Qty", "Rate", "Working Days", "Avg/Day", "Amount"]
+    ws.append(headers)
+    header_row_num = ws.max_row
+    for cell in ws[header_row_num]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    for row in context["operator_rows"]:
+        ws.append([
+            row["employee"].name, "", row["order_quantity"], row["quantity_sum"], float(row["rate_sum"]),
+            row["working_days"], float(row["avg_per_day"]), float(row["total"]),
+        ])
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True)
+            cell.fill = employee_fill
+        for style in row["styles"]:
+            ws.append(["    " + style["style_name"], "", "", "", "", "", "", float(style["total"])])
+            for cell in ws[ws.max_row]:
+                cell.font = Font(bold=True)
+                cell.fill = style_fill
+            for op in style["ops"]:
+                ws.append([
+                    "        " + op["op_name"], op["section"], op["order_quantity"], op["quantity"],
+                    float(op["rate"]), "", "", float(op["amount"]),
+                ])
+                color = diff_colors.get(op["diff_class"])
+                if color:
+                    for cell in ws[ws.max_row]:
+                        cell.font = Font(color=color)
+
+    ws.append(["Grand Total", "", "", "", "", "", "", float(context["grand_total"])])
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+    ws.column_dimensions["A"].width = 32
+    for col in "BCDEFGH":
+        ws.column_dimensions[col].width = 14
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"operator-summary-{context['year']}-{context['month']:02d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+def _style_summary_context(request) -> dict:
     """Same data as Operator Summary, grouped Style -> Operator ->
     Operation instead of Operator -> Style -> Operation — which style is
     costing the most and who worked it, rather than what one operator
-    did across every style."""
+    did across every style. Shared by style_summary_view and
+    style_summary_download_view so the .xlsx can never drift from what
+    the page shows."""
     current = _parse_month_date(request.GET.get("date"))
     year, month = current.year, current.month
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
 
     entries = _month_piece_rate_entries(year, month)
+    badges = _operator_attendance_badges(year, month)
 
     # Style -> Operator -> Operation, each level totaling the ones below it.
     by_style = {}
@@ -953,7 +1313,19 @@ def style_summary_view(request):
                     style_order_qty = max(style_order_qty, op_bucket["order_quantity"])
                     style_rate += op_bucket["rate"]
             op_list.sort(key=lambda o: o["op_name"])
-            employee_list.append({"employee": emp_data["employee"], "ops": op_list, "total": employee_total})
+            # Working Days/Avg Day/attendance_flag/prev are this
+            # operator's whole-month badge (see _operator_attendance_badges)
+            # — the same figures Operator Summary shows, not scoped to
+            # just this one style, so they read identically everywhere
+            # an operator appears.
+            badge = badges.get(emp_data["employee"].id, {
+                "working_days": 0, "avg_per_day": Decimal("0"), "attendance_flag": None, "prev": None,
+            })
+            employee_list.append({
+                "employee": emp_data["employee"], "ops": op_list, "total": employee_total,
+                "working_days": badge["working_days"], "avg_per_day": badge["avg_per_day"],
+                "prev": badge["prev"], "attendance_flag": badge["attendance_flag"],
+            })
             style_total += employee_total
         employee_list.sort(key=lambda e: e["employee"].name)
         style_rows.append({
@@ -964,20 +1336,104 @@ def style_summary_view(request):
 
     style_rows.sort(key=lambda r: r["style_name"])
 
-    return render(request, "piecerate/style_summary.html", {
+    return {
         "style_rows": style_rows,
         "grand_total": grand_total,
         "year": year,
         "month": month,
         "month_name": calendar.month_name[month],
+        "prev_month_name": calendar.month_name[prev_date.month],
         "current_date": current.isoformat(),
         "prev_date": prev_date.isoformat(),
         "next_date": next_date.isoformat(),
-    })
+    }
 
 
 @login_required
-def management_summary_view(request):
+def style_summary_view(request):
+    return render(request, "piecerate/style_summary.html", _style_summary_context(request))
+
+
+@login_required
+def style_summary_download_view(request):
+    """Downloads the currently-viewed Style Summary grid as a single-
+    sheet .xlsx — same 3-level hierarchy as the page (Style -> Operator
+    -> Operation), via the same _style_summary_context used by the page
+    so the sheet can never drift from what's on screen."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    from attendance.views import _apply_grid_borders
+
+    context = _style_summary_context(request)
+    if not context["style_rows"]:
+        raise Http404("No production entries for that month.")
+
+    style_fill = PatternFill(start_color="D0E7FB", end_color="D0E7FB", fill_type="solid")
+    operator_fill = PatternFill(start_color="E1E8F0", end_color="E1E8F0", fill_type="solid")
+    header_fill = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
+    diff_colors = {"diff-more": "A400A4", "diff-less": "B3261E", "diff-balanced": "1E7E34"}
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Style Summary"[:31]
+    ws.append([f"Style Summary — {context['month_name']} {context['year']}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+
+    headers = ["Style / Operator / Operation", "Section", "Order Qty", "Operator Qty", "Rate", "Working Days", "Avg/Day", "Amount"]
+    ws.append(headers)
+    header_row_num = ws.max_row
+    for cell in ws[header_row_num]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    for row in context["style_rows"]:
+        ws.append([
+            row["style_name"], "", row["order_quantity"], row["quantity_sum"], float(row["rate_sum"]),
+            "", "", float(row["total"]),
+        ])
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True)
+            cell.fill = style_fill
+        for emp in row["employees"]:
+            ws.append([
+                "    " + emp["employee"].name, "", "", "", "",
+                emp["working_days"], float(emp["avg_per_day"]), float(emp["total"]),
+            ])
+            for cell in ws[ws.max_row]:
+                cell.font = Font(bold=True)
+                cell.fill = operator_fill
+            for op in emp["ops"]:
+                ws.append([
+                    "        " + op["op_name"], op["section"], op["order_quantity"], op["quantity"],
+                    float(op["rate"]), "", "", float(op["amount"]),
+                ])
+                color = diff_colors.get(op["diff_class"])
+                if color:
+                    for cell in ws[ws.max_row]:
+                        cell.font = Font(color=color)
+
+    ws.append(["Grand Total", "", "", "", "", "", "", float(context["grand_total"])])
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+    ws.column_dimensions["A"].width = 32
+    for col in "BCDEFGH":
+        ws.column_dimensions[col].width = 14
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"style-summary-{context['year']}-{context['month']:02d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+def _management_summary_context(request) -> dict:
     """Style -> Operation -> Operator, planned vs actual: every operation
     on every non-template style set up this month, whether or not anyone
     has logged against it yet — Planned Amount (rate x Order Qty, the
@@ -985,7 +1441,9 @@ def management_summary_view(request):
     worked). Unlike Operator/Style Summary (built purely from logged
     entries), this starts from the rate cards themselves, so an
     operation with a big plan and zero actual work still shows up —
-    the whole point of a management/budget view."""
+    the whole point of a management/budget view. Shared by
+    management_summary_view and management_summary_download_view so the
+    .xlsx can never drift from what the page shows."""
     current = _parse_month_date(request.GET.get("date"))
     year, month = current.year, current.month
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
@@ -1047,7 +1505,7 @@ def management_summary_view(request):
         grand_planned += style_planned
         grand_actual += style_actual
 
-    return render(request, "piecerate/management_summary.html", {
+    return {
         "style_rows": style_rows,
         "grand_planned": grand_planned,
         "grand_actual": grand_actual,
@@ -1057,7 +1515,88 @@ def management_summary_view(request):
         "current_date": current.isoformat(),
         "prev_date": prev_date.isoformat(),
         "next_date": next_date.isoformat(),
-    })
+    }
+
+
+@login_required
+def management_summary_view(request):
+    return render(request, "piecerate/management_summary.html", _management_summary_context(request))
+
+
+@login_required
+def management_summary_download_view(request):
+    """Downloads the currently-viewed Management Summary grid as a
+    single-sheet .xlsx — same 3-level hierarchy as the page (Style ->
+    Operation -> Operator, planned vs actual), via the same
+    _management_summary_context used by the page so the sheet can never
+    drift from what's on screen."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    from attendance.views import _apply_grid_borders
+
+    context = _management_summary_context(request)
+    if not context["style_rows"]:
+        raise Http404("No styles set up for that month.")
+
+    style_fill = PatternFill(start_color="D0E7FB", end_color="D0E7FB", fill_type="solid")
+    operation_fill = PatternFill(start_color="E1E8F0", end_color="E1E8F0", fill_type="solid")
+    header_fill = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
+    diff_colors = {"diff-more": "A400A4", "diff-less": "B3261E", "diff-balanced": "1E7E34"}
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Management Summary"[:31]
+    ws.append([f"Management Summary — {context['month_name']} {context['year']}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([])
+
+    headers = ["Style / Operation / Operator", "Section", "Order Qty", "Rate", "Planned Amount", "Actual Qty", "Actual Amount"]
+    ws.append(headers)
+    header_row_num = ws.max_row
+    for cell in ws[header_row_num]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    for row in context["style_rows"]:
+        ws.append([
+            row["style"].name, "", row["order_quantity"], float(row["rate_sum"]),
+            float(row["planned_total"]), row["quantity_sum"], float(row["actual_total"]),
+        ])
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True)
+            cell.fill = style_fill
+        for op in row["ops"]:
+            ws.append([
+                "    " + op["op"].name, op["op"].section, op["op"].order_quantity, float(op["op"].rate),
+                float(op["planned_amount"]), op["actual_quantity"], float(op["actual_amount"]),
+            ])
+            color = diff_colors.get(op["diff_class"])
+            for cell in ws[ws.max_row]:
+                cell.font = Font(bold=True, color=color) if color else Font(bold=True)
+                cell.fill = operation_fill
+            for opr in op["operators"]:
+                ws.append([
+                    "        " + opr["employee"].name, "", "", "", "", opr["quantity"], float(opr["amount"]),
+                ])
+
+    ws.append(["Grand Total", "", "", "", float(context["grand_planned"]), "", float(context["grand_actual"])])
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    _apply_grid_borders(ws, header_row_num, ws.max_row, len(headers))
+    ws.column_dimensions["A"].width = 32
+    for col in "BCDEFG":
+        ws.column_dimensions[col].width = 14
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"management-summary-{context['year']}-{context['month']:02d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 def _qr_data_uri(data):

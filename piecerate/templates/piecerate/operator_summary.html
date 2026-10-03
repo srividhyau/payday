@@ -7,6 +7,7 @@
     <title>Payday — Operator Summary</title>
 {% include "attendance/_bootstrap_head.html" %}
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+    <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
     /* Single yellow header bar — title, view links, Expand/Collapse
@@ -18,9 +19,9 @@
         box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
     }
     .month-nav h1 { font-size: 0.92rem; margin: 0; }
-    .month-nav .tab-row { margin: 0; }
+    .month-nav .tab-row { margin: 0 0 0 auto; }
     .month-nav .current-month { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
-    .month-nav .date-nav-group { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+    .month-nav .date-nav-group { display: flex; align-items: center; gap: 0.5rem; }
     .month-nav .nav-arrow {
         color: var(--navy); text-decoration: none; font-size: 0.8rem;
         width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center;
@@ -31,6 +32,23 @@
 
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
     table.simple thead th { background: #fef9c3; color: var(--navy); }
+    /* Expand All/Collapse All — moved into the first column header as
+       small icons (was a pair of header .tab-btn pills) — reuses
+       .icon-btn's own look/hover/tooltip from app.css, just sized down
+       to fit inside a table header cell instead of its normal 2.1rem. */
+    table.simple thead th .icon-btn {
+        width: 1.25rem; height: 1.25rem; margin-left: 0.3rem; vertical-align: middle;
+        border-color: rgba(0,47,102,0.3);
+    }
+    table.simple thead th .icon-btn svg { width: 12px; height: 12px; }
+    /* Tooltip opens downward here instead of app.css's normal upward
+       (bottom:100%) — these buttons sit right at the top of
+       .table-wrap, which (overflow-x:auto, same as every other page's
+       table-wrap) implicitly clips overflow-y too, so an upward tooltip
+       had nowhere to render and was just invisible. */
+    table.simple thead th .icon-btn[data-tooltip]:hover::after {
+        bottom: auto; top: 100%; margin-top: 6px; margin-bottom: 0;
+    }
 
     /* Three levels, each a lighter step than the one above — still three
        distinct steps (not just a color hint), lightened further
@@ -45,12 +63,6 @@
     }
     tr.employee-row td.num { text-align: right; }
     tr.employee-row { cursor: pointer; }
-    /* A thin blank row between operators, just enough breathing room to
-       read as a boundary — not the tall gap this used to be (0.6rem),
-       which combined with the collapsed row's heavy 3px border made
-       every operator read as its own separate card instead of a
-       compact, sleek table. */
-    table.simple tr.operator-gap td { border: none; padding: 0; height: 0.15rem; background: var(--surface); }
     /* Needs the same table.simple/tbody qualifiers as app.css's own
        "table.simple tbody tr:hover td" rule (background: #fafbff) or
        that generic pale hover wins instead, fighting the row's own bg. */
@@ -58,10 +70,22 @@
     .toggle-arrow { display: inline-block; width: 1rem; transition: transform 0.15s ease; }
     tr.employee-row.collapsed .toggle-arrow { transform: rotate(-90deg); }
     tr.employee-row.collapsed { border-bottom: 1px solid var(--navy); }
+    /* Collapsed (nothing underneath currently showing) — plain white
+       instead of the tier color, so only an actually-expanded group
+       reads as "open" at a glance; the color comes back the moment you
+       expand it again. */
+    tr.employee-row.collapsed td { background: #fff; }
+    table.simple tbody tr.employee-row.collapsed:hover td { background: #fafbff; }
 
     tr.style-row td { background: #e1e8f0; color: var(--navy); font-weight: 700; text-align: left; }
     tr.style-row td.label { padding-left: 1.25rem; }
     tr.style-row td.num { text-align: right; }
+    /* 2nd collapse level — a style, independently of its employee, shows
+       or hides its own op-detail-rows (same pattern as Management
+       Summary's style <-> operation level). */
+    tr.style-row:has(.op-toggle-arrow) { cursor: pointer; }
+    tr.style-row.collapsed .op-toggle-arrow { transform: rotate(-90deg); }
+    tr.style-row.collapsed td { background: #fff; }
 
     tr.op-detail-row td { background: #fff; font-weight: 400; }
     tr.op-detail-row td.op-label { padding-left: 2.5rem; text-align: left; }
@@ -78,6 +102,36 @@
     .diff-more { color: #a400a4; font-weight: 700; }
     .diff-less { color: #b3261e; font-weight: 700; }
     .diff-balanced { color: #1e7e34; font-weight: 700; }
+
+    /* Working Days/Avg Day — a distinct teal, set apart from the plain
+       black Order Qty/Operator Qty/Rate/Amount columns since these two
+       are attendance-derived, not production figures. */
+    table.simple th.col-attendance { color: #0f6657; }
+    table.simple td.col-attendance { background: #eaf7f4; color: #0f6657; font-weight: 600; }
+    .avg-day-cell { cursor: help; }
+
+    /* Working Days outliers this month — the 3 lowest (light red) and 3
+       highest (green), set via operator_summary_view so the exact same
+       ranking the page shows is what gets flagged. Specificity matches
+       td.col-attendance (also on this cell) so these win over its teal
+       regardless of rule order. */
+    table.simple td.flag-low { background: #fbdada; color: #8a1c1c; }
+    table.simple td.flag-high { background: #d7f3da; color: #1e7e34; }
+    table.simple td.col-attendance.flag-low { background: #fbdada; color: #8a1c1c; }
+    table.simple td.col-attendance.flag-high { background: #d7f3da; color: #1e7e34; }
+    /* Avg/Day and Amount — fixed thresholds, not the relative Working
+       Days ranking above: Avg/Day above ₹900 green, below ₹400 red;
+       Amount at/above ₹18000 green, below ₹10000 red. !important on
+       Avg/Day since that cell also always carries col-attendance's own
+       background/color. */
+    table.simple td.avg-high { background: #d7f3da !important; color: #1e7e34 !important; font-weight: 700; }
+    table.simple td.avg-low { background: #fbdada !important; color: #8a1c1c !important; font-weight: 700; }
+    table.simple td.amt-high { background: #d7f3da; color: #1e7e34; font-weight: 700; }
+    table.simple td.amt-low { background: #fbdada; color: #8a1c1c; font-weight: 700; }
+
+    .report-status { font-size: 0.8rem; color: var(--text-muted); }
+    .report-status.error { color: #b3261e; }
+    .report-status.success { color: #1e7e34; }
 </style>
 </head>
 <body>
@@ -85,16 +139,21 @@
 
     <div class="page">
         <div class="month-nav">
-            <div class="tab-row">
-                <a href="{% url 'piece_rate_style_summary' %}?date={{ current_date }}" class="tab-btn">Style View</a>
-                <a href="{% url 'piece_rate_management_summary' %}?date={{ current_date }}" class="tab-btn">Management View</a>
-                <button type="button" id="expandAllBtn" class="tab-btn">Expand All</button>
-                <button type="button" id="collapseAllBtn" class="tab-btn">Collapse All</button>
-            </div>
             <div class="date-nav-group">
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
                 <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
+            </div>
+            <div class="tab-row">
+                <a href="{% url 'piece_rate_style_summary' %}?date={{ current_date }}" class="tab-btn">Style View</a>
+                <a href="{% url 'piece_rate_management_summary' %}?date={{ current_date }}" class="tab-btn">Management View</a>
+                <a class="icon-btn" href="{% url 'piece_rate_operator_summary_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+                </a>
+                <button type="button" class="icon-btn" id="sendOperatorSummaryWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
+                </button>
+                <span id="sendOperatorSummaryWhatsappStatus" class="report-status"></span>
             </div>
         </div>
 
@@ -104,33 +163,46 @@
 
         {% if operator_rows %}
         <div class="table-wrap fit-content">
-            <table class="table simple">
+            <table class="table simple" id="operatorSummaryGrid">
                 <thead>
                     <tr>
-                        <th>Operator / Style / Operation</th>
+                        <th>Operator / Style / Operation
+                            <button type="button" id="expandAllBtn" class="icon-btn" data-tooltip="Expand All" aria-label="Expand All">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                            </button>
+                            <button type="button" id="collapseAllBtn" class="icon-btn" data-tooltip="Collapse All" aria-label="Collapse All">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                            </button>
+                        </th>
                         <th>Section</th>
                         <th class="num">Order Qty</th>
                         <th class="num">Operator Qty</th>
                         <th class="num">Rate</th>
+                        <th class="num col-attendance">Working Days</th>
+                        <th class="num col-attendance">Avg/Day</th>
                         <th class="num">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in operator_rows %}
-                    {% if not forloop.first %}
-                    <tr class="operator-gap"><td colspan="6"></td></tr>
-                    {% endif %}
                     <tr class="employee-row" data-employee-id="{{ row.employee.id }}">
                         <td><span class="toggle-arrow">▾</span>{{ row.employee.name }}</td>
                         <td></td>
                         <td class="num">{{ row.order_quantity }}</td>
                         <td class="num">{{ row.quantity_sum }}</td>
                         <td class="num">{{ row.rate_sum }}</td>
-                        <td class="num">{{ row.total }}</td>
+                        <td class="num col-attendance{% if row.attendance_flag == 'low' %} flag-low{% elif row.attendance_flag == 'high' %} flag-high{% endif %}">{{ row.working_days|floatformat:1 }}</td>
+                        <td class="num col-attendance avg-day-cell{% if row.avg_per_day > 900 %} avg-high{% elif row.avg_per_day < 400 %} avg-low{% endif %}" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top"
+                            title="{% if row.prev %}{{ prev_month_name }}<br>Salary: ₹{{ row.prev.total }}<br>Working Days: {{ row.prev.working_days|floatformat:1 }}<br>Avg/Day: ₹{{ row.prev.avg_per_day }}{% else %}No data for {{ prev_month_name }}{% endif %}">
+                            {{ row.avg_per_day }}
+                        </td>
+                        <td class="num{% if row.total < 10000 %} amt-low{% elif row.total >= 18000 %} amt-high{% endif %}">{{ row.total }}</td>
                     </tr>
                     {% for style in row.styles %}
-                    <tr class="style-row" data-employee-id="{{ row.employee.id }}">
-                        <td class="label">{{ style.style_name }}</td>
+                    <tr class="style-row" data-employee-id="{{ row.employee.id }}" data-style-key="{{ row.employee.id }}_{{ forloop.counter }}">
+                        <td class="label">{% if style.ops %}<span class="toggle-arrow op-toggle-arrow">▾</span>{% endif %}{{ style.style_name }}</td>
+                        <td></td>
+                        <td></td>
                         <td></td>
                         <td></td>
                         <td></td>
@@ -138,12 +210,14 @@
                         <td><span class="amount-label">Subtotal</span> {{ style.total }}</td>
                     </tr>
                     {% for op in style.ops %}
-                    <tr class="op-detail-row {{ op.diff_class }}" data-employee-id="{{ row.employee.id }}">
+                    <tr class="op-detail-row {{ op.diff_class }}" data-employee-id="{{ row.employee.id }}" data-style-key="{{ row.employee.id }}_{{ forloop.parentloop.counter }}" hidden>
                         <td class="op-label">{{ op.op_name }}</td>
                         <td>{{ op.section|default:"—" }}</td>
                         <td class="num">{{ op.order_quantity }}</td>
                         <td class="num">{{ op.quantity }}</td>
                         <td class="num">{{ op.rate }}</td>
+                        <td></td>
+                        <td></td>
                         <td>{{ op.amount }}</td>
                     </tr>
                     {% endfor %}
@@ -151,6 +225,8 @@
                     {% endfor %}
                     <tr class="grand-total-row">
                         <td colspan="5">Grand Total</td>
+                        <td></td>
+                        <td></td>
                         <td class="num">{{ grand_total }}</td>
                     </tr>
                 </tbody>
@@ -162,6 +238,21 @@
     </div>
 
     <script>
+        // Two independent collapse levels, same pattern as Management
+        // Summary: an employee shows/hides its own styles; a style
+        // (separately) shows/hides its own op-detail rows. Expanding an
+        // employee only reveals styles — it also resets every one of
+        // those styles' op-detail rows back to hidden, so "Expand All"
+        // always lands at the style level rather than leaking whatever
+        // an earlier per-style click had left open.
+        function setStyleCollapsed(styleRow, collapsed) {
+            styleRow.classList.toggle('collapsed', collapsed);
+            var key = styleRow.dataset.styleKey;
+            document.querySelectorAll('tr.op-detail-row[data-style-key="' + key + '"]').forEach(function (tr) {
+                tr.hidden = collapsed;
+            });
+        }
+
         // Named setRowCollapsed, not setCollapsed — _topbar.html's shared
         // sidebar script already declares a global function setCollapsed
         // (for the sidebar's own collapse/reopen); both are plain global
@@ -171,12 +262,23 @@
         function setRowCollapsed(employeeRow, collapsed) {
             employeeRow.classList.toggle('collapsed', collapsed);
             var empId = employeeRow.dataset.employeeId;
-            document.querySelectorAll(
-                'tr.style-row[data-employee-id="' + empId + '"], tr.op-detail-row[data-employee-id="' + empId + '"]'
-            ).forEach(function (tr) {
-                tr.hidden = collapsed;
+            document.querySelectorAll('tr.style-row[data-employee-id="' + empId + '"]').forEach(function (styleRow) {
+                styleRow.hidden = collapsed;
+                // Always reset to "op-detail rows hidden" — whichever
+                // direction the employee toggled, no style should be
+                // left dangling open under a hidden/freshly-shown
+                // employee.
+                setStyleCollapsed(styleRow, true);
             });
         }
+
+        document.querySelectorAll('tr.style-row').forEach(function (styleRow) {
+            if (styleRow.querySelector('.op-toggle-arrow')) {
+                styleRow.addEventListener('click', function () {
+                    setStyleCollapsed(styleRow, !styleRow.classList.contains('collapsed'));
+                });
+            }
+        });
 
         document.querySelectorAll('tr.employee-row').forEach(function (row) {
             row.addEventListener('click', function () {
@@ -193,6 +295,65 @@
 
         // Starts collapsed, same reasoning as Management Summary.
         document.querySelectorAll('tr.employee-row').forEach(function (row) { setRowCollapsed(row, true); });
+
+        // Avg/Day's "previous month" tooltip — deferred to DOMContentLoaded
+        // since bootstrap.bundle.min.js (the `bootstrap` global) loads via
+        // _htmx_scripts.html below, after this block runs.
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+                new bootstrap.Tooltip(el);
+            });
+        });
+
+        // "Send to WhatsApp" — screenshots the table as currently
+        // expanded/collapsed on screen, same single-table capture as
+        // Device Records' own WhatsApp send.
+        (function () {
+            var btn = document.getElementById('sendOperatorSummaryWhatsappBtn');
+            if (!btn) return;
+            var statusEl = document.getElementById('sendOperatorSummaryWhatsappStatus');
+            var table = document.getElementById('operatorSummaryGrid');
+
+            function getCookie(name) {
+                var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return match ? match.pop() : '';
+            }
+
+            btn.addEventListener('click', function () {
+                btn.disabled = true;
+                statusEl.className = 'report-status';
+                statusEl.textContent = 'Capturing…';
+
+                html2canvas(table, { backgroundColor: '#ffffff', scale: 1.5 })
+                    .then(function (canvas) {
+                        statusEl.textContent = 'Sending…';
+                        canvas.toBlob(function (blob) {
+                            var formData = new FormData();
+                            formData.append('image', blob, 'operator-summary.png');
+                            formData.append('caption', 'Operator Summary — {{ month_name|escapejs }} {{ year|escapejs }}');
+                            fetch('{% url "send_whatsapp_report" %}', {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                                body: formData,
+                            })
+                                .then(function (r) { return r.json(); })
+                                .catch(function () {
+                                    return { ok: false, error: 'Failed to reach the server.' };
+                                })
+                                .then(function (result) {
+                                    btn.disabled = false;
+                                    statusEl.textContent = result.ok ? 'Sent' : 'Failed (' + (result.error || 'error') + ')';
+                                    statusEl.className = 'report-status ' + (result.ok ? 'success' : 'error');
+                                });
+                        }, 'image/png');
+                    })
+                    .catch(function (err) {
+                        btn.disabled = false;
+                        statusEl.textContent = 'Failed to capture the table: ' + ((err && err.message) || String(err));
+                        statusEl.className = 'report-status error';
+                    });
+            });
+        })();
     </script>
 {% include "attendance/_htmx_scripts.html" %}
 </body>

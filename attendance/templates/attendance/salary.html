@@ -116,10 +116,6 @@
         }
         .tab-picker-menu > .btn, .tab-picker-menu .picker-actions { margin-top: 0.3rem; }
         .tab-picker-menu .picker-pin-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
-        .tab-picker-menu input[type="password"] {
-            width: 100%; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px;
-            font-size: 0.85rem; box-sizing: border-box;
-        }
         .tab-picker-menu .picker-actions { display: flex; gap: 0.4rem; }
         .tab-picker-menu .picker-actions .btn { flex: 1; }
         .tab-picker-menu .picker-quick-actions { display: flex; justify-content: flex-end; gap: 0.4rem; margin: -0.15rem 0 0.1rem; }
@@ -137,16 +133,16 @@
             flex-direction: column; align-items: stretch; gap: 0.25rem;
             font-size: 0.8rem; color: var(--text-muted); font-weight: 600;
         }
-        .tab-picker-menu .email-field input[type="text"],
-        .tab-picker-menu .email-field input[type="date"],
-        .tab-picker-menu .email-field textarea {
-            width: 100%; padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: 6px;
-            font-size: 0.85rem; box-sizing: border-box; font-family: inherit; color: var(--text); font-weight: 400; resize: vertical;
-        }
+        .tab-picker-menu .email-field textarea.form-control { resize: vertical; }
         .tab-picker-menu hr.picker-sep { border: none; border-top: 1px solid var(--border); margin: 0.2rem 0; width: 100%; }
 
                 .table-wrap.fit-content { display: inline-block; max-width: 100%; }
                 table.simple.fit-content { width: auto; }
+        /* Table carries its own full grid border (traditional bordered
+           table), so .table-wrap doesn't need a second boxed border
+           around it too. */
+        .table-wrap { border: none; border-radius: 0; }
+        table.simple { border: 1px solid #666; }
         table.simple tr.dept-row td {
             background: #FCE4D6;
             font-weight: 700;
@@ -157,7 +153,11 @@
            light tint as their Dashboard row so they're recognizable as
            the same dual-role person across pages. */
         table.simple tr.work-operator-row td { background: #F3E5F5; }
-        table.simple th, table.simple td { padding: 0.5rem 0.7rem; font-size: 0.82rem; text-align: left; border: 1px solid #666; white-space: nowrap; }
+        /* Rows shrunk down from the original 0.5rem/0.7rem padding —
+           these tables run wide (many columns) more than tall, so a
+           compact row height keeps more of a department visible at once
+           without scrolling. */
+        table.simple th, table.simple td { padding: 0.3rem 0.6rem; font-size: 0.82rem; text-align: left; border: 1px solid #666; white-space: nowrap; }
         table.simple th {
             background: #FFF9B0; color: var(--text-muted); font-weight: 600; font-size: 0.72rem;
             text-transform: uppercase; letter-spacing: 0.03em;
@@ -170,7 +170,20 @@
             border-top: 2px solid #666;
         }
         table.simple tfoot tr:hover td { background: #fafbfc; }
-        .emp-sub-ids { font-size: 0.68rem; color: var(--text-muted); font-weight: 400; margin-top: 0.15rem; white-space: nowrap; }
+        /* PF/ESI numbers (Company Workers' Employee column) — a tooltip
+           on hover instead of always showing both lines under the name,
+           now that rows are shorter; same navy-deep/white tooltip chrome
+           as .icon-btn[data-tooltip]/.tab-lock-icon elsewhere in the
+           app, just scoped to this one element since a plain table cell
+           isn't one of those. */
+        .emp-name-tooltip { position: relative; border-bottom: 1px dotted var(--text-muted); cursor: help; }
+        .emp-name-tooltip[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute; bottom: 100%; left: 0; margin-bottom: 6px;
+            background: var(--navy-deep); color: #fff; font-size: 0.72rem; font-weight: 600;
+            white-space: nowrap; padding: 0.35rem 0.6rem; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); z-index: 50; pointer-events: none;
+        }
         table.simple td.net, table.simple th.net { text-align: right; font-weight: 700; color: var(--navy); }
         /* Sub-header row (PF/ESI/PF+ESI under the "Emp"/"Employer" group
            label) — smaller and lighter than the main header row above it. */
@@ -237,12 +250,30 @@
         table.simple th.personal-leave-cell, table.simple td.personal-leave-cell { background: #FFCDD2; color: #B71C1C; }
         table.simple tbody tr:hover td.personal-leave-cell { background: #f5b3ba; }
 
-        .adj-input {
-            width: 5.5rem; padding: 0.3rem 0.4rem; border: 1px solid var(--border); border-radius: 6px;
-            font-size: 0.82rem; text-align: right; font-family: inherit;
+        /* Base look (border/radius/focus ring/height) all comes from
+           Bootstrap's own .form-control.form-control-sm now (see the
+           markup) — this only still owns what Bootstrap doesn't give it:
+           a narrow width to match these dense table columns (vs.
+           Bootstrap's default width:100%), right-alignment for a number,
+           and an even shorter height than .form-control-sm's own
+           default for a table this dense. */
+        .adj-input.form-control-sm {
+            width: 5.5rem; text-align: right;
+            /* .form-control-sm's own min-height (calc(1.5em + 0.5rem +
+               border)) is a floor that ignores a smaller padding override
+               on its own — padding alone wasn't actually shrinking
+               anything, this has to come down too. */
+            min-height: 0; line-height: 1.3; padding-top: 0.15rem; padding-bottom: 0.15rem;
         }
-        .adj-input:focus { outline: none; border-color: var(--navy); }
         input.adj-input[type="text"] { width: 8rem; text-align: left; }
+        /* Spinner arrows — not useful on a dense payroll grid where
+           every figure is either typed once or left at its default;
+           just extra visual noise and reflow risk from an accidental
+           scroll/arrow-key tap (see app.css's own arrow-key/wheel
+           guards elsewhere in this app for the same concern). */
+        input[type="number"].form-control::-webkit-outer-spin-button,
+        input[type="number"].form-control::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"].form-control { -moz-appearance: textfield; }
 
         /* The Save button is now plain Bootstrap btn/btn-primary (see
            the markup) — already navy/yellow via bootstrap-theme.css,
@@ -317,7 +348,7 @@
                         <input type="hidden" name="view" value="salary_ironing_bartrack">
                         <input type="hidden" name="view" value="salary_fixed_payments">
                         <div class="picker-pin-label">PIN</div>
-                        <input type="password" name="pin" inputmode="numeric" autocomplete="off">
+                        <input type="password" class="form-control form-control-sm" name="pin" inputmode="numeric" autocomplete="off">
                         <button type="submit" class="btn btn-primary" name="action" value="lock">Complete Month</button>
                     </form>
                 </div>
@@ -405,8 +436,8 @@
                         <label><input type="checkbox" class="form-check-input" name="tabs" value="ironing_bartrack" checked> Ironing & Bartrack</label>
                         <label><input type="checkbox" class="form-check-input" name="tabs" value="fixed_payments" checked> Fixed Payments</label>
                         <hr class="picker-sep">
-                        <label class="email-field">Cheque No<input type="text" name="cheque_no" required></label>
-                        <label class="email-field">Date of Cheque<input type="date" name="cheque_date" required></label>
+                        <label class="email-field">Cheque No<input type="text" class="form-control form-control-sm" name="cheque_no" required></label>
+                        <label class="email-field">Date of Cheque<input type="date" class="form-control form-control-sm" name="cheque_date" required></label>
                         <button type="submit" class="btn btn-primary">Download</button>
                     </form>
                 </div>
@@ -460,8 +491,8 @@
                         <label><input type="checkbox" class="email-tab form-check-input" value="ironing_bartrack" data-label="Ironing & Bartrack" checked> Ironing & Bartrack</label>
                         <label><input type="checkbox" class="email-tab form-check-input" value="fixed_payments" data-label="Fixed Payments" checked> Fixed Payments</label>
                         <hr class="picker-sep">
-                        <label class="email-field">Subject<input type="text" id="emailSalarySubject" value="Salary — {{ month_name|escapejs }} {{ year|escapejs }}"></label>
-                        <label class="email-field">Message<textarea id="emailSalaryBody" rows="7" placeholder="Optional message"></textarea></label>
+                        <label class="email-field">Subject<input type="text" class="form-control form-control-sm" id="emailSalarySubject" value="Salary — {{ month_name|escapejs }} {{ year|escapejs }}"></label>
+                        <label class="email-field">Message<textarea class="form-control form-control-sm" id="emailSalaryBody" rows="7" placeholder="Optional message"></textarea></label>
                         <button type="button" class="btn btn-primary" id="sendSalaryEmailBtn">Send Email</button>
                         <span id="sendSalaryEmailStatus" class="report-status"></span>
                     </div>
@@ -492,7 +523,7 @@
                         <label><input type="checkbox" class="form-check-input" name="view" value="salary_ironing_bartrack"> Ironing & Bartrack {% if lock_status.ironing_bartrack %}🔒{% else %}🔓{% endif %}</label>
                         <label><input type="checkbox" class="form-check-input" name="view" value="salary_fixed_payments"> Fixed Payments {% if lock_status.fixed_payments %}🔒{% else %}🔓{% endif %}</label>
                         <div class="picker-pin-label">PIN</div>
-                        <input type="password" name="pin" inputmode="numeric" autocomplete="off">
+                        <input type="password" class="form-control form-control-sm" name="pin" inputmode="numeric" autocomplete="off">
                         <div class="picker-actions">
                             <button type="submit" class="btn btn-primary" name="action" value="lock">Lock selected</button>
                             <button type="submit" class="btn btn-secondary" name="action" value="unlock">Unlock selected</button>
@@ -512,16 +543,17 @@
         {% endif %}
 
         {% if missing_bank_details %}
-            <div class="msg error">
+            <div class="alert alert-danger alert-dismissible fade show" id="missingBankDetailsMsg" role="alert">
                 Missing bank details (still included in the Bank Excel, flagged in red) —
                 {% for m in missing_bank_details %}{{ m.emp_code }} {{ m.emp_name }} ({{ m.tab_label }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endif %}
 
         <div class="card">
             <div class="tab-panel" data-panel="summary"{% if initial_tab != "summary" %} style="display:none;"{% endif %}>
                 <div class="table-wrap fit-content">
-                    <table class="simple fit-content">
+                    <table class="table simple fit-content">
                         <thead>
                             <tr>
                                 <th>Salary Group</th>
@@ -558,7 +590,7 @@
                     {% if lock_status.company %}<p class="alert lock-banner" role="alert">🔒 Company Workers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.company or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap fit-content">
-                        <table class="simple fit-content" id="companyTable">
+                        <table class="table simple fit-content" id="companyTable">
                             <thead>
                                 <tr>
                                     <th rowspan="2">Code</th><th rowspan="2">Employee</th>
@@ -571,6 +603,7 @@
                                     <th colspan="1" data-expanded-colspan="6" class="num group-toggle" data-group="pfesi">PF + ESI <span class="group-arrow">&#9656;</span></th>
                                     <th rowspan="2" class="num grp-deduction-emp">Deductions</th><th rowspan="2" class="num grp-deduction-emp sum-cell">Total Deductions</th><th rowspan="2" class="num">Additions</th>
                                     <th rowspan="2">Hold</th>
+                                    <th rowspan="2" class="num">Profession Tax</th>
                                     <th rowspan="2" class="net grp-highlight">NET</th>
                                     <th rowspan="2">Bank A/C Name</th>
                                 </tr>
@@ -594,18 +627,16 @@
                             <tbody>
                                 {% regroup company_rows by employee.department.name as company_dept_list %}
                                 {% for dept in company_dept_list %}
-                                <tr class="dept-row"><td colspan="27">{{ dept.grouper|default:"—" }}</td></tr>
+                                <tr class="dept-row"><td colspan="28">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
                                 <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="company" data-basic-da="{{ row.calc.basic_da }}" data-hra="{{ row.employee.hra }}" data-gross="{{ row.calc.gross }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}" data-pf-enabled="{% if row.employee.pf_enabled %}1{% else %}0{% endif %}" data-esi-enabled="{% if row.employee.esi_enabled %}1{% else %}0{% endif %}">
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>
-                                        {{ row.employee.name }}
                                         {% if row.employee.pf_number or row.employee.esi_number %}
-                                        <div class="emp-sub-ids">
-                                            {% if row.employee.pf_number %}PF: {{ row.employee.pf_number }}<br>{% endif %}
-                                            {% if row.employee.esi_number %}ESI: {{ row.employee.esi_number }}{% endif %}
-                                        </div>
+                                        <span class="emp-name-tooltip" data-tooltip="{% if row.employee.pf_number %}PF: {{ row.employee.pf_number }}{% endif %}{% if row.employee.pf_number and row.employee.esi_number %} · {% endif %}{% if row.employee.esi_number %}ESI: {{ row.employee.esi_number }}{% endif %}">{{ row.employee.name }}</span>
+                                        {% else %}
+                                        {{ row.employee.name }}
                                         {% endif %}
                                     </td>
                                     <td class="num grp-fixed value-cell detail-fixed">{{ row.employee.basic_salary }}</td>
@@ -631,6 +662,7 @@
                                     <td class="num grp-deduction-emp sum-cell" data-field="total_deduction">{{ row.calc.total_deduction }}</td>
                                     <td class="num"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
                                     <td><input type="checkbox" class="form-check-input" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
+                                    <td class="num value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="profession_tax_{{ row.employee.id }}" value="{{ row.profession_tax }}" {% if not row.employee.pt_enabled %}disabled title="PT isn't enabled for this employee — enable it on their Employee record first"{% endif %}></td>
                                     <td class="net grp-highlight" data-field="net">{{ row.calc.net }}</td>
                                     <td>{{ row.employee.account_name|default:"—" }}</td>
                                 </tr>
@@ -663,6 +695,7 @@
                                     <td class="num" data-total="total_deduction">{{ company_totals.calc.total_deduction }}</td>
                                     <td class="num" data-total="additions">{{ company_totals.additions }}</td>
                                     <td></td>
+                                    <td class="num" data-total="profession_tax">{{ company_totals.calc.profession_tax }}</td>
                                     <td class="net" data-total="net">{{ company_totals.calc.net }}</td>
                                     <td></td>
                                 </tr>
@@ -687,7 +720,7 @@
                     {% if lock_status.helpers %}<p class="alert lock-banner" role="alert">🔒 Helpers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.helpers or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap fit-content">
-                        <table class="simple fit-content">
+                        <table class="table simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th><th class="num grp-fixed">Basic Salary</th>
@@ -763,7 +796,7 @@
                     {% if lock_status.staff %}<p class="alert lock-banner" role="alert">🔒 Staff is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.staff or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap fit-content">
-                        <table class="simple fit-content" id="staffTable">
+                        <table class="table simple fit-content" id="staffTable">
                             <thead>
                                 <tr>
                                     <th rowspan="2">Code</th><th rowspan="2">Employee</th><th rowspan="2" class="num grp-fixed">Basic Salary</th>
@@ -809,7 +842,7 @@
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
                                     <td><input type="checkbox" class="form-check-input" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
-                                    <td class="num value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="profession_tax_{{ row.employee.id }}" value="{{ row.profession_tax }}"></td>
+                                    <td class="num value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="profession_tax_{{ row.employee.id }}" value="{{ row.profession_tax }}" {% if not row.employee.pt_enabled %}disabled title="PT isn't enabled for this employee — enable it on their Employee record first"{% endif %}></td>
                                     <td><input type="checkbox" class="form-check-input" disabled {% if row.employee.tds_enabled %}checked{% endif %}></td>
                                     <td class="num" data-field="tds">{{ row.calc.tds }}</td>
                                     <td class="net grp-highlight" data-field="net">{{ row.calc.net }}</td>
@@ -861,7 +894,7 @@
                     {% if lock_status.contractors %}<p class="alert lock-banner" role="alert">🔒 Contractors is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.contractors or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap fit-content">
-                        <table class="simple fit-content">
+                        <table class="table simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th><th class="num grp-fixed">Day Rate</th>
@@ -937,7 +970,7 @@
                     {% if lock_status.operators %}<p class="alert lock-banner" role="alert">🔒 Operators is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.operators or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap fit-content">
-                        <table class="simple fit-content">
+                        <table class="table simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th>
@@ -1005,7 +1038,7 @@
                     {% if lock_status.ironing_bartrack %}<p class="alert lock-banner" role="alert">🔒 Ironing & Bartrack is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.ironing_bartrack or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap fit-content">
-                        <table class="simple fit-content">
+                        <table class="table simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th>
@@ -1014,7 +1047,7 @@
                                     <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th class="num grp-fixed">Manual Amount</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
-                                    <th>Hold</th><th>Notes</th><th>TDS?</th><th class="num">TDS Amount</th><th class="net grp-highlight">NET</th>
+                                    <th>Hold</th><th>Notes</th><th class="num">Profession Tax</th><th>TDS?</th><th class="num">TDS Amount</th><th class="net grp-highlight">NET</th>
                                     <th>Bank A/C Name</th>
                                 </tr>
                             </thead>
@@ -1032,6 +1065,7 @@
                                     <td class="num"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
                                     <td><input type="checkbox" class="form-check-input" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
                                     <td><input class="adj-input form-control form-control-sm" type="text" name="notes_{{ row.employee.id }}" value="{{ row.notes }}"></td>
+                                    <td class="num value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="profession_tax_{{ row.employee.id }}" value="{{ row.profession_tax }}" {% if not row.employee.pt_enabled %}disabled title="PT isn't enabled for this employee — enable it on their Employee record first"{% endif %}></td>
                                     <td><input type="checkbox" class="form-check-input" disabled {% if row.employee.tds_enabled %}checked{% endif %}></td>
                                     <td class="num" data-field="tds">{{ row.calc.tds }}</td>
                                     <td class="net grp-highlight" data-field="net">{{ row.calc.net }}</td>
@@ -1049,6 +1083,7 @@
                                     <td class="num" data-total="deductions">{{ ironing_bartrack_totals.deductions }}</td>
                                     <td class="num" data-total="additions">{{ ironing_bartrack_totals.additions }}</td>
                                     <td></td><td></td>
+                                    <td class="num" data-total="profession_tax">{{ ironing_bartrack_totals.calc.profession_tax }}</td>
                                     <td></td>
                                     <td class="num" data-total="tds">{{ ironing_bartrack_totals.calc.tds }}</td>
                                     <td class="net" data-total="net">{{ ironing_bartrack_totals.calc.net }}</td>
@@ -1074,7 +1109,7 @@
                     {% if lock_status.fixed_payments %}<p class="alert lock-banner" role="alert">🔒 Fixed Payments is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.fixed_payments or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap fit-content">
-                        <table class="simple fit-content">
+                        <table class="table simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Purpose</th><th>Name</th>
@@ -1090,11 +1125,17 @@
                                 {% for dept in fixed_payment_dept_list %}
                                 <tr class="dept-row"><td colspan="10">{{ dept.grouper|default:"—" }}</td></tr>
                                 {% for row in dept.list %}
-                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="fixed_payments" data-fixed-amount="{{ row.employee.basic_salary }}">
+                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="fixed_payments" data-fixed-amount="{{ row.calc.fixed_amount }}" data-pt-remittance="{% if row.is_pt_remittance %}1{% else %}0{% endif %}">
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
-                                    <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
+                                    <td class="num grp-fixed value-cell"{% if row.is_pt_remittance %} data-field="fixed_amount"{% endif %}>
+                                        {% if row.is_pt_remittance %}
+                                        {{ row.calc.fixed_amount }}
+                                        {% else %}
+                                        <input class="adj-input form-control form-control-sm" type="number" step="0.01" name="fixed_amount_{{ row.employee.id }}" value="{{ row.calc.fixed_amount }}">
+                                        {% endif %}
+                                    </td>
                                     <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
@@ -1109,7 +1150,7 @@
                             <tfoot>
                                 <tr>
                                     <td colspan="2">Total</td>
-                                    <td class="num" data-total="basic_salary">{{ fixed_payment_totals.basic_salary }}</td>
+                                    <td class="num" data-total="fixed_amount">{{ fixed_payment_totals.calc.fixed_amount }}</td>
                                     <td class="num" data-total="manual_amount">{{ fixed_payment_totals.manual_amount }}</td>
                                     <td class="num" data-total="deductions">{{ fixed_payment_totals.deductions }}</td>
                                     <td class="num" data-total="additions">{{ fixed_payment_totals.additions }}</td>
@@ -1219,7 +1260,8 @@
                     var esiEligible = esiEnabled && gross <= ESI_WAGE_CEILING;
                     var esi = esiEligible ? round2(ESI_RATE * earnedTotal) : 0;
                     var esiEmployer = esiEligible ? round2(ESI_EMPLOYER_RATE * earnedTotal) : 0;
-                    var totalDeduction = pf + esi + deductions;
+                    var companyProfessionTax = inputVal(tr, 'profession_tax');
+                    var totalDeduction = pf + esi + deductions + companyProfessionTax;
                     var net = earnedTotal + additions - totalDeduction;
                     result = {
                         earned_days: earnedDays, earned_basic_da: earnedBasicDa, earned_hra: earnedHra,
@@ -1252,12 +1294,17 @@
                     var alreadyPaid = num(tr.dataset.alreadyPaid);
                     result = { net: hold ? 0 : (manualAmount + additions - deductions - alreadyPaid) };
                 } else if (kind === 'ironing_bartrack') {
-                    var netBeforeTds2 = manualAmount + additions - deductions;
+                    var bartrackProfessionTax = inputVal(tr, 'profession_tax');
+                    var netBeforeTds2 = manualAmount + additions - deductions - bartrackProfessionTax;
                     var tdsEnabled2 = tr.dataset.tdsEnabled === '1';
                     var tds2 = tdsEnabled2 ? round2(netBeforeTds2 * TDS_RATE) : 0;
                     result = { tds: tds2, net: hold ? 0 : (netBeforeTds2 - tds2) };
                 } else if (kind === 'fixed_payments') {
-                    var fixedAmount = num(tr.dataset.fixedAmount);
+                    // PT remittance rows have no fixed_amount input (see the
+                    // template) — always read from the live-computed figure
+                    // baked into the row's data attribute instead.
+                    var isPtRemittance = tr.dataset.ptRemittance === '1';
+                    var fixedAmount = isPtRemittance ? num(tr.dataset.fixedAmount) : inputVal(tr, 'fixed_amount');
                     result = { net: hold ? 0 : (fixedAmount + manualAmount + additions - deductions) };
                 }
 
@@ -1274,7 +1321,7 @@
                 if (!totalRow) return;
                 var rows = table.querySelectorAll('tbody tr.calc-row');
                 var sums = {};
-                ['adjust_days', 'deductions', 'additions', 'manual_amount', 'profession_tax'].forEach(function (key) {
+                ['adjust_days', 'deductions', 'additions', 'manual_amount', 'profession_tax', 'fixed_amount'].forEach(function (key) {
                     var total = 0;
                     rows.forEach(function (tr) { total += inputVal(tr, key); });
                     sums[key] = total;
@@ -1698,6 +1745,22 @@
             document.getElementById('lockCancel').addEventListener('click', function () {
                 lockOverlay.classList.remove('open');
             });
+        })();
+
+        // Missing bank details banner — a real Bootstrap alert now (its
+        // own btn-close/data-bs-dismiss handles the close click, nothing
+        // custom needed there); this only adds the auto-hide after 10s,
+        // same reasoning the WhatsApp/Telegram send status text already
+        // has elsewhere: a persistent warning that never goes away
+        // becomes background noise you stop reading, and this one
+        // re-lists every missing employee on every page load regardless
+        // of whether anything changed.
+        (function () {
+            var msgEl = document.getElementById('missingBankDetailsMsg');
+            if (!msgEl) return;
+            setTimeout(function () {
+                bootstrap.Alert.getOrCreateInstance(msgEl).close();
+            }, 10000);
         })();
     </script>
 {% include "attendance/_htmx_scripts.html" %}

@@ -72,6 +72,24 @@ class Employee(models.Model):
         (SUBCATEGORY_STAFF, "Staff"),
         (SUBCATEGORY_OT, "OT"),
     ]
+    # A Fixed Payments-department "remittance" row's source tab (see
+    # _salary_context's "fixed_payments" branch in attendance/views.py) —
+    # that row's amount is this month's live profession_tax total from
+    # the tab named here, not its own basic_salary. A dedicated field
+    # (not category/subcategory — those are real, independent per-
+    # employee flags like tds_enabled, and every Employee's form shows
+    # their full choice list, so a "Professional Tax" category/subcategory
+    # value used to show up there as a nonsensical option on every normal
+    # employee's dropdown too) — blank for every ordinary employee,
+    # including every other Fixed Payments row (e.g. rent).
+    PT_SOURCE_COMPANY = "company"
+    PT_SOURCE_STAFF = "staff"
+    PT_SOURCE_IRONING_BARTRACK = "ironing_bartrack"
+    PT_SOURCE_CHOICES = [
+        (PT_SOURCE_COMPANY, "Company Workers"),
+        (PT_SOURCE_STAFF, "Staff"),
+        (PT_SOURCE_IRONING_BARTRACK, "Ironing & Bartrack"),
+    ]
 
     code = models.CharField(max_length=30, unique=True)
     name = models.CharField(max_length=150)
@@ -125,6 +143,19 @@ class Employee(models.Model):
     pf_enabled = models.BooleanField(default=True)
     esi_enabled = models.BooleanField(default=True)
     tds_enabled = models.BooleanField(default=False)
+    # Gates the Profession Tax field on the Salary page's Company
+    # Workers/Staff/Ironing & Bartrack tabs (see salary.html/
+    # _salary_context in attendance/views.py) — off by default, same as
+    # tds_enabled, since PT applies to specific employees rather than
+    # everyone. Someone with this off can't have a profession_tax amount
+    # typed in for them at all, rather than it silently doing nothing.
+    pt_enabled = models.BooleanField(default=False)
+
+    # Deliberately excluded from EmployeeForm's fields (see attendance/
+    # forms.py) — this only ever matters for the handful of synthetic
+    # Fixed Payments "remittance" rows created once in the shell (see
+    # PT_SOURCE_CHOICES' docstring above), never for a real employee.
+    pt_remittance_source = models.CharField(max_length=20, blank=True, choices=PT_SOURCE_CHOICES)
 
     # Bank details for salary transfer — sourced from the monthly salary
     # workbook's department sheets (Op/I&B/Staff/Helpers/Company Workers),

@@ -2258,13 +2258,22 @@ _SALARY_VIEW_TO_LOCK_KEY = {view: key for key, view in _SALARY_LOCK_VIEWS.items(
 # save, wiping out whatever a different tab had set — harmless until now
 # since no employee ever appeared in two tabs, but an Operator with
 # subcategory="Company" (see _salary_context) does exactly that.
+# Employee.pt_remittance_source -> the _salary_context totals key it
+# pulls its profession_tax figure from — see build_rows's
+# "fixed_payments" branch.
+_FIXED_PAYMENT_PT_SOURCE_TABS = {
+    Employee.PT_SOURCE_COMPANY: "company",
+    Employee.PT_SOURCE_STAFF: "staff",
+    Employee.PT_SOURCE_IRONING_BARTRACK: "ironing_bartrack",
+}
+
 _SALARY_TAB_EDITABLE_FIELDS = {
-    "company": {"adjust_days", "deductions", "additions", "hold"},
+    "company": {"adjust_days", "deductions", "additions", "hold", "profession_tax"},
     "helpers": {"adjust_days", "deductions", "additions", "hold"},
     "staff": {"adjust_days", "deductions", "additions", "hold", "profession_tax"},
     "contractors": {"adjust_days", "deductions", "additions", "hold"},
     "operators": {"manual_amount", "deductions", "additions", "hold", "notes"},
-    "ironing_bartrack": {"manual_amount", "deductions", "additions", "hold", "notes"},
+    "ironing_bartrack": {"manual_amount", "deductions", "additions", "hold", "notes", "profession_tax"},
     "fixed_payments": {"manual_amount", "deductions", "additions", "hold", "notes"},
 }
 
@@ -2323,6 +2332,9 @@ class _FrozenEmployee:
         self.pf_enabled = data["pf_enabled"]
         self.esi_enabled = data["esi_enabled"]
         self.tds_enabled = data["tds_enabled"]
+        # .get() with a default, same reasoning as payment_method below —
+        # a snapshot frozen before this field existed just predates it.
+        self.pt_enabled = data.get("pt_enabled", False)
         self.pf_number = data["pf_number"]
         self.esi_number = data["esi_number"]
         # .get() with a default (not data[...]) since payment_method was
@@ -2373,6 +2385,7 @@ def _snapshot_salary_tab(year: int, month: int, lock_key: str) -> None:
             "id": emp.id, "code": emp.code, "name": emp.name,
             "basic_salary": emp.basic_salary, "hra": emp.hra, "da": emp.da,
             "pf_enabled": emp.pf_enabled, "esi_enabled": emp.esi_enabled, "tds_enabled": emp.tds_enabled,
+            "pt_enabled": emp.pt_enabled,
             "pf_number": emp.pf_number, "esi_number": emp.esi_number,
             "payment_method": emp.payment_method, "account_name": emp.account_name,
             "bank_name": emp.bank_name, "account_no": emp.account_no, "ifsc_code": emp.ifsc_code,
@@ -2399,6 +2412,7 @@ def _full_employee_snapshot_data(emp: Employee) -> dict:
         "ot_rate_per_hour": emp.ot_rate_per_hour, "basic_salary": emp.basic_salary,
         "hra": emp.hra, "da": emp.da, "esi_number": emp.esi_number, "pf_number": emp.pf_number,
         "esi_enabled": emp.esi_enabled, "pf_enabled": emp.pf_enabled, "tds_enabled": emp.tds_enabled,
+        "pt_enabled": emp.pt_enabled,
         "payment_method": emp.payment_method, "account_name": emp.account_name,
         "bank_name": emp.bank_name, "account_no": emp.account_no, "ifsc_code": emp.ifsc_code,
         "branch": emp.branch,
@@ -2598,7 +2612,7 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
                 calc = payroll.compute_company_worker_pay(
                     emp.basic_salary, emp.hra, emp.da, paid_days_for_calc, working_days,
                     adjust_days, deductions, additions,
-                    pf_enabled=emp.pf_enabled, esi_enabled=emp.esi_enabled,
+                    pf_enabled=emp.pf_enabled, esi_enabled=emp.esi_enabled, profession_tax=profession_tax,
                 )
             elif kind == "operators":
                 # An Operator with subcategory="Company" also does
@@ -2619,7 +2633,8 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
                 # to subtract back out. Unlike plain Operators, this tab
                 # does respect Employee.tds_enabled.
                 calc = payroll.compute_operator_pay(
-                    manual_amount, deductions, additions, Decimal(0), tds_enabled=emp.tds_enabled,
+                    manual_amount, deductions, additions, Decimal(0),
+                    tds_enabled=emp.tds_enabled, profession_tax=profession_tax,
                 )
             elif kind == "fixed_payments":
                 # A recurring flat amount set once on the Employee record
@@ -2628,8 +2643,30 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
                 # specific month (e.g. a one-off extra charge) on top of
                 # it, unlike Operators' manual_amount which stands in for
                 # their whole pay.
+                #
+                # Except for the Professional Tax remittance rows
+                # (Employee.pt_remittance_source set — created once like
+                # any other Fixed Payments entry, e.g. rent): their "fixed
+                # amount" isn't Employee.basic_salary at all, it's this
+                # month's live profession_tax total collected on the tab
+                # pt_remittance_source names — see company_totals/
+                # staff_totals/ironing_bartrack_totals above, all already
+                # computed by this point. Still a real Employee row (not
+                # synthesized here), so it still goes through the ordinary
+                # PayrollSnapshot lock/freeze path below untouched — once
+                # Fixed Payments is locked, this figure freezes exactly
+                # like every other row's instead of drifting if the
+                # source tab changes afterward.
+                source_tab = _FIXED_PAYMENT_PT_SOURCE_TABS.get(emp.pt_remittance_source)
+                if source_tab:
+                    fixed_amount = (
+                        context.get(f"{source_tab}_totals", {})
+                        .get("calc", {}).get("profession_tax", Decimal(0))
+                    )
+                else:
+                    fixed_amount = emp.basic_salary
                 calc = payroll.compute_fixed_payment_pay(
-                    emp.basic_salary, manual_amount, deductions, additions,
+                    fixed_amount, manual_amount, deductions, additions,
                 )
             elif kind == "contractors":
                 # Contractors are paid per day actually worked, not a fixed
@@ -2672,6 +2709,12 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
                 "additions": additions,
                 "manual_amount": manual_amount,
                 "profession_tax": profession_tax,
+                # Only meaningful for kind == "fixed_payments" — True for
+                # the 3 Professional Tax remittance rows (see build_rows's
+                # "fixed_payments" branch above), so the template can keep
+                # their Fixed Payment amount read-only while every normal
+                # row (rent, internet, ...) gets a real input.
+                "is_pt_remittance": kind == "fixed_payments" and bool(source_tab),
                 "hold": hold,
                 "notes": adj.notes if adj else "",
                 "calc": calc,
@@ -2719,11 +2762,12 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         elif kind in ("operators", "ironing_bartrack"):
             totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
         elif kind == "fixed_payments":
-            # Both figures apply here — the basic_salary-derived flat
-            # payment AND a manual_amount on top of it for the odd
+            # manual_amount on top of the per-row fixed amount for the odd
             # month it's more/less than usual (see build_rows/
-            # compute_fixed_payment_pay).
-            totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
+            # compute_fixed_payment_pay) — the fixed amount itself sums via
+            # calc_totals below (calc["fixed_amount"], not a plain
+            # Employee.basic_salary sum, since a Professional Tax
+            # remittance row's effective amount isn't basic_salary at all).
             totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
         calc_keys = rows[0]["calc"].keys() if rows else []
         calc_totals = {k: Decimal(0) for k in calc_keys}
@@ -2829,6 +2873,18 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         .active_during(month_start, month_end).order_by("department__name", "name"),
         "fixed_payments",
     )
+    # A Professional Tax remittance row (see build_rows's "fixed_payments"
+    # branch) only shows up in a month its source tab actually collected
+    # some — nothing to remit, nothing to show, rather than a permanent
+    # ₹0 row every month regardless.
+    def _pt_source_tab(emp):
+        return _FIXED_PAYMENT_PT_SOURCE_TABS.get(emp.pt_remittance_source)
+
+    fixed_payment_rows = [
+        r for r in fixed_payment_rows
+        if not _pt_source_tab(r["employee"])
+        or context.get(f"{_pt_source_tab(r['employee'])}_totals", {}).get("calc", {}).get("profession_tax", Decimal(0))
+    ]
     context["fixed_payment_rows"] = fixed_payment_rows
     context["fixed_payment_totals"] = sum_rows(fixed_payment_rows, "fixed_payments")
 
@@ -2939,7 +2995,14 @@ def salary_view(request):
                 defaults["deductions"] = _salary_decimal(request, "deductions", emp_id)
             if "additions" in editable_fields:
                 defaults["additions"] = _salary_decimal(request, "additions", emp_id)
-            if "profession_tax" in editable_fields:
+            if "profession_tax" in editable_fields and emp.pt_enabled:
+                # Skipped entirely (not forced to 0) when PT isn't enabled
+                # for this employee — the field is disabled in the
+                # template then, so the browser never submits it anyway,
+                # but a missing "profession_tax" key here also means
+                # update_or_create leaves whatever value was already
+                # saved alone instead of wiping it via _salary_decimal's
+                # "missing -> 0" default.
                 defaults["profession_tax"] = _salary_decimal(request, "profession_tax", emp_id)
             if "manual_amount" in editable_fields:
                 manual_amount_raw = request.POST.get(f"manual_amount_{emp_id}", "").strip()
@@ -2954,6 +3017,23 @@ def salary_view(request):
                 defaults["hold"] = request.POST.get(f"hold_{emp_id}") == "on"
             if "notes" in editable_fields:
                 defaults["notes"] = request.POST.get(f"notes_{emp_id}", "").strip()
+            # Fixed Payments' own base amount lives on Employee.basic_salary,
+            # not SalaryAdjustment (every other editable_fields entry above
+            # does) — a normal recurring entry (rent, internet, ...) can be
+            # retyped straight from this tab instead of needing the Employee
+            # edit page. The 3 Professional Tax remittance rows (see
+            # build_rows's "fixed_payments" branch) are deliberately excluded
+            # even if somehow posted — their amount is always the live
+            # profession_tax total from another tab; saving a value here
+            # would just get silently overwritten on the next page load.
+            if tab == "fixed_payments" and not emp.pt_remittance_source:
+                fixed_amount_raw = request.POST.get(f"fixed_amount_{emp_id}", "").strip()
+                if fixed_amount_raw:
+                    try:
+                        emp.basic_salary = Decimal(fixed_amount_raw)
+                        emp.save(update_fields=["basic_salary"])
+                    except InvalidOperation:
+                        pass
             SalaryAdjustment.objects.update_or_create(
                 employee=emp, year=year, month=month,
                 tab=_SALARY_TAB_STORAGE_ALIASES.get(tab, tab), defaults=defaults,
@@ -4537,6 +4617,7 @@ _EMPLOYEE_SORT_FIELDS = {
     "ot_rate_per_hour": "ot_rate_per_hour", "basic_salary": "basic_salary", "hra": "hra", "da": "da",
     "pf_number": "pf_number", "esi_number": "esi_number",
     "pf_enabled": "pf_enabled", "esi_enabled": "esi_enabled", "tds_enabled": "tds_enabled",
+    "pt_enabled": "pt_enabled",
     "account_name": "account_name", "bank_name": "bank_name", "account_no": "account_no",
     "ifsc_code": "ifsc_code", "branch": "branch",
 }

@@ -54,7 +54,7 @@ def compute_company_worker_pay(
     basic_salary: Decimal, hra: Decimal, da: Decimal,
     paid_days: Decimal, working_days: int,
     adjust_days: Decimal = Decimal(0), deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
-    pf_enabled: bool = True, esi_enabled: bool = True,
+    pf_enabled: bool = True, esi_enabled: bool = True, profession_tax: Decimal = Decimal(0),
 ) -> dict:
     """Company Workers: Basic+DA and HRA are each prorated by earned days
     over working days, then PF (12% of earned Basic+DA) and ESI (0.75% of
@@ -65,7 +65,13 @@ def compute_company_worker_pay(
     on above the statutory cap. Verified against a real payroll row:
     Basic 5000, DA 5496, HRA 2787, 25/27 paid days -> earned_basic_da
     9718.52, earned_hra 2580.56, pf 1166.22, esi 92.24, net 11041 (all
-    matched exactly, to the rupee, before the final round)."""
+    matched exactly, to the rupee, before the final round).
+
+    profession_tax (SalaryAdjustment.profession_tax, a flat manually-set
+    figure for whichever month it's actually collected — same "no slab/
+    bracket logic" rule as Staff's) folds straight into total_deduction
+    alongside PF/ESI, same "computed last, after everything else" spot
+    Staff's own profession_tax sits in."""
     basic_da = basic_salary + da
     gross = basic_da + hra
     earned_days = paid_days + adjust_days
@@ -84,7 +90,7 @@ def compute_company_worker_pay(
     # penny off from summing pre-rounding.
     pf_r, pf_employer_r = round(pf, 2), round(pf_employer, 2)
     esi_r, esi_employer_r = round(esi, 2), round(esi_employer, 2)
-    total_deduction = pf_r + esi_r + deductions
+    total_deduction = pf_r + esi_r + deductions + profession_tax
     net = earned_total + additions - total_deduction
     return {
         "basic_da": round(basic_da, 2),
@@ -99,6 +105,7 @@ def compute_company_worker_pay(
         "esi_employer": esi_employer_r,
         "pf_esi_employee": pf_r + esi_r,
         "pf_esi_employer": pf_employer_r + esi_employer_r,
+        "profession_tax": profession_tax,
         "total_deduction": round(total_deduction, 2),
         "net": round(net, 2),
     }
@@ -149,7 +156,7 @@ def compute_daily_rate_pay(
 
 def compute_operator_pay(
     manual_amount: Decimal | None, deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
-    already_paid: Decimal = Decimal(0), tds_enabled: bool = False,
+    already_paid: Decimal = Decimal(0), tds_enabled: bool = False, profession_tax: Decimal = Decimal(0),
 ) -> dict:
     """Operators: pay is piece-rate/production-based, entered by hand each
     month (not derivable from attendance at all) — this just combines it
@@ -162,23 +169,30 @@ def compute_operator_pay(
     avoid double-paying them for the same days. Zero (a no-op) for every
     ordinary Operator.
 
-    tds_enabled (Ironing & Bartrack only — plain Operators never pass
-    this) takes TDS_RATE off whatever's left after already_paid/
-    deductions/additions, same "computed last" rule as
-    compute_prorated_pay's."""
-    net_before_tds = (manual_amount or Decimal(0)) + additions - deductions - already_paid
+    tds_enabled and profession_tax (Ironing & Bartrack only — plain
+    Operators never pass either) both take whatever's left after
+    already_paid/deductions/additions, profession_tax first then
+    TDS_RATE on top of that — same "computed last, PT before TDS" order
+    compute_prorated_pay's Staff path uses."""
+    net_before_tax = (manual_amount or Decimal(0)) + additions - deductions - already_paid
+    net_before_tds = net_before_tax - profession_tax
     tds = round(net_before_tds * TDS_RATE, 2) if tds_enabled else Decimal(0)
     net = net_before_tds - tds
-    return {"net": round(net, 2), "already_paid": round(already_paid, 2), "tds": tds}
+    return {
+        "net": round(net, 2), "already_paid": round(already_paid, 2),
+        "profession_tax": profession_tax, "tds": tds,
+    }
 
 
 def compute_fixed_payment_pay(
     fixed_amount: Decimal, manual_amount: Decimal | None = None,
     deductions: Decimal = Decimal(0), additions: Decimal = Decimal(0),
 ) -> dict:
-    """Fixed Payments: a recurring flat amount (Employee.basic_salary),
-    plus an optional manual top-up/adjustment for a specific month (e.g.
-    a one-off extra charge) on top of it — not a replacement for
-    fixed_amount the way Operators' manual_amount is their whole pay."""
+    """Fixed Payments: a recurring flat amount (Employee.basic_salary, or
+    for a Professional Tax remittance row, that tab's live-collected
+    total — see _salary_context's build_rows), plus an optional manual
+    top-up/adjustment for a specific month (e.g. a one-off extra charge)
+    on top of it — not a replacement for fixed_amount the way Operators'
+    manual_amount is their whole pay."""
     net = fixed_amount + (manual_amount or Decimal(0)) + additions - deductions
-    return {"net": round(net, 2)}
+    return {"fixed_amount": round(fixed_amount, 2), "net": round(net, 2)}

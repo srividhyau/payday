@@ -7,8 +7,12 @@
     <title>Payday — {{ style.name }} Rate Card</title>
 {% include "attendance/_bootstrap_head.html" %}
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
+    <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    .report-status { font-size: 0.8rem; color: var(--text-muted); }
+    .report-status.error { color: #b3261e; }
+    .report-status.success { color: #1e7e34; }
     /* Single yellow header bar — title, style switcher, bulk Order Qty
        form, and the Production link all in one line (same convention
        as Device Records' header). */
@@ -26,10 +30,11 @@
     .save-btn:hover { color: var(--navy-deep); }
     .delete-btn { color: #b3261e; }
     .delete-btn:hover { color: #7a1a15; }
-    .toggle-btn { color: var(--text-muted); }
-    .toggle-btn:hover { color: var(--navy); }
-    .toggle-btn.is-enable { color: #1e7e34; }
-    .toggle-btn.is-enable:hover { color: #14532d; }
+    /* Enable/Disable switch — a real Bootstrap form-switch now (see the
+       markup) instead of a text Disable/Enable button, which read as
+       ambiguous (disable *what*, from what state?) compared to a
+       standard on/off toggle. */
+    .op-enable-toggle:checked { background-color: #1e7e34; border-color: #1e7e34; }
     /* Disabled — stays on the rate card (toggle it back on any time) but
        is excluded from the Production page entirely; dimmed here so it
        reads as "off" without needing a separate column. */
@@ -105,6 +110,13 @@
             {% if not style.is_template %}
             <a href="{% url 'piece_rate_production' style.id %}" class="tab-btn">Production</a>
             {% endif %}
+            <a class="icon-btn" href="{% url 'piece_rate_rate_card_download' style.id %}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+            </a>
+            <button type="button" class="icon-btn" id="sendRateCardWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
+            </button>
+            <span id="sendRateCardWhatsappStatus" class="report-status"></span>
             <span id="orderSavedNote" style="font-size:0.8rem; color:var(--text-muted); display:none; margin-left:auto;">Order saved</span>
         </div>
 
@@ -115,7 +127,7 @@
         <form method="post" id="rateCardForm">
             {% csrf_token %}
             <div class="table-wrap fit-content">
-                <table class="simple">
+                <table class="simple" id="rateCardGrid">
                     <thead>
                         <tr>
                             <th></th>
@@ -166,7 +178,7 @@
                         {% endif %}
                         {% for op in operations %}
                         {% if can_edit_this_style %}
-                        <tr data-op-id="{{ op.id }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled {% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
+                        <tr id="op-{{ op.id }}" data-op-id="{{ op.id }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled {% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
                             <td class="col-drag" draggable="true" title="Drag to reorder">⠿</td>
                             <td class="col-op-code">{{ forloop.counter }}</td>
                             <td class="col-section"><input type="text" name="section_{{ op.id }}" value="{{ op.section }}" readonly></td>
@@ -199,13 +211,16 @@
                             <td>
                                 <button type="submit" name="action" value="edit_{{ op.id }}" class="save-btn">Save</button>
                                 &nbsp;
-                                <button type="submit" name="action" value="toggle_enabled_{{ op.id }}" class="toggle-btn{% if not op.is_enabled %} is-enable{% endif %}">{% if op.is_enabled %}Disable{% else %}Enable{% endif %}</button>
+                                <div class="form-check form-switch d-inline-block align-middle" title="{% if op.is_enabled %}Enabled — shows on the Production page{% else %}Disabled — hidden from the Production page{% endif %}">
+                                    <input type="checkbox" class="form-check-input op-enable-toggle" role="switch" id="opEnable{{ op.id }}" data-op-id="{{ op.id }}" {% if op.is_enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="opEnable{{ op.id }}">{% if op.is_enabled %}Enabled{% else %}Disabled{% endif %}</label>
+                                </div>
                                 &nbsp;
                                 <button type="submit" name="action" value="delete_{{ op.id }}" class="delete-btn" data-confirm-name="{{ op.name|escapejs }}">Delete</button>
                             </td>
                         </tr>
                         {% else %}
-                        <tr{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled{% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
+                        <tr id="op-{{ op.id }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled{% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
                             <td></td>
                             <td class="col-op-code">{{ forloop.counter }}</td>
                             <td>{{ op.section|default:"—" }}</td>
@@ -315,6 +330,25 @@
             }
         });
 
+        // Enable/Disable switch — flipping it submits the whole form (same
+        // round trip the Save/Delete buttons already do; the server's
+        // toggle_enabled_ handler only ever touches this one row's
+        // is_enabled regardless of what else is in the form) with a
+        // dynamically-added action field, since a checkbox has no
+        // name="action" value="..." of its own the way a submit button
+        // does.
+        document.querySelectorAll('.op-enable-toggle').forEach(function (toggle) {
+            toggle.addEventListener('change', function () {
+                var form = document.getElementById('rateCardForm');
+                var action = document.createElement('input');
+                action.type = 'hidden';
+                action.name = 'action';
+                action.value = 'toggle_enabled_' + toggle.dataset.opId;
+                form.appendChild(action);
+                form.submit();
+            });
+        });
+
         // Drag-and-drop reordering — the handle cell (⠿) is draggable;
         // dropping onto another row moves it ahead of/behind it, then
         // every row's Op Code display is renumbered by its new position
@@ -385,6 +419,56 @@
                 saveOrder();
             });
         });
+
+        // "Send to WhatsApp" — screenshots the rate card as currently on
+        // screen, same single-table capture as Device Records' own
+        // WhatsApp send.
+        (function () {
+            var btn = document.getElementById('sendRateCardWhatsappBtn');
+            if (!btn) return;
+            var statusEl = document.getElementById('sendRateCardWhatsappStatus');
+            var table = document.getElementById('rateCardGrid');
+
+            function getCookie(name) {
+                var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return match ? match.pop() : '';
+            }
+
+            btn.addEventListener('click', function () {
+                btn.disabled = true;
+                statusEl.className = 'report-status';
+                statusEl.textContent = 'Capturing…';
+
+                html2canvas(table, { backgroundColor: '#ffffff', scale: 1.5 })
+                    .then(function (canvas) {
+                        statusEl.textContent = 'Sending…';
+                        canvas.toBlob(function (blob) {
+                            var formData = new FormData();
+                            formData.append('image', blob, 'rate-card.png');
+                            formData.append('caption', 'Rate Card — {{ style.name|escapejs }}');
+                            fetch('{% url "send_whatsapp_report" %}', {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                                body: formData,
+                            })
+                                .then(function (r) { return r.json(); })
+                                .catch(function () {
+                                    return { ok: false, error: 'Failed to reach the server.' };
+                                })
+                                .then(function (result) {
+                                    btn.disabled = false;
+                                    statusEl.textContent = result.ok ? 'Sent' : 'Failed (' + (result.error || 'error') + ')';
+                                    statusEl.className = 'report-status ' + (result.ok ? 'success' : 'error');
+                                });
+                        }, 'image/png');
+                    })
+                    .catch(function (err) {
+                        btn.disabled = false;
+                        statusEl.textContent = 'Failed to capture the table: ' + ((err && err.message) || String(err));
+                        statusEl.className = 'report-status error';
+                    });
+            });
+        })();
     </script>
 {% include "attendance/_htmx_scripts.html" %}
 </body>
