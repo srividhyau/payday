@@ -2,7 +2,7 @@ import secrets
 
 from django.db import models
 
-from attendance.models import Employee
+from attendance.models import Employee, TimestampedModel
 
 PAY_TYPE_OPERATOR = "operator"
 PAY_TYPE_HELPER = "helper"
@@ -14,7 +14,7 @@ PAY_TYPE_CHOICES = [
 ]
 
 
-class Style(models.Model):
+class Style(TimestampedModel):
     """A garment style/product (e.g. L_Pyjama, HNB_CHINO) — the top-level
     grouping a rate card belongs to.
 
@@ -46,7 +46,7 @@ class Style(models.Model):
         return self.name
 
 
-class Operation(models.Model):
+class Operation(TimestampedModel):
     """Master catalog of sewing operations, shared across styles — built
     by extracting every operation used in last month's style rate cards,
     fixing spelling/abbreviation drift (e.g. ATTCH -> ATTACH), and
@@ -66,7 +66,7 @@ class Operation(models.Model):
         return self.name
 
 
-class RateCardOperation(models.Model):
+class RateCardOperation(TimestampedModel):
     """One line of a Style's rate card — a single sewing operation and
     what it pays per piece. Which of Operator/Helper/Finishing pay a
     piece counts toward depends on who performs it, not just the
@@ -101,7 +101,7 @@ class RateCardOperation(models.Model):
         return f"{self.style} — {self.name}"
 
 
-class PieceRateEntry(models.Model):
+class PieceRateEntry(TimestampedModel):
     """One operator's piece count for one operation on one day. Multiple
     operators can log against the same RateCardOperation — see the
     Production page, which groups these by operation and compares their
@@ -159,7 +159,7 @@ class PieceRateEntry(models.Model):
         return f"{self.rate_card_operation} — {self.employee} — {self.date}: {self.quantity}"
 
 
-class OperatorLink(models.Model):
+class OperatorLink(TimestampedModel):
     """A private, unguessable URL that identifies one operator — the
     whole mechanism behind the mobile self-entry page (see
     operator_entry_view). No login: the token in the link IS the

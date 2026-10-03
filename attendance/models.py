@@ -6,7 +6,21 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 
 
-class Department(models.Model):
+class TimestampedModel(models.Model):
+    """When a row was first created and last saved. Nullable because rows
+    that existed before these columns were added have no known time — a
+    blank value means "before tracking started", never a guess.
+    QuerySet.update() and bulk_update() skip auto_now, so those call
+    sites must set updated_at themselves."""
+
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        abstract = True
+
+
+class Department(TimestampedModel):
     name = models.CharField(max_length=150, unique=True)
 
     class Meta:
@@ -41,7 +55,7 @@ class EmployeeQuerySet(models.QuerySet):
         return self.filter(no_periods | overlapping).distinct()
 
 
-class Employee(models.Model):
+class Employee(TimestampedModel):
     # Operators-tab membership is decided by *department* ("Operator" —
     # see attendance/views.py's _salary_context, work_operator_map/
     # ot_operator_map, and dashboard_view's OT-only exclusion, which all
@@ -201,7 +215,7 @@ class Employee(models.Model):
         ).exists()
 
 
-class EmploymentPeriod(models.Model):
+class EmploymentPeriod(TimestampedModel):
     """One continuous stretch of employment for an employee — start_date to
     end_date (end_date blank = still active). Someone who takes a month off
     and rejoins gets a second period rather than reusing or deleting the
@@ -230,7 +244,7 @@ class EmploymentPeriod(models.Model):
                 raise ValidationError(f"Overlaps an existing period: {other}.")
 
 
-class UploadBatch(models.Model):
+class UploadBatch(TimestampedModel):
     """One HR upload of a DailyAttendance export file."""
 
     file_name = models.CharField(max_length=255)
@@ -246,7 +260,7 @@ class UploadBatch(models.Model):
         return f"{self.file_name} ({self.uploaded_at:%Y-%m-%d %H:%M})"
 
 
-class AttendanceRecord(models.Model):
+class AttendanceRecord(TimestampedModel):
     STATUS_CHOICES = [
         ("P", "Present"),
         ("A", "Absent"),
@@ -297,7 +311,7 @@ class AttendanceRecord(models.Model):
         return f"{self.employee.code} {self.date} {self.status}"
 
 
-class SalaryAdjustment(models.Model):
+class SalaryAdjustment(TimestampedModel):
     """One employee's monthly payroll adjustments for one Salary tab — HR's
     input to the Salary page (see src/payroll.py for how these combine
     with attendance and Employee.basic_salary/hra/da into a final NET).
@@ -347,7 +361,7 @@ class SalaryAdjustment(models.Model):
         return f"{self.employee.code} {self.year}-{self.month:02d} ({self.tab or 'legacy'})"
 
 
-class OtAdjustment(models.Model):
+class OtAdjustment(TimestampedModel):
     """One employee's manual OT Hours correction for one month, entered on
     the OT Details page's inline "OT Adj" cell. Deliberately kept OUT of
     the shift-based OT table (attendance/views.py's _build_month_grid) —
@@ -377,7 +391,7 @@ class OtAdjustment(models.Model):
         return f"{self.employee.code} {self.year}-{self.month:02d} ({self.hours:+}h)"
 
 
-class PayrollSnapshot(models.Model):
+class PayrollSnapshot(TimestampedModel):
     """One employee's fully-computed Salary row, frozen at the moment a
     Salary tab gets locked (see toggle_month_lock_view/_snapshot_salary_tab
     in attendance/views.py) — because every Salary tab is normally computed
@@ -463,7 +477,7 @@ class AuditLogEntry(models.Model):
         return f"{self.timestamp:%Y-%m-%d %H:%M} {self.actor} {self.model_name}.{self.field_name}"
 
 
-class EmployeeSnapshot(models.Model):
+class EmployeeSnapshot(TimestampedModel):
     """A full copy of one Employee row's fields, frozen the moment ANY
     MonthLock view (Attendance All/Missed Punch, OT View, or a Salary tab)
     gets locked for a given (year, month) — see toggle_month_lock_view.
@@ -496,7 +510,7 @@ class EmployeeSnapshot(models.Model):
         return f"{self.employee.code} {self.year}-{self.month:02d} ({self.view}) [details frozen]"
 
 
-class MonthLock(models.Model):
+class MonthLock(TimestampedModel):
     """Marks one calendar month's attendance/payroll as frozen for one of
     several editable views — the Attendance dashboard's All and Missed
     Punch views, the OT page's OT View tab, and each of the Salary page's
@@ -546,7 +560,7 @@ class MonthLock(models.Model):
         return f"{self.year}-{self.month:02d} ({self.get_view_display()}) locked"
 
 
-class SpecialDay(models.Model):
+class SpecialDay(TimestampedModel):
     """A company-wide calendar entry — applies to every employee on that
     date, except anyone listed in downgraded_employees, who get plain
     Holiday (unpaid) instead of this date's real day_type (see
@@ -581,7 +595,7 @@ class SpecialDay(models.Model):
         return f"{self.date} ({self.get_day_type_display()})"
 
 
-class EarlyClosureDay(models.Model):
+class EarlyClosureDay(TimestampedModel):
     """A date the whole company closes earlier than usual (e.g. a half
     day before a festival) — company-wide, like SpecialDay. closing_time
     (e.g. 14:30) is what HR actually knows and enters; full_day_hours
@@ -626,7 +640,7 @@ class EarlyClosureDay(models.Model):
         return round(max(minutes, 0) / 60, 2)
 
 
-class CashWithdrawal(models.Model):
+class CashWithdrawal(TimestampedModel):
     """One cash withdrawal — money taken out for a fixed purpose outside
     of payroll (e.g. petty cash, office expenses, an advance), logged
     against a month as a whole (no specific day) like Salary/OT Details
@@ -648,7 +662,7 @@ class CashWithdrawal(models.Model):
         return f"{self.year}-{self.month:02d} — {self.purpose} — {self.amount}"
 
 
-class CashRegisterEntry(models.Model):
+class CashRegisterEntry(TimestampedModel):
     """One line in the petty cash register — a real day-by-day cashbook:
     every Cash In (e.g. withdrawn from the bank into the office cash box)
     and Cash Out (an expense/payment made from that cash), each on its
@@ -683,7 +697,7 @@ class CashRegisterEntry(models.Model):
         return f"{self.date} {sign}{self.amount} — {self.purpose}"
 
 
-class LeaveLedgerEntry(models.Model):
+class LeaveLedgerEntry(TimestampedModel):
     """One Staff employee's EL (Earned Leave) / Comp-Off accrual for one
     month — a monthly "closing" snapshot posted by HR (see
     leave_ledger_view), not a live-computed balance: EL's 6-day cap and

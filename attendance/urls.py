@@ -11,6 +11,7 @@ urlpatterns = [
     path("mark-attendance/", views.mark_attendance_view, name="mark_attendance"),
     path("mark-attendance/month/", views.mark_attendance_month_view, name="mark_attendance_month"),
     path("mark-attendance/set-status/", views.set_attendance_status_view, name="set_attendance_status"),
+    path("mark-attendance/undo-status/", views.undo_attendance_status_view, name="undo_attendance_status"),
     path("dashboard/", views.dashboard_view, name="dashboard"),
     path("dashboard/download/", views.dashboard_download_view, name="dashboard_download"),
     path("reports/ot-details/", views.ot_details_view, name="ot_details"),

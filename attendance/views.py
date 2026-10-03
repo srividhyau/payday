@@ -23,6 +23,7 @@ from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.dateparse import parse_time
 from django.views.decorators.csrf import csrf_exempt
 
@@ -1371,12 +1372,14 @@ def bulk_set_shift_view(request):
     records = list(
         AttendanceRecord.objects.filter(date=date_str).exclude(employee__subcategory="Staff")
     )
+    now = timezone.now()
     for record in records:
         if record.shift != shift:
             record.manually_edited_fields = _merge_edited_fields(record.manually_edited_fields, ["Shift"])
         record.shift = shift
         record.manually_edited = True
-    AttendanceRecord.objects.bulk_update(records, ["shift", "manually_edited", "manually_edited_fields"])
+        record.updated_at = now
+    AttendanceRecord.objects.bulk_update(records, ["shift", "manually_edited", "manually_edited_fields", "updated_at"])
     updated = len(records)
     if day_type in dict(SpecialDay.TYPE_CHOICES):
         SpecialDay.objects.update_or_create(date=date_str, defaults={"day_type": day_type})
@@ -2033,6 +2036,9 @@ def mark_attendance_month_view(request):
         "status_choices": AttendanceRecord.STATUS_CHOICES,
         "status_labels": dict(AttendanceRecord.STATUS_CHOICES),
         "is_locked": _month_is_locked(current.isoformat(), MonthLock.VIEW_ALL),
+        # Popped, not read — the Undo bar is only offered on the page load
+        # right after the click, so it can never undo a stale change.
+        "undo": request.session.pop(_ATTENDANCE_UNDO_KEY, None),
     }
     return render(request, "attendance/mark_attendance_month.html", context)
 
@@ -2182,13 +2188,78 @@ def set_attendance_status_view(request):
         _error(request, "Invalid status.")
         return redirect(next_url)
 
+    existing = AttendanceRecord.objects.filter(employee=emp, date=target_date).first()
+    prev_status = existing.status if existing else ""
     AttendanceRecord.objects.update_or_create(
         employee=emp, date=target_date, defaults={"status": status},
     )
-    messages.success(request, f"{emp.name}: {valid_status[status]} on {target_date:%d %b}.")
+    # One click saves immediately, so a mis-tap is easy — offer a one-step
+    # Undo on the next page load (see mark_attendance_month_view) instead
+    # of a confirm dialog that would slow down every deliberate edit.
+    prev_label = valid_status.get(prev_status, "Unmarked")
+    request.session[_ATTENDANCE_UNDO_KEY] = {
+        "employee_id": emp.id,
+        "date": target_date.isoformat(),
+        "prev_status": prev_status,
+        "new_status": status,
+        "text": f"{emp.name} · {target_date:%d %b}: {prev_label} → {valid_status[status]}",
+    }
     logger.info(
-        "Month-grid cell set: emp=%s date=%s status=%s by user=%s",
-        emp.code, target_date, status, request.user,
+        "Month-grid cell set: emp=%s date=%s status=%s->%s by user=%s",
+        emp.code, target_date, prev_status or "-", status, request.user,
+    )
+    return redirect(next_url)
+
+
+_ATTENDANCE_UNDO_KEY = "attendance_undo"
+
+
+@login_required
+def undo_attendance_status_view(request):
+    """Reverts the single cell change set_attendance_status_view just made —
+    back to its previous status, or deleting the row if there was none
+    before. Refuses if the cell has changed again since (so it can't
+    clobber someone else's later edit) or the month is now locked."""
+    next_url = request.POST.get("next") or "mark_attendance_month"
+    if request.method != "POST":
+        return redirect(next_url)
+
+    date_str = request.POST.get("date", "").strip()
+    if _month_is_locked(date_str, MonthLock.VIEW_ALL):
+        _error(request, "This month is locked — unlock it on the dashboard first.")
+        return redirect(next_url)
+
+    try:
+        emp = Employee.objects.get(id=request.POST.get("employee_id", "").strip())
+        target_date = date_cls.fromisoformat(date_str)
+    except (Employee.DoesNotExist, ValueError):
+        _error(request, "Invalid employee or date.")
+        return redirect(next_url)
+
+    prev_status = request.POST.get("prev_status", "").strip()
+    new_status = request.POST.get("new_status", "").strip()
+    valid_status = dict(AttendanceRecord.STATUS_CHOICES)
+    if (prev_status and prev_status not in valid_status) or new_status not in valid_status:
+        _error(request, "Invalid status.")
+        return redirect(next_url)
+
+    record = AttendanceRecord.objects.filter(employee=emp, date=target_date).first()
+    if record is None or record.status != new_status:
+        _error(request, f"Couldn't undo — {emp.name}'s {target_date:%d %b} has changed again since.")
+        return redirect(next_url)
+
+    if prev_status:
+        record.status = prev_status
+        record.save(update_fields=["status", "updated_at"])
+    else:
+        record.delete()
+    messages.success(
+        request,
+        f"Undone — {emp.name} · {target_date:%d %b} is back to {valid_status.get(prev_status, 'Unmarked')}.",
+    )
+    logger.info(
+        "Month-grid cell undo: emp=%s date=%s status=%s->%s by user=%s",
+        emp.code, target_date, new_status, prev_status or "-", request.user,
     )
     return redirect(next_url)
 

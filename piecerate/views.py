@@ -16,7 +16,7 @@ from django.db.models import Sum
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import translation
+from django.utils import timezone, translation
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 from PIL import Image, ImageColor, ImageDraw, ImageFont
@@ -350,20 +350,22 @@ def rate_card_view(request, style_id):
             # Two-phase renumber: op_code is unique per (style, op_code), so
             # jump every row to a temp range first to avoid transient
             # collisions with rows that haven't been renumbered yet.
+            now = timezone.now()
             for op in ops:
                 op.op_code += 100000
-            RateCardOperation.objects.bulk_update(ops, ["op_code"])
+                op.updated_at = now
+            RateCardOperation.objects.bulk_update(ops, ["op_code", "updated_at"])
             for position, op_id in enumerate(order, start=1):
                 if op_id in ops_by_id:
                     ops_by_id[op_id].op_code = position
-            RateCardOperation.objects.bulk_update(ops, ["op_code"])
+            RateCardOperation.objects.bulk_update(ops, ["op_code", "updated_at"])
             messages.success(request, "Order saved.")
             return redirect("piece_rate_rate_card", style_id=style.id)
 
         if action == "bulk_order_quantity":
             qty = _parse_int(request.POST.get("bulk_order_quantity"))
             before = list(style.operations.values("id", "name", "order_quantity"))
-            updated = style.operations.update(order_quantity=qty)
+            updated = style.operations.update(order_quantity=qty, updated_at=timezone.now())
             for op_row in before:
                 log_change(
                     actor, "piecerate", "RateCardOperation", op_row["id"],

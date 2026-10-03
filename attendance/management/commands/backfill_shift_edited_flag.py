@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from attendance.models import AttendanceRecord
 from attendance.views import _merge_edited_fields
@@ -52,7 +53,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"Dry run: would update {len(to_update)} record(s)."))
             return
 
+        now = timezone.now()
         for record, _before, after in to_update:
             record.manually_edited_fields = after
-        AttendanceRecord.objects.bulk_update([r for r, _, _ in to_update], ["manually_edited_fields"])
+            record.updated_at = now
+        AttendanceRecord.objects.bulk_update([r for r, _, _ in to_update], ["manually_edited_fields", "updated_at"])
         self.stdout.write(self.style.SUCCESS(f"Updated {len(to_update)} record(s)."))
