@@ -2694,9 +2694,19 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
                     explicit_el_taken = ledger["el_taken"]
                     balance_after_explicit = total_el - explicit_el_taken
                     available_for_pl = max(balance_after_explicit, Decimal(0))
-                    el_used_for_pl = min(personal_leave_gap, available_for_pl)
-                    el_used = explicit_el_taken + el_used_for_pl
-                    el_balance = balance_after_explicit - el_used_for_pl
+                    # personal_leave_gap already includes days explicitly
+                    # marked status="EL" (month_attendance_view's Personal
+                    # Leave bucket is everything not Work Days/Paid Holiday/
+                    # Comp Off/Missing Punch — EL included), so strip those
+                    # back out here before covering the rest from whatever
+                    # balance remains, to avoid charging the explicit days
+                    # against the balance a second time on top of the
+                    # explicit_el_taken subtraction above.
+                    other_gap = max(personal_leave_gap - explicit_el_taken, Decimal(0))
+                    implicit_el_used = min(other_gap, available_for_pl)
+                    el_used_for_pl = explicit_el_taken + implicit_el_used
+                    el_used = el_used_for_pl
+                    el_balance = balance_after_explicit - implicit_el_used
                     paid_days_for_calc += el_used_for_pl
             adjust_days = adj.adjust_days if adj else Decimal(0)
             deductions = adj.deductions if adj else Decimal(0)
@@ -2923,6 +2933,14 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         rows = build_rows(employees, tab_key)
         context[f"{tab_key}_rows"] = rows
         context[f"{tab_key}_totals"] = sum_rows(rows, tab_key)
+        if tab_key == "company":
+            # Company Workers' "Total Deductions" already folds Profession
+            # Tax in alongside PF/ESI/Deductions (see payroll.
+            # compute_company_worker_pay) — rather than repeating that
+            # same PT figure in its own summary cell too, the table's
+            # caption below just names how many employees it applied to
+            # this month.
+            context["company_pt_count"] = sum(1 for r in rows if r["profession_tax"])
     contractor_rows = build_rows(
         Employee.objects.filter(department__name__iexact="Contractor")
         .active_during(month_start, month_end).order_by("department__name", "name"),
@@ -3113,21 +3131,54 @@ def _salary_summary_changes(prev: dict, cur: dict, pay_basis: str) -> list[dict]
     worked / salary rate, a different manual amount, or a different fixed
     amount, depending on pay_basis), so the parts always add up exactly
     to the NET difference. Returns [{"text", "display"}], largest first,
-    causes that round to ₹0 dropped."""
+    money-amount causes that round to ₹0 dropped — a joined/left headcount
+    change is kept regardless of its ₹ amount (always_show), since someone
+    leaving with ₹0 net that month (e.g. an Ironing & Bartrack piece-rate
+    worker never given a manual amount before their last day) is still a
+    real personnel change worth surfacing, not a no-op to hide."""
     changes = []
     joined = [cur[i] for i in cur.keys() - prev.keys()]
     left = [prev[i] for i in prev.keys() - cur.keys()]
     if joined:
         names = ", ".join(sorted(p["name"] for p in joined))
-        changes.append({"text": f"{len(joined)} new: {names}", "amount": sum(p["net"] for p in joined)})
+        changes.append({
+            "text": f"{len(joined)} new: {names}", "amount": sum(p["net"] for p in joined),
+            "always_show": True,
+        })
     if left:
         names = ", ".join(sorted(p["name"] for p in left))
-        changes.append({"text": f"{len(left)} not paid this month: {names}", "amount": -sum(p["net"] for p in left)})
+        changes.append({
+            "text": f"{len(left)} not paid this month: {names}", "amount": -sum(p["net"] for p in left),
+            "always_show": True,
+        })
 
     both = cur.keys() & prev.keys()
 
     def delta(field):
         return sum((cur[i][field] - prev[i][field] for i in both), Decimal(0))
+
+    def detail_from_deltas(deltas):
+        """Formats a {employee id: nonzero Decimal} map the same way every
+        change line's detail reads — largest first, collapsed to one line
+        when everyone moved by the same amount (e.g. a flat PT rate applied
+        across the board) rather than repeating that figure once per name,
+        and capped to the 3 largest changes (+ a "more" count) otherwise,
+        so a group-wide change doesn't read as a wall of near-identical
+        names."""
+        deltas = {i: d for i, d in deltas.items() if round(d) != 0}
+        if not deltas:
+            return ""
+        if len(deltas) > 1 and len({round(d) for d in deltas.values()}) == 1:
+            common_amount = next(iter(deltas.values()))
+            return f"{len(deltas)} employees {_signed_money(common_amount, 0)} each"
+        ordered = sorted(deltas.items(), key=lambda kv: -abs(kv[1]))
+        text = ", ".join(f"{cur[i]['name']} {_signed_money(d, 0)}" for i, d in ordered[:3])
+        if len(ordered) > 3:
+            text += f", +{len(ordered) - 3} more"
+        return text
+
+    def names_for(field, sign):
+        return detail_from_deltas({i: sign * (cur[i][field] - prev[i][field]) for i in both})
 
     d_additions = delta("additions")
     d_deductions = -delta("deductions")
@@ -3135,8 +3186,15 @@ def _salary_summary_changes(prev: dict, cur: dict, pay_basis: str) -> list[dict]
     d_tax = -delta("tax")
     d_pay = delta("net") - d_additions - d_deductions - d_already_paid - d_tax
     changes += [
-        {"text": "Additions", "amount": d_additions},
-        {"text": "Deductions", "amount": d_deductions},
+        # Additions/Deductions are entered directly, so who moved is the
+        # useful part of the line. Company pay already given and PT/TDS
+        # are just side-effects of pay changing elsewhere (already
+        # explained by the Manual Amount/Days worked line below) — adding
+        # their own per-person +/- breakdown on top meant reconciling two
+        # people's opposite-sign numbers by hand just to read one line, so
+        # these two stay a single total with no detail to add up.
+        {"text": "Additions", "amount": d_additions, "detail": names_for("additions", 1)},
+        {"text": "Deductions", "amount": d_deductions, "detail": names_for("deductions", -1)},
         {"text": "Company pay already given", "amount": d_already_paid},
         {"text": "PT / TDS", "amount": d_tax},
     ]
@@ -3146,16 +3204,34 @@ def _salary_summary_changes(prev: dict, cur: dict, pay_basis: str) -> list[dict]
         detail = [f"{format(d_days.normalize(), '+f')} earned days"] if d_days else []
         if revised:
             detail.append(f"salary revised for {revised}")
-        text = "Days worked / salary" + (f" ({', '.join(detail)})" if detail else "")
-    elif pay_basis == "manual":
-        text = "Amount entered"
+        changes.append({
+            "text": "Days worked / salary" + (f" ({', '.join(detail)})" if detail else ""), "amount": d_pay,
+        })
     else:
-        text = "Fixed amount"
-    changes.append({"text": text, "amount": d_pay})
+        # manual (Operators/Ironing & Bartrack) and fixed (Fixed Payments)
+        # both just add the pay figure straight into NET (no days/working
+        # days proration), so the per-employee delta that drove d_pay is
+        # exactly this: net minus every other cause already pulled out
+        # above, recovering each person's own Manual/Fixed Amount change.
+        pay_deltas = {
+            i: (
+                (cur[i]["net"] - cur[i]["additions"] + cur[i]["deductions"] + cur[i]["already_paid"] + cur[i]["tax"])
+                - (prev[i]["net"] - prev[i]["additions"] + prev[i]["deductions"] + prev[i]["already_paid"] + prev[i]["tax"])
+            )
+            for i in both
+        }
+        text = "Manual amount" if pay_basis == "manual" else "Fixed amount"
+        changes.append({"text": text, "amount": d_pay, "detail": detail_from_deltas(pay_deltas)})
 
-    changes = [c for c in changes if round(c["amount"]) != 0]
+    changes = [c for c in changes if c.get("always_show") or round(c["amount"]) != 0]
     changes.sort(key=lambda c: -abs(c["amount"]))
-    return [{"text": c["text"], "display": _signed_money(c["amount"], 0)} for c in changes]
+    return [
+        {
+            "text": c["text"] + (f" ({c['detail']})" if c.get("detail") else ""),
+            "display": _signed_money(c["amount"], 0),
+        }
+        for c in changes
+    ]
 
 
 def _salary_summary_cache_key(year: int, month: int) -> str:

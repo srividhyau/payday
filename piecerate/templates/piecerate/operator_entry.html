@@ -42,6 +42,14 @@
 
     .card { background: #fff; border-radius: 14px; padding: 1.1rem; margin-bottom: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
     .card h2 { margin: 0 0 0.8rem; font-size: 1rem; color: #0f1b2d; }
+    .viewed-nav { display: flex; align-items: center; justify-content: space-between; margin: 0 0 0.8rem; }
+    .viewed-nav h2 { margin: 0; }
+    .viewed-nav .nav-arrow {
+        width: 2rem; height: 2rem; display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid #e2e5ea; border-radius: 50%; color: #0f1b2d; font-size: 1rem; text-decoration: none;
+        flex: none;
+    }
+    .viewed-nav .nav-arrow.disabled { color: #c7cbd3; border-color: #eef0f4; pointer-events: none; }
 
     .msg { padding: 0.7rem 0.9rem; border-radius: 10px; margin-bottom: 0.9rem; font-size: 0.95rem; font-weight: 600; }
     .msg.success { background: #e6f4ea; color: #1e7e34; }
@@ -159,16 +167,39 @@
     table.mini-cal td.other-month:not(.out):not(.has-qty):not(.today) { background: #fff3e0; border-radius: 6px; }
     table.mini-cal td .mo { font-size: 0.52rem; font-weight: 700; color: #b45309; text-transform: uppercase; margin-left: 1px; }
 
-    .logged-row {
-        display: flex; justify-content: space-between; align-items: baseline; width: 100%;
-        padding: 0.6rem 0; border-bottom: 1px solid #eef0f4; font-size: 0.95rem;
-        background: none; border-left: none; border-right: none; border-top: none;
-        font-family: inherit; text-align: left; cursor: pointer;
+    /* Style -> Operation, a real table — same grouping the desktop
+       Operator Summary page uses, with Qty/Rate/Amount as explicit
+       columns (Rate/Amount only present once show_rate/viewed_show_rate
+       is true) and a subtotal row per style. Horizontally scrollable
+       (rather than letting a long operation name squeeze the number
+       columns) so narrow phones never break layout. */
+    .log-table-wrap { overflow-x: auto; margin-top: 0.4rem; }
+    .log-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .log-table th, .log-table td { padding: 0.45rem 0.5rem; text-align: left; white-space: nowrap; }
+    .log-table th.op, .log-table td.op { white-space: normal; }
+    .log-table th {
+        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.02em; color: #8a92a0;
+        font-weight: 700; border-bottom: 2px solid #0f1b2d;
     }
-    button.logged-row:last-of-type { border-bottom: none; }
-    .logged-row .op { font-weight: 600; color: #0f1b2d; }
-    .logged-row .style { font-size: 0.78rem; color: #8a92a0; display: block; }
-    .logged-row .qty { font-weight: 700; color: #1e7e34; font-size: 1.1rem; }
+    .log-table td.num, .log-table th.num { text-align: right; }
+    .log-table tr.style-row td {
+        font-weight: 700; color: #0f1b2d; background: #f8fafc;
+        border-top: 1px solid #0f1b2d; border-bottom: 1px solid #0f1b2d;
+        display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; white-space: normal;
+    }
+    .log-table tr.style-row .style-order-qty { font-weight: 600; color: #8a92a0; font-size: 0.75rem; white-space: nowrap; }
+    .log-table tr.op-row { border-bottom: 1px solid #eef0f4; }
+    .log-table tr.op-row.clickable { cursor: pointer; }
+    .log-table tr.op-row.clickable:active { background: #f5f7fa; }
+    .log-table tr.op-row td.qty { font-weight: 700; color: #1e7e34; }
+    .log-table tr.op-row td.amount { font-weight: 600; color: #0f1b2d; }
+    .log-table tr.subtotal-row td {
+        font-weight: 700; color: #1e7e34; font-size: 0.8rem; border-bottom: 2px solid #eef0f4;
+    }
+    .log-table tfoot td {
+        font-weight: 700; color: #0f1b2d; border-top: 2px solid #0f1b2d; padding-top: 0.6rem;
+    }
+    .log-table tfoot td.num { color: #1e7e34; font-size: 1rem; }
 
     .done-note { text-align: center; color: rgba(255,255,255,0.75); font-size: 0.85rem; padding: 0.5rem 0 0; }
 
@@ -289,20 +320,99 @@
         </div>
         {% endif %}
 
-        {% if logged_ops %}
+        {% if logged_styles %}
         <div class="card">
             <h2>{% trans 'Logged this month' %}</h2>
-            {% for row in logged_ops %}
-            <button type="button" class="logged-row" data-open-op data-style-id="{{ row.style.id }}" data-op-id="{{ row.op.id }}">
-                <span>
-                    <span class="op">{{ row.op.display_name }}</span>
-                    <span class="style">{{ row.style.name }}</span>
-                </span>
-                <span class="qty">{{ row.total }}</span>
-            </button>
-            {% endfor %}
+            <div class="log-table-wrap">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th class="op">{% trans 'Operation' %}</th><th class="num">{% trans 'Qty' %}</th>
+                            {% if show_rate %}<th class="num">{% trans 'Rate' %}</th><th class="num">{% trans 'Amount' %}</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for style_bucket in logged_styles %}
+                        <tr class="style-row"><td colspan="{% if show_rate %}4{% else %}2{% endif %}">
+                            <span class="style-name">{{ style_bucket.style.name }}</span>
+                            {% if style_bucket.order_qty %}<span class="style-order-qty">{% blocktrans with qty=style_bucket.order_qty %}{{ qty }} allowed{% endblocktrans %}</span>{% endif %}
+                        </td></tr>
+                        {% for row in style_bucket.ops %}
+                        <tr class="op-row clickable" data-open-op data-style-id="{{ style_bucket.style.id }}" data-op-id="{{ row.op.id }}" tabindex="0" role="button">
+                            <td class="op">{{ row.op.display_name }}</td>
+                            <td class="num qty">{{ row.total }}</td>
+                            {% if show_rate %}<td class="num">₹{{ row.rate }}</td><td class="num amount">₹{{ row.amount }}</td>{% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% if show_rate %}
+                        <tr class="subtotal-row">
+                            <td>{% trans 'Subtotal' %}</td><td class="num"></td><td></td><td class="num">₹{{ style_bucket.amount_total }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                    {% if show_rate %}
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">{% trans 'Total this month' %}</td><td class="num">₹{{ total_amount }}</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
         </div>
         {% endif %}
+
+        <div class="card">
+            <div class="viewed-nav">
+                {% if has_earlier %}<a href="?month={{ viewed_prev_date }}" class="nav-arrow" aria-label="{% trans 'Earlier month' %}">&larr;</a>
+                {% else %}<span class="nav-arrow disabled" aria-hidden="true">&larr;</span>{% endif %}
+                <h2>{% blocktrans %}Logged in {{ viewed_month_label }}{% endblocktrans %}</h2>
+                {% if has_later %}<a href="?month={{ viewed_next_date }}" class="nav-arrow" aria-label="{% trans 'Later month' %}">&rarr;</a>
+                {% else %}<span class="nav-arrow disabled" aria-hidden="true">&rarr;</span>{% endif %}
+            </div>
+            {% if viewed_styles %}
+            <div class="log-table-wrap">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th class="op">{% trans 'Operation' %}</th><th class="num">{% trans 'Qty' %}</th>
+                            {% if viewed_show_rate %}<th class="num">{% trans 'Rate' %}</th><th class="num">{% trans 'Amount' %}</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for style_bucket in viewed_styles %}
+                        <tr class="style-row"><td colspan="{% if viewed_show_rate %}4{% else %}2{% endif %}">
+                            <span class="style-name">{{ style_bucket.style_name }}</span>
+                            {% if style_bucket.order_qty %}<span class="style-order-qty">{% blocktrans with qty=style_bucket.order_qty %}{{ qty }} allowed{% endblocktrans %}</span>{% endif %}
+                        </td></tr>
+                        {% for row in style_bucket.ops %}
+                        <tr class="op-row">
+                            <td class="op">{{ row.op_name }}</td>
+                            <td class="num qty">{{ row.total }}</td>
+                            {% if viewed_show_rate %}<td class="num">₹{{ row.rate }}</td><td class="num amount">₹{{ row.amount }}</td>{% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% if viewed_show_rate %}
+                        <tr class="subtotal-row">
+                            <td>{% trans 'Subtotal' %}</td><td class="num"></td><td></td><td class="num">₹{{ style_bucket.amount_total }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                    {% if viewed_show_rate %}
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">{% blocktrans %}Total for {{ viewed_month_label }}{% endblocktrans %}</td><td class="num">₹{{ viewed_total_amount }}</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+            {% else %}
+            <p class="empty">{% blocktrans %}Nothing logged for {{ viewed_month_label }}.{% endblocktrans %}</p>
+            {% endif %}
+        </div>
 
         <div class="done-note">{% trans "Made a mistake? Ask your supervisor — this can't be edited here." %}</div>
     </div>

@@ -192,6 +192,12 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
+# Session expires after 1 hour of inactivity rather than Django's default
+# 2-week fixed cookie age — SAVE_EVERY_REQUEST renews that hour on every
+# request, so it's an idle timeout, not a hard cutoff from login time.
+SESSION_COOKIE_AGE = 3600
+SESSION_SAVE_EVERY_REQUEST = True
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

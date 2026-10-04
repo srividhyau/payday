@@ -27,7 +27,7 @@ _PIECE_RATE_GET_URLS = {
 _PIECE_RATE_POST_URLS = {
     "piece_rate", "piece_rate_templates", "piece_rate_operations",
     "piece_rate_rate_card", "piece_rate_production", "piece_rate_production_mobile",
-    "piece_rate_operator_links", "piece_rate_operator_entry",
+    "piece_rate_operator_links", "piece_rate_operator_entry", "piece_rate_operator_summary",
 }
 
 # Deny-by-default per role: for each restricted group, the URL names it

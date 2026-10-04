@@ -27,7 +27,8 @@ from attendance.models import AuditLogEntry, Employee, SpecialDay
 from src import metrics, payroll
 
 from .models import (
-    PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, OperatorLink, PieceRateEntry, RateCardOperation, Style,
+    PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, OperatorLink, OperatorSummaryApproval, PieceRateEntry,
+    RateCardOperation, Style,
 )
 from .permissions import can_edit_piece_rate, can_revoke_operator_links
 
@@ -1175,11 +1176,33 @@ def _operator_summary_context(request) -> dict:
         "current_date": current.isoformat(),
         "prev_date": prev_date.isoformat(),
         "next_date": next_date.isoformat(),
+        # Presence of a row here is what lets an opted-in operator
+        # (OperatorLink.show_rate_to_operator) see their rate/amount on
+        # their own mobile page for this month — see operator_entry_view.
+        "is_approved": OperatorSummaryApproval.objects.filter(year=year, month=month).exists(),
+        "can_manage": can_edit_piece_rate(request.user),
     }
 
 
 @login_required
 def operator_summary_view(request):
+    if request.method == "POST":
+        denied = _require_piece_rate_editor(request)
+        if denied:
+            return denied
+        current = _parse_month_date(request.POST.get("date"))
+        year, month = current.year, current.month
+        action = request.POST.get("action", "")
+        if action == "approve":
+            OperatorSummaryApproval.objects.get_or_create(year=year, month=month)
+            messages.success(
+                request,
+                f"Approved {calendar.month_name[month]} {year} — opted-in operators can now see rate/amount on their mobile page.",
+            )
+        elif action == "unapprove":
+            OperatorSummaryApproval.objects.filter(year=year, month=month).delete()
+            messages.success(request, f"Un-approved {calendar.month_name[month]} {year}.")
+        return redirect(f"{request.path}?date={current.isoformat()}")
     return render(request, "piecerate/operator_summary.html", _operator_summary_context(request))
 
 
@@ -1643,6 +1666,14 @@ def operator_links_view(request):
         elif action == "revoke":
             OperatorLink.objects.filter(employee=employee).delete()
             messages.success(request, f"Link revoked for {employee.name}.")
+        elif action == "toggle_rate_visibility":
+            link = get_object_or_404(OperatorLink, employee=employee)
+            link.show_rate_to_operator = not link.show_rate_to_operator
+            link.save(update_fields=["show_rate_to_operator"])
+            messages.success(
+                request,
+                f"{employee.name} will {'now' if link.show_rate_to_operator else 'no longer'} see rate/amount on their mobile page.",
+            )
         return redirect("piece_rate_operator_links")
 
     # Same "currently working" rule the Production page's operator
@@ -1956,23 +1987,147 @@ def operator_entry_view(request, token):
             "default_qty": qty_map.get(default_date, "") if default_date else "",
         }
 
-    logged_ops = []
+    # Rate/amount only ever show for the current real-world month (this
+    # page has no past-month view), and only when both this operator has
+    # opted in (link.show_rate_to_operator) and that month's Operator
+    # Summary has actually been approved — see OperatorSummaryApproval
+    # and operator_summary_view's "approve" action.
+    show_rate = link.show_rate_to_operator and OperatorSummaryApproval.objects.filter(
+        year=today.year, month=today.month,
+    ).exists()
+
+    # Grouped by style (same Style -> Operation shape the desktop
+    # Operator Summary table uses — see _operator_summary_context) so the
+    # mobile page reads the same way, with an amount subtotal per style
+    # once show_rate is true. No quantity subtotal/grand total — summing
+    # raw quantity across different operations of the same style is
+    # meaningless (one operator often runs several operations on the
+    # same garments, e.g. Side O/L L and Side O/L R on every piece, so
+    # adding those counts together wildly overstates pieces actually
+    # made); only the per-operation quantity and the ₹ amount (which IS
+    # additive — real money earned) are summable. Each op row keeps
+    # data-style-id/data-op-id so it's still tappable to open its edit
+    # calendar.
+    logged_by_style = {}
+    total_amount = Decimal("0")
     for row in style_rows:
         row["op_calendars"] = [_build_calendar(op, row["style"]) for op in row["ops"]]
         for op, cal in zip(row["ops"], row["op_calendars"]):
-            if cal["total"]:
-                logged_ops.append({"op": op, "style": row["style"], "total": cal["total"]})
+            if not cal["total"]:
+                continue
+            entry = {"op": op, "total": cal["total"]}
+            if show_rate:
+                # Same rate x quantity formula _operator_summary_context
+                # uses — always the Rate Card's current rate, never a
+                # snapshot (see OperatorSummaryApproval's docstring).
+                amount = (op.rate * cal["total"]).quantize(Decimal("0.01"))
+                entry["rate"] = op.rate
+                entry["amount"] = amount
+                total_amount += amount
+            style_bucket = logged_by_style.setdefault(row["style"].id, {
+                "style": row["style"], "ops": [], "amount_total": Decimal("0"), "order_qty": 0,
+            })
+            style_bucket["ops"].append(entry)
+            # One order size per style (same "MAX across its operations"
+            # rule _operator_summary_context/management_summary_view
+            # use), not summed per operation.
+            style_bucket["order_qty"] = max(style_bucket["order_qty"], op.order_quantity)
+            if show_rate:
+                style_bucket["amount_total"] += entry["amount"]
+    logged_styles = sorted(logged_by_style.values(), key=lambda b: b["style"].name)
+
+    # This month by default (named, e.g. "Logged in October 2026" — even
+    # when nothing's logged yet, rather than silently jumping back to
+    # whichever past month actually has data), then "?month=YYYY-MM-DD"
+    # (from the ← → arrows below) pages back into read-only past months.
+    # Once this page has rolled into a new month the operator can no
+    # longer tap into an old month's calendars to log or correct
+    # anything here (that's the desktop Production page's job) — but
+    # they should still be able to look back and see what they logged,
+    # and the rate/amount for it once that month's Operator Summary gets
+    # approved (which typically only happens after the month is over,
+    # i.e. exactly when "today" has already moved past it).
+    latest_viewed = today.replace(day=1)
+    try:
+        viewed = date_cls.fromisoformat(request.GET.get("month", "")).replace(day=1)
+    except ValueError:
+        viewed = latest_viewed
+    if viewed > latest_viewed:
+        viewed = latest_viewed
+    viewed_year, viewed_month = viewed.year, viewed.month
+
+    viewed_show_rate = link.show_rate_to_operator and OperatorSummaryApproval.objects.filter(
+        year=viewed_year, month=viewed_month,
+    ).exists()
+    # Same Style -> Operation grouping (amount subtotal per style once
+    # viewed_show_rate is true, no quantity subtotal — see logged_by_style
+    # above for why summing quantity across different operations is
+    # meaningless) as the current month's logged_styles above — just
+    # built straight from PieceRateEntry instead of a calendar, since
+    # this month is read-only here.
+    viewed_by_style = {}
+    for e in _month_piece_rate_entries(viewed_year, viewed_month).filter(employee=employee):
+        rc_op = e.rate_card_operation
+        style_bucket = viewed_by_style.setdefault(rc_op.style_id, {
+            "style_name": rc_op.style.name, "ops": {}, "amount_total": Decimal("0"), "order_qty": 0,
+        })
+        op_bucket = style_bucket["ops"].setdefault(rc_op.id, {
+            "op_name": _op_display_name(rc_op), "rate": rc_op.rate, "quantity": 0,
+        })
+        op_bucket["quantity"] += e.quantity
+        # One order size per style (MAX across its operations), same
+        # rule logged_by_style above and _operator_summary_context use.
+        style_bucket["order_qty"] = max(style_bucket["order_qty"], rc_op.order_quantity)
+
+    viewed_total_amount = Decimal("0")
+    viewed_styles = []
+    for style_bucket in viewed_by_style.values():
+        ops_list = []
+        for op_bucket in style_bucket["ops"].values():
+            op_row = {"op_name": op_bucket["op_name"], "total": op_bucket["quantity"]}
+            if viewed_show_rate:
+                amount = (op_bucket["rate"] * op_bucket["quantity"]).quantize(Decimal("0.01"))
+                op_row["rate"] = op_bucket["rate"]
+                op_row["amount"] = amount
+                style_bucket["amount_total"] += amount
+            ops_list.append(op_row)
+        ops_list.sort(key=lambda r: r["op_name"])
+        viewed_styles.append({
+            "style_name": style_bucket["style_name"], "ops": ops_list,
+            "amount_total": style_bucket["amount_total"], "order_qty": style_bucket["order_qty"],
+        })
+        viewed_total_amount += style_bucket["amount_total"]
+    viewed_styles.sort(key=lambda b: b["style_name"])
+
+    # "Previous" is offered whenever this operator has ever logged
+    # anything before the viewed month at all (no fixed history limit);
+    # "Next" only as far forward as latest_viewed, since the current
+    # month is handled by the always-live section above instead.
+    has_earlier = PieceRateEntry.objects.filter(employee=employee, date__lt=viewed).exists()
+    viewed_prev_date = (viewed - timedelta(days=1)).replace(day=1)
+    viewed_next_date = (viewed.replace(day=28) + timedelta(days=4)).replace(day=1)
+    has_later = viewed_next_date <= latest_viewed
 
     return render(request, "piecerate/operator_entry.html", {
         "employee": employee,
         "today": today,
         "style_rows": style_rows,
-        "logged_ops": logged_ops,
+        "logged_styles": logged_styles,
         "no_styles_this_month": not style_list,
         "not_started_yet": bool(style_list) and not started_styles,
         "token": token,
         "languages": settings.LANGUAGES,
         "current_lang": request.operator_lang,
+        "show_rate": show_rate,
+        "total_amount": total_amount,
+        "viewed_styles": viewed_styles,
+        "viewed_show_rate": viewed_show_rate,
+        "viewed_total_amount": viewed_total_amount,
+        "viewed_month_label": f"{calendar.month_name[viewed_month]} {viewed_year}",
+        "has_earlier": has_earlier,
+        "has_later": has_later,
+        "viewed_prev_date": viewed_prev_date.isoformat(),
+        "viewed_next_date": viewed_next_date.isoformat(),
     })
 
 

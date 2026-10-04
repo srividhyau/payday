@@ -171,6 +171,33 @@ class OperatorLink(TimestampedModel):
     employee = models.OneToOneField(Employee, on_delete=models.CASCADE, related_name="piece_rate_link")
     token = models.CharField(max_length=43, unique=True, default=secrets.token_urlsafe, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    # The operator's own opt-in for seeing their rate/amount on this page
+    # (see operator_entry_view) — toggled per operator on the Operator
+    # Links page, independent of whether a given month's Operator Summary
+    # has actually been approved (OperatorSummaryApproval). Off by
+    # default since some operators would rather not see it at all.
+    show_rate_to_operator = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.employee} link"
+
+
+class OperatorSummaryApproval(TimestampedModel):
+    """Marks one calendar month's Operator Summary as approved — presence
+    of a row for (year, month) means that month's rate/amount figures may
+    be shown on operators' own mobile entry page, for whichever operators
+    have separately opted in (OperatorLink.show_rate_to_operator). Approving
+    a month doesn't force visibility on operators who haven't opted in, and
+    doesn't snapshot any figures — the operator always sees the Rate Card's
+    current rate, same as the Summary page itself (see
+    _operator_summary_context's own docstring on why rates are never
+    snapshotted anywhere in this app)."""
+
+    year = models.IntegerField()
+    month = models.IntegerField()
+
+    class Meta:
+        unique_together = [("year", "month")]
+
+    def __str__(self):
+        return f"Operator Summary {self.year}-{self.month:02d} approved"

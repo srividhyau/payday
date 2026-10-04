@@ -29,6 +29,28 @@
         transition: background .15s ease, color .15s ease;
     }
     .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
+    .approval-badge {
+        font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px;
+        border: 1px solid transparent;
+    }
+    .approval-badge.approved { background: #d1f7d6; color: #1e7e34; border-color: #1e7e34; }
+    /* Same toggle-switch look as the Operator Links page's Show Rate/
+       Amount control — a real checkbox styled as a slider, submitting
+       the form on change. */
+    .rate-toggle { position: relative; display: inline-block; width: 2.6rem; height: 1.5rem; vertical-align: middle; }
+    .rate-toggle input { opacity: 0; width: 0; height: 0; }
+    .rate-toggle .slider {
+        position: absolute; inset: 0; background: #ccc; border-radius: 999px; cursor: pointer;
+        transition: background-color .15s ease;
+    }
+    .rate-toggle .slider::before {
+        content: ""; position: absolute; width: 1.1rem; height: 1.1rem; left: 0.2rem; bottom: 0.2rem;
+        background: #fff; border-radius: 50%; transition: transform .15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .rate-toggle input:checked + .slider { background: var(--navy); }
+    .rate-toggle input:checked + .slider::before { transform: translateX(1.1rem); }
+    .rate-toggle input:focus-visible + .slider { outline: 2px solid var(--navy); outline-offset: 2px; }
+    .rate-toggle-label { font-size: 0.72rem; color: var(--text-muted); margin: 0 0.3rem; vertical-align: middle; }
 
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
     table.simple thead th { background: #fef9c3; color: var(--navy); }
@@ -143,6 +165,28 @@
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
                 <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
+                {% if can_manage %}
+                <form method="post" style="display:inline;" id="approvalForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="date" value="{{ current_date }}">
+                    <input type="hidden" name="action" id="approvalAction" value="{% if is_approved %}unapprove{% else %}approve{% endif %}">
+                    <label class="rate-toggle" data-tooltip="Opted-in operators can see rate/amount on their mobile page once this month is approved">
+                        <input type="checkbox" {% if is_approved %}checked{% endif %} onchange="
+                            if (!this.checked) {
+                                if (!confirm('Un-approve {{ month_name|escapejs }} {{ year|escapejs }}? Opted-in operators will stop seeing rate/amount on their mobile page.')) { this.checked = true; return; }
+                                document.getElementById('approvalAction').value = 'unapprove';
+                            } else {
+                                document.getElementById('approvalAction').value = 'approve';
+                            }
+                            this.form.submit();
+                        ">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="rate-toggle-label">{% if is_approved %}Approved{% else %}Not approved{% endif %}</span>
+                </form>
+                {% elif is_approved %}
+                <span class="approval-badge approved" data-tooltip="Opted-in operators can see rate/amount on their mobile page for this month">&#10003; Approved</span>
+                {% endif %}
             </div>
             <div class="tab-row">
                 <a href="{% url 'piece_rate_style_summary' %}?date={{ current_date }}" class="tab-btn">Style View</a>
