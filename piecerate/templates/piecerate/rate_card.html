@@ -30,6 +30,7 @@
     .save-btn:hover { color: var(--navy-deep); }
     .delete-btn { color: #b3261e; }
     .delete-btn:hover { color: #7a1a15; }
+    .delete-btn:disabled { color: var(--text-muted); cursor: not-allowed; text-decoration: none; }
     /* Enable/Disable switch — a real Bootstrap form-switch now (see the
        markup) instead of a text Disable/Enable button, which read as
        ambiguous (disable *what*, from what state?) compared to a
@@ -83,6 +84,16 @@
     .col-rate input.rate-higher { color: #1e7e34; font-weight: 700; }
     .col-rate input.rate-lower { color: #b3261e; font-weight: 700; }
     .col-pay-type select { width: 100px; }
+    .col-template-rate { color: var(--text-muted); }
+    .col-template-rate.rate-higher, .col-template-rate.rate-lower { font-weight: 700; }
+    .col-template-rate.rate-higher { color: #1e7e34; }
+    .col-template-rate.rate-lower { color: #b3261e; }
+    .template-summary {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 0.5rem 0.85rem; margin: 0 0 0.75rem; font-size: 0.85rem;
+    }
+    .ts-higher { color: #1e7e34; font-weight: 700; }
+    .ts-lower { color: #b3261e; font-weight: 700; }
     .col-order-qty input { width: 65px; }
     .new-row td { background: #f8fafc; }
     tbody tr.dragging { opacity: 0.4; }
@@ -124,6 +135,20 @@
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
 
+        {% if template_summary %}
+        <div class="template-summary" data-tooltip="Operations matched by name against '{{ template_summary.template.name }}' — anything only on one side isn't counted here">
+            vs template <strong>{{ template_summary.template.name }}</strong>:
+            <span class="ts-higher">{{ template_summary.higher }} higher</span>,
+            <span class="ts-lower">{{ template_summary.lower }} lower</span>,
+            <span class="ts-same">{{ template_summary.same }} same</span>
+            ({{ template_summary.matched }} matched) —
+            net
+            <strong class="{% if template_summary.net_diff > 0 %}ts-higher{% elif template_summary.net_diff < 0 %}ts-lower{% endif %}">
+                {% if template_summary.net_diff > 0 %}+{% endif %}₹{{ template_summary.net_diff }}
+            </strong>
+        </div>
+        {% endif %}
+
         <form method="post" id="rateCardForm">
             {% csrf_token %}
             <div class="table-wrap fit-content">
@@ -136,6 +161,7 @@
                             <th>Operation</th>
                             <th>Machine</th>
                             <th class="num">Rate</th>
+                            {% if source_template %}<th class="num" data-tooltip="This operation's rate on {{ source_template.name }}">Template Rate</th>{% endif %}
                             <th class="col-pay-type">Pay Type</th>
                             <th class="num">Order Qty</th>
                             <th>Operators</th>
@@ -163,6 +189,7 @@
                             </td>
                             <td class="col-machine"><input type="text" name="machine" readonly></td>
                             <td class="col-rate"><input type="number" step="0.01" name="rate"></td>
+                            {% if source_template %}<td class="num col-template-rate">—</td>{% endif %}
                             <td class="col-pay-type">
                                 <select class="pay-type-select" disabled>
                                     {% for value, label in pay_type_choices %}
@@ -178,7 +205,7 @@
                         {% endif %}
                         {% for op in operations %}
                         {% if can_edit_this_style %}
-                        <tr id="op-{{ op.id }}" data-op-id="{{ op.id }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled {% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
+                        <tr id="op-{{ op.id }}" data-op-id="{{ op.id }}" data-op-name="{{ op.name|escapejs }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled {% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
                             <td class="col-drag" draggable="true" title="Drag to reorder">⠿</td>
                             <td class="col-op-code">{{ forloop.counter }}</td>
                             <td class="col-section"><input type="text" name="section_{{ op.id }}" value="{{ op.section }}" readonly></td>
@@ -198,6 +225,9 @@
                             </td>
                             <td class="col-machine"><input type="text" name="machine_{{ op.id }}" value="{{ op.machine }}" readonly></td>
                             <td class="col-rate"><input type="number" step="0.01" name="rate_{{ op.id }}" value="{{ op.rate }}"></td>
+                            {% if source_template %}
+                            <td class="num col-template-rate {{ op.vs_template_class }}">{% if op.template_rate is not None %}₹{{ op.template_rate }}{% else %}—{% endif %}</td>
+                            {% endif %}
                             <td class="col-pay-type">
                                 <select class="pay-type-select" disabled>
                                     {% for value, label in pay_type_choices %}
@@ -227,10 +257,17 @@
                             <td>{{ op.name }}{% if not op.is_enabled %}<span class="disabled-badge">Disabled</span>{% endif %}</td>
                             <td>{{ op.machine|default:"—" }}</td>
                             <td class="num">{{ op.rate }}</td>
+                            {% if source_template %}
+                            <td class="num col-template-rate {{ op.vs_template_class }}">{% if op.template_rate is not None %}₹{{ op.template_rate }}{% else %}—{% endif %}</td>
+                            {% endif %}
                             <td class="col-pay-type">{{ op.get_pay_type_display }}</td>
                             <td class="num">{{ op.order_quantity }}</td>
                             <td class="col-operators">{% if op.operator_names %}{{ op.operator_names|join:", " }}{% else %}<span class="no-operators-label">No operators</span>{% endif %}</td>
-                            <td></td>
+                            <td>
+                                {% if can_see_delete %}
+                                <button type="button" class="delete-btn" disabled title="Verify with OTP to delete">Delete</button>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endif %}
                         {% endfor %}
@@ -326,6 +363,22 @@
             if (btn && btn.classList.contains('delete-btn')) {
                 if (!confirm('Delete operation ' + btn.dataset.confirmName + '?')) {
                     e.preventDefault();
+                }
+                return;
+            }
+            // Saving an existing row (never "+ Add", which has no
+            // previous value to compare against) whose rate actually
+            // changed from what it loaded with (input.defaultValue —
+            // the original value="{{ op.rate }}") needs a confirm, same
+            // as Delete already asks.
+            if (btn && btn.name === 'action' && btn.value.indexOf('edit_') === 0) {
+                var row = btn.closest('tr');
+                var rateInput = row ? row.querySelector('.col-rate input') : null;
+                if (rateInput && parseFloat(rateInput.value) !== parseFloat(rateInput.defaultValue)) {
+                    var opName = row.dataset.opName || '';
+                    if (!confirm('Change the rate for "' + opName + '" from ₹' + rateInput.defaultValue + ' to ₹' + rateInput.value + '?')) {
+                        e.preventDefault();
+                    }
                 }
             }
         });

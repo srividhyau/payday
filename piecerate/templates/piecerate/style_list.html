@@ -9,6 +9,26 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    /* Same bordered-grid table format every other piece-rate page uses
+       (Operator Links, Rate Card, Operator/Style/Management Summary) —
+       this page was missing it and still had app.css's plain generic
+       table.simple (just a bottom border, nowrap headers), the odd one
+       out. Headers wrap (several now run longer, e.g. "Template
+       Operations") instead of overflowing on one line. */
+    table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.4rem 0.6rem; font-size: 0.85rem; vertical-align: middle; }
+    table.simple thead th { background: #fef9c3; color: var(--navy); white-space: normal; max-width: 9rem; line-height: 1.25; }
+    table.simple tfoot td { font-weight: 700; color: var(--navy-deep); background: #fafbfc; border-top: 2px solid #8a92a0; }
+    .no-link { color: var(--text-muted); }
+    .inactive-count { color: var(--text-muted); font-size: 0.78rem; font-weight: 400; }
+    /* Every row action (Rate Card/Production/Shift/Save as Template/
+       Delete) as one icon button each, all in a single Actions column
+       instead of five separate ones — reuses app.css's shared .icon-btn
+       (circle, hover fill, data-tooltip label), just scaled down to fit
+       several per row. */
+    .col-actions { display: flex; gap: 0.3rem; flex-wrap: nowrap; white-space: nowrap; }
+    .col-actions .icon-btn { width: 1.8rem; height: 1.8rem; }
+    .col-actions .icon-btn svg { width: 14px; height: 14px; }
+    .icon-btn-danger:hover { background: #b3261e; border-color: #b3261e; color: #fff; }
     .delete-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
         padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
@@ -38,6 +58,19 @@
         width: 32px; height: 32px; border-radius: 6px; border: 1px dashed var(--border);
         display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--text-muted);
     }
+    /* Click the thumbnail itself to change the image — a <label>
+       wrapping a visually-hidden file input opens the picker natively
+       (no JS needed for that part), and the input's own onchange
+       submits the form immediately on selection, so there's no
+       separate "pick a file, then remember to hit Save" step just for
+       the image. Name/Start Date/Save stay as their own separate,
+       explicit fields/button since those aren't a single-click action. */
+    .style-thumb-label { position: relative; display: inline-block; cursor: pointer; }
+    .style-thumb-label input[type="file"] {
+        position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; margin: 0;
+    }
+    .style-thumb-label:hover .style-thumb,
+    .style-thumb-label:hover .style-thumb-placeholder { border-color: var(--navy); }
     .save-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
         padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
@@ -74,6 +107,7 @@
             <span class="current-month">{{ month_name }} {{ year }}</span>
             <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
             <div class="action-row" style="flex-wrap:wrap;">
+                {% if can_edit_styles %}
                 <form method="post" style="display:flex; gap:0.5rem;">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="create_style">
@@ -94,6 +128,9 @@
                     <button type="submit" class="post-btn">Duplicate into {{ month_name }}</button>
                 </form>
                 {% endif %}
+                {% else %}
+                <a href="{% url 'otp_verify' %}?next={{ request.path }}" class="tab-btn">Verify to edit</a>
+                {% endif %}
             </div>
         </div>
 
@@ -109,63 +146,95 @@
                         <th>Style</th>
                         <th class="num">Operations</th>
                         <th class="num">Total Rate</th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
+                        <th data-tooltip="Best guess at which template this style was duplicated from, by name">Template</th>
+                        <th class="num">Template Operations</th>
+                        <th class="num">Template Rate</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in styles %}
                     <tr>
                         <td>
+                            {% if can_edit_styles %}
                             <form method="post" class="inline-name-form" enctype="multipart/form-data">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="rename_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
+                                <label class="style-thumb-label" title="Click to change image — saves immediately">
+                                    {% if row.style.image %}
+                                    <img src="{{ row.style.image.url }}" alt="" class="style-thumb">
+                                    {% else %}
+                                    <span class="style-thumb-placeholder">—</span>
+                                    {% endif %}
+                                    <input type="file" name="image" accept="image/*" onchange="this.form.submit()">
+                                </label>
+                                <input type="text" name="name" value="{{ row.style.name }}" placeholder="Style name">
+                                <input type="date" name="start_date" value="{{ row.style.start_date|date:'Y-m-d' }}" title="Running from — first day operators can log against this style">
+                                <button type="submit" class="save-btn">Save</button>
+                            </form>
+                            {% else %}
+                            <div class="inline-name-form">
                                 {% if row.style.image %}
                                 <img src="{{ row.style.image.url }}" alt="" class="style-thumb">
                                 {% else %}
                                 <span class="style-thumb-placeholder">—</span>
                                 {% endif %}
-                                <input type="text" name="name" value="{{ row.style.name }}" placeholder="Style name">
-                                <input type="date" name="start_date" value="{{ row.style.start_date|date:'Y-m-d' }}" title="Running from — first day operators can log against this style">
-                                <input type="file" name="image" accept="image/*">
-                                <button type="submit" class="save-btn">Save</button>
-                            </form>
+                                {{ row.style.name }}
+                            </div>
+                            {% endif %}
                         </td>
-                        <td class="num">{{ row.operation_count }}</td>
+                        <td class="num">{{ row.operation_count }}{% if row.inactive_count %} <span class="inactive-count">({{ row.inactive_count }} inactive)</span>{% endif %}</td>
                         <td class="num {{ row.rate_class }}">{{ row.total_rate }}</td>
-                        <td><a href="{% url 'piece_rate_rate_card' row.style.id %}" class="edit-link">Rate Card</a></td>
-                        <td><a href="{% url 'piece_rate_production' row.style.id %}" class="edit-link">Production</a></td>
-                        <td>
+                        <td>{% if row.template %}<a href="{% url 'piece_rate_rate_card' row.template.id %}" class="edit-link">{{ row.template.name }}</a>{% else %}<span class="no-link">—</span>{% endif %}</td>
+                        <td class="num">{{ row.template_operations|default_if_none:"—" }}</td>
+                        <td class="num">{{ row.template_rate|default_if_none:"—" }}</td>
+                        <td class="col-actions">
+                            <a class="icon-btn" href="{% url 'piece_rate_rate_card' row.style.id %}" data-tooltip="Rate Card" aria-label="Rate Card">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+                            </a>
+                            <a class="icon-btn" href="{% url 'piece_rate_production' row.style.id %}" data-tooltip="Production" aria-label="Production">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4z"/></svg>
+                            </a>
+                            {% if can_edit_styles %}
                             <form method="post" style="display:inline;" onsubmit="return confirm('Shift {{ row.style.name|escapejs }} to next month? Its rate card, Order Qty, and every logged entry will report under next month instead.');">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="shift_next_month_{{ row.style.id }}">
-                                <button type="submit" class="edit-link">Shift to Next Month</button>
-                            </form>
-                        </td>
-                        <td>
-                            {% if is_piece_rate_editor %}
-                            <form method="post" style="display:inline;">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="save_as_template_{{ row.style.id }}">
-                                <button type="submit" class="edit-link">Save as Template</button>
+                                <button type="submit" class="icon-btn" data-tooltip="Shift to Next Month" aria-label="Shift to Next Month">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l6 7-6 7"/><path d="M14 5l6 7-6 7"/></svg>
+                                </button>
                             </form>
                             {% endif %}
-                        </td>
-                        <td>
+                            {% if is_piece_rate_editor %}
+                            <form method="post" style="display:inline;" onsubmit="return confirm('Save {{ row.style.name|escapejs }} as a reusable template? This adds a new entry to Templates — it won\'t do anything if {{ row.style.name|escapejs }} is already saved as one.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="save_as_template_{{ row.style.id }}">
+                                <button type="submit" class="icon-btn" data-tooltip="Save as Template" aria-label="Save as Template">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg>
+                                </button>
+                            </form>
+                            {% endif %}
                             <form method="post" style="display:inline;" onsubmit="return confirm('Delete style {{ row.style.name|escapejs }} and its entire rate card?');">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
-                                <button type="submit" class="delete-btn">Delete</button>
+                                <button type="submit" class="icon-btn icon-btn-danger" data-tooltip="{% if can_edit_styles %}Delete{% else %}Verify with OTP to delete{% endif %}" aria-label="Delete" {% if not can_edit_styles %}disabled{% endif %}>
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7v13a2 2 0 002 2h8a2 2 0 002-2V7"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
+                                </button>
                             </form>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td class="num">{{ total_operations }}</td>
+                        <td class="num">{{ total_style_amount }}</td>
+                        <td></td><td></td><td></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
         {% else %}

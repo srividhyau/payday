@@ -13,10 +13,12 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+import django_otp
 import pandas as pd
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django_otp import match_token
 from django.contrib.auth.models import Group, User
 from django.core.cache import cache
 from django.core.mail import EmailMessage
@@ -119,6 +121,29 @@ def home_view(request):
     """Landing page — the app's root URL. Just a branded splash with links
     into the three real pages (Upload, Attendance, Holiday Calendar)."""
     return render(request, "attendance/home.html")
+
+
+@login_required
+def otp_verify_view(request):
+    """Step-up TOTP verification, reachable from inside the app instead
+    of only via /admin/'s login form — same TOTPDevice per user (see
+    manage.py enable_totp), same django_otp.login() call admin's own
+    OTP-aware login uses, so verifying here marks the session verified
+    exactly like /admin/ does (shared session state — request.user.
+    is_verified() reads true in both places afterward, and vice versa).
+    Gated pages (piecerate's Style/Template/Master Operations writes —
+    see piecerate.views._require_otp_verified) redirect here with
+    ?next=<where they came from> when not yet verified."""
+    next_url = request.GET.get("next") or request.POST.get("next") or "home"
+    if request.user.is_verified():
+        return redirect(next_url)
+    if request.method == "POST":
+        device = match_token(request.user, request.POST.get("token", "").strip())
+        if device:
+            django_otp.login(request, device)
+            return redirect(next_url)
+        messages.error(request, "Invalid code — try again.")
+    return render(request, "attendance/otp_verify.html", {"next": next_url})
 
 
 # Uploaded files are staged here (as <32-hex-token>.<ext>) between the

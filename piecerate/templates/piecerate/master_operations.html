@@ -28,6 +28,7 @@
     .edit-link:hover { color: var(--navy-deep); }
     .delete-btn { color: #b3261e; }
     .delete-btn:hover { color: #7a1a15; }
+    .delete-btn:disabled { color: var(--text-muted); cursor: not-allowed; text-decoration: none; }
 
     .table-wrap { overflow: visible; }
     table.simple { border-collapse: collapse; }
@@ -91,7 +92,7 @@
                         <th><a class="sort-link{% if sort == "name" %} active{% endif %}" href="?section={{ section_filter|urlencode }}&q={{ query|urlencode }}&sort=name&dir={% if sort == "name" and dir == "asc" %}desc{% else %}asc{% endif %}">Operation{% if sort == "name" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
                         <th><a class="sort-link{% if sort == "machine" %} active{% endif %}" href="?section={{ section_filter|urlencode }}&q={{ query|urlencode }}&sort=machine&dir={% if sort == "machine" and dir == "asc" %}desc{% else %}asc{% endif %}">Machine{% if sort == "machine" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
                         <th class="num"><a class="sort-link{% if sort == "rate" %} active{% endif %}" href="?section={{ section_filter|urlencode }}&q={{ query|urlencode }}&sort=rate&dir={% if sort == "rate" and dir == "asc" %}desc{% else %}asc{% endif %}">Rate{% if sort == "rate" %}{% if dir == "asc" %} ▲{% else %} ▼{% endif %}{% endif %}</a></th>
-                        {% if is_piece_rate_editor %}
+                        {% if is_piece_rate_group_member %}
                         <th></th>
                         <th></th>
                         {% endif %}
@@ -104,8 +105,9 @@
                         <td>{{ op.name }}</td>
                         <td>{{ op.machine|default:"—" }}</td>
                         <td class="num">{{ op.rate }}</td>
-                        {% if is_piece_rate_editor %}
+                        {% if is_piece_rate_group_member %}
                         <td>
+                            {% if is_piece_rate_editor %}
                             <button type="button" class="edit-link"
                                 data-id="{{ op.id }}"
                                 data-section="{{ op.section }}"
@@ -113,13 +115,14 @@
                                 data-machine="{{ op.machine }}"
                                 data-rate="{{ op.rate }}"
                             >Edit</button>
+                            {% endif %}
                         </td>
                         <td>
                             <form method="post" style="display:inline;" onsubmit="return confirm('Delete operation {{ op.name|escapejs }}?');">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="op_id" value="{{ op.id }}">
-                                <button type="submit" class="delete-btn">Delete</button>
+                                <button type="submit" class="delete-btn" {% if not is_piece_rate_editor %}disabled title="Verify with OTP to delete"{% endif %}>Delete</button>
                             </form>
                         </td>
                         {% endif %}
@@ -171,6 +174,10 @@
         (function () {
             var overlay = document.getElementById('editOverlay');
             var form = document.getElementById('editForm');
+            // Set only when editing an operation that already has a rate
+            // (never for "Add operation") — compared on submit so
+            // changing it needs a confirm, same as Delete already asks.
+            var originalRate = null;
 
             function setField(id, value) {
                 var el = document.getElementById(id);
@@ -185,8 +192,20 @@
                 setField('editName', data.name);
                 setField('editMachine', data.machine);
                 setField('editRate', data.rate);
+                originalRate = (data.id && data.rate !== undefined && data.rate !== null && data.rate !== '') ? data.rate : null;
                 overlay.classList.add('open');
             }
+
+            form.addEventListener('submit', function (e) {
+                if (originalRate === null) return;
+                var newRate = document.getElementById('editRate').value;
+                if (parseFloat(newRate) !== parseFloat(originalRate)) {
+                    var opName = document.getElementById('editName').value;
+                    if (!confirm('Change the rate for "' + opName + '" from ₹' + originalRate + ' to ₹' + newRate + '?')) {
+                        e.preventDefault();
+                    }
+                }
+            });
 
             document.getElementById('addOperationBtn').addEventListener('click', function () {
                 form.reset();

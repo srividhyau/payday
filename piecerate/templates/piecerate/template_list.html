@@ -9,11 +9,13 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    .inactive-count { color: var(--text-muted); font-size: 0.78rem; font-weight: 400; }
     .delete-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
         padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
     }
     .delete-btn:hover { background: #fdecea; }
+    .delete-btn:disabled { color: var(--text-muted); cursor: not-allowed; background: none; }
     .edit-link {
         display: inline-block; background: none; border: 1px solid var(--border); border-radius: 6px;
         color: var(--navy); padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer;
@@ -97,16 +99,16 @@
                             {{ row.style.name }}
                             {% endif %}
                         </td>
-                        <td class="num">{{ row.operation_count }}</td>
+                        <td class="num">{{ row.operation_count }}{% if row.inactive_count %} <span class="inactive-count">({{ row.inactive_count }} inactive)</span>{% endif %}</td>
                         <td class="num {{ row.rate_class }}">{{ row.total_rate }}</td>
                         <td><a href="{% url 'piece_rate_rate_card' row.style.id %}" class="edit-link">Rate Card</a></td>
                         <td>
-                            {% if is_piece_rate_editor %}
+                            {% if is_piece_rate_group_member %}
                             <form method="post" style="display:inline;" onsubmit="return confirm('Delete template {{ row.style.name|escapejs }} and its entire rate card?');">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
-                                <button type="submit" class="delete-btn">Delete</button>
+                                <button type="submit" class="delete-btn" {% if not is_piece_rate_editor %}disabled title="Verify with OTP to delete"{% endif %}>Delete</button>
                             </form>
                             {% endif %}
                         </td>

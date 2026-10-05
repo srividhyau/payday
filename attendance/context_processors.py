@@ -28,7 +28,17 @@ def role_flags(request):
         "is_salary_viewer": is_salary_viewer,
         "is_employee_editor": is_employee_editor,
         "is_production_head": is_production_head,
-        "is_piece_rate_editor": can_edit_piece_rate(user),
+        # Permission alone, no OTP — lets a template show a control
+        # (e.g. a disabled Delete button) to someone who's *allowed* to
+        # act but hasn't verified yet, rather than hiding it outright.
+        "is_piece_rate_group_member": can_edit_piece_rate(user),
+        # can_edit_piece_rate(user) short-circuits False for None/
+        # anonymous, so user.is_verified() is never reached in that
+        # case — safe without a separate guard. OTP-gated the same way
+        # the actual writes are (piecerate.views._require_otp_verified)
+        # so these edit controls don't render as usable when a save
+        # would just redirect to /verify-otp/.
+        "is_piece_rate_editor": can_edit_piece_rate(user) and user.is_verified(),
         # Read server-side (not just client-side JS) so the very first
         # render already has the sidebar in the right state — otherwise
         # a collapsed sidebar would flash open on every single page

@@ -3,6 +3,7 @@ import calendar
 import hashlib
 import functools
 import io
+import re
 from datetime import date as date_cls
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
@@ -43,6 +44,20 @@ def _require_piece_rate_editor(request, redirect_to=None):
     return None
 
 
+def _require_otp_verified(request, redirect_to=None):
+    """Step-up gate for Style/Template/Master Operations writes — these
+    shape every rate card and downstream production number, so beyond
+    group membership (_require_piece_rate_editor) they also need the
+    same TOTP verification /admin/ requires (see attendance.views.
+    otp_verify_view). Redirects to the verify page and back (?next=)
+    when the session isn't verified yet; the original POST itself is
+    lost across that redirect (same as any step-up auth), so the user
+    retries the action once verified."""
+    if not request.user.is_verified():
+        return redirect(f"{reverse('otp_verify')}?next={redirect_to or request.path}")
+    return None
+
+
 def _master_rate_map():
     return dict(Operation.objects.values_list("name", "rate"))
 
@@ -70,6 +85,7 @@ def _style_row(s, master_map):
     return {
         "style": s,
         "operation_count": s.operations.count(),
+        "inactive_count": s.operations.filter(is_enabled=False).count(),
         "total_rate": total,
         "rate_class": rate_class,
     }
@@ -108,6 +124,26 @@ def _unique_name(base_name):
     return f"{base_name} ({n})"
 
 
+_MONTH_ABBRS = set(calendar.month_abbr[1:])  # Jan, Feb, ..., Dec
+
+
+def _guess_source_template(style):
+    """Best-effort match back to the template a working style was likely
+    duplicated from — there's no stored link (duplicate_template copies
+    the rate card but doesn't record where from), so this just reverses
+    its own naming convention (f"{template.name} {month_abbr} {year}",
+    via _unique_name's "(2)"/"(3)"/... suffix on a name collision) and
+    looks for a template with that name. Returns None (silently, no
+    error) for a from-scratch style, a renamed one, or one whose
+    original template was itself renamed/deleted since — the Rate
+    Card's vs-template column/summary just don't show in that case."""
+    name = re.sub(r" \(\d+\)$", "", style.name)
+    match = re.match(r"^(.*) ([A-Za-z]{3}) (\d{4})$", name)
+    if match and match.group(2) in _MONTH_ABBRS:
+        name = match.group(1)
+    return Style.objects.filter(name__iexact=name, is_template=True).first()
+
+
 @login_required
 def production_shortcut_view(request):
     """The "Production" menu link — Production is really a per-style
@@ -135,8 +171,11 @@ def piece_rate_view(request):
     year, month = current.year, current.month
 
     if request.method == "POST":
-        action = request.POST.get("action", "")
         redirect_url = f"{request.path}?date={current.isoformat()}"
+        denied = _require_otp_verified(request, redirect_to=redirect_url)
+        if denied:
+            return denied
+        action = request.POST.get("action", "")
 
         if action == "create_style":
             name = request.POST.get("name", "").strip()
@@ -219,8 +258,32 @@ def piece_rate_view(request):
             style = get_object_or_404(
                 Style, id=action[len("save_as_template_"):], is_template=False,
             )
-            new_name = _unique_name(style.name)
-            # Same image-sharing approach as duplicate_template above.
+            # Idempotent, scoped to actual templates only — without this,
+            # clicking the button twice on the same style (easy to do by
+            # mistake; unlike Delete/Shift this action has no confirm
+            # dialog) kept minting more near-duplicate templates ("Foo
+            # (2)", "Foo (3)", ...) every time via _unique_name's generic
+            # "name taken, try the next number" collision handling,
+            # cluttering Templates with junk that was never meant to be
+            # reusable. Style.name is globally unique, so a template
+            # derived from this style can never share its exact name —
+            # walk the same "(2)/(3)/..." chain _unique_name would, and
+            # stop early if one of those names turns out to already BE a
+            # template (this style was already saved before); otherwise
+            # the first free name in that chain is used, same as before.
+            candidate = style.name
+            n = 2
+            already_templated = False
+            while Style.objects.filter(name__iexact=candidate).exists():
+                if Style.objects.filter(name__iexact=candidate, is_template=True).exists():
+                    already_templated = True
+                    break
+                candidate = f"{style.name} ({n})"
+                n += 1
+            if already_templated:
+                messages.info(request, f'"{style.name}" is already saved as a template.')
+                return redirect(redirect_url)
+            new_name = candidate
             new_template = Style.objects.create(name=new_name, is_template=True, image=style.image)
             RateCardOperation.objects.bulk_create([
                 RateCardOperation(
@@ -237,14 +300,43 @@ def piece_rate_view(request):
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
     master_map = _master_rate_map()
 
+    style_rows = [_style_row(s, master_map) for s in month_styles]
+    # Best-effort "which template was this duplicated from" (see
+    # _guess_source_template on the Rate Card page) plus that template's
+    # own operation count/total rate (reusing _style_row again, so it's
+    # never computed two different ways), so the list itself shows at a
+    # glance how many styles still match their template vs have drifted.
+    for row in style_rows:
+        source_template = _guess_source_template(row["style"])
+        row["template"] = source_template
+        if source_template:
+            template_row = _style_row(source_template, master_map)
+            row["template_operations"] = template_row["operation_count"]
+            row["template_rate"] = template_row["total_rate"]
+        else:
+            row["template_operations"] = None
+            row["template_rate"] = None
+
     return render(request, "piecerate/style_list.html", {
-        "styles": [_style_row(s, master_map) for s in month_styles],
+        "styles": style_rows,
         "templates": Style.objects.filter(is_template=True),
         "year": year,
         "month": month,
         "month_name": calendar.month_name[month],
         "prev_date": prev_date.isoformat(),
         "next_date": next_date.isoformat(),
+        # This month's totals across every style listed — Total Rate
+        # sums each style's own full rate card (same figure _style_row
+        # already computes per row), not tied to any actual production.
+        "total_operations": sum(row["operation_count"] for row in style_rows),
+        "total_style_amount": sum((row["total_rate"] for row in style_rows), Decimal("0")),
+        # Create/rename/delete/shift a style is open to anyone with
+        # general access (no group requirement — see
+        # can_edit_piece_rate's own docstring), but now OTP-verified
+        # same as the write path itself (_require_otp_verified), so
+        # these controls don't render as usable when submitting them
+        # would just redirect to /verify-otp/.
+        "can_edit_styles": request.user.is_verified(),
     })
 
 
@@ -254,6 +346,9 @@ def template_list_view(request):
     as a reference, never used for production directly."""
     if request.method == "POST":
         denied = _require_piece_rate_editor(request)
+        if denied:
+            return denied
+        denied = _require_otp_verified(request)
         if denied:
             return denied
         action = request.POST.get("action", "")
@@ -308,6 +403,9 @@ def rate_card_view(request, style_id):
     style = get_object_or_404(Style, id=style_id)
 
     if request.method == "POST":
+        denied = _require_otp_verified(request)
+        if denied:
+            return denied
         if style.is_template:
             denied = _require_piece_rate_editor(request)
             if denied:
@@ -441,6 +539,45 @@ def rate_card_view(request, style_id):
     for op in operations:
         op.operator_names = sorted(operator_names_by_op.get(op.id, set()))
 
+    # Template Rate column + top-of-table summary — comparing this
+    # style's own rate card against whichever template it was likely
+    # duplicated from (see _guess_source_template). Never shown for a
+    # template itself (nothing to compare a template against) or when
+    # no matching template can be found. Matched purely by operation
+    # name, same convention every other "vs X" comparison in this app
+    # uses (_master_rate_map/_style_row) — there's no op_code link to a
+    # specific Operation/RateCardOperation across styles.
+    source_template = None
+    template_summary = None
+    if not style.is_template:
+        source_template = _guess_source_template(style)
+    if source_template:
+        template_rate_map = dict(source_template.operations.values_list("name", "rate"))
+        higher = lower = same = 0
+        net_diff = Decimal("0")
+        for op in operations:
+            op.template_rate = template_rate_map.get(op.name)
+            if op.template_rate is None:
+                op.vs_template_class = ""
+                continue
+            diff = op.rate - op.template_rate
+            net_diff += diff
+            if diff > 0:
+                op.vs_template_class = "rate-higher"
+                higher += 1
+            elif diff < 0:
+                op.vs_template_class = "rate-lower"
+                lower += 1
+            else:
+                op.vs_template_class = ""
+                same += 1
+        matched = higher + lower + same
+        if matched:
+            template_summary = {
+                "template": source_template, "higher": higher, "lower": lower, "same": same,
+                "matched": matched, "net_diff": net_diff,
+            }
+
     return render(request, "piecerate/rate_card.html", {
         "style": style,
         "all_styles": Style.objects.all(),
@@ -448,7 +585,22 @@ def rate_card_view(request, style_id):
         "master_operations": master_operations,
         "master_map": master_map,
         "pay_type_choices": PAY_TYPE_CHOICES,
-        "can_edit_this_style": not style.is_template or can_edit_piece_rate(request.user),
+        # Permission alone (a non-template style stays open to anyone
+        # with general access; a template needs Piece Rate Editor) — no
+        # OTP requirement. Controls whether Delete even appears at all
+        # (disabled, pending OTP — see "otp_verified" below — rather
+        # than hidden outright, unlike the editable fields themselves,
+        # since Delete needs no typed input to misuse by accident).
+        "can_see_delete": not style.is_template or can_edit_piece_rate(request.user),
+        "otp_verified": request.user.is_verified(),
+        # Permission AND OTP-verified, same as the write path itself
+        # (_require_otp_verified), so fields don't render as editable
+        # inputs when submitting them would just redirect to verify-otp.
+        "can_edit_this_style": (
+            (not style.is_template or can_edit_piece_rate(request.user)) and request.user.is_verified()
+        ),
+        "source_template": source_template,
+        "template_summary": template_summary,
     })
 
 
@@ -527,6 +679,9 @@ def master_operations_view(request):
     delete an operation here."""
     if request.method == "POST":
         denied = _require_piece_rate_editor(request)
+        if denied:
+            return denied
+        denied = _require_otp_verified(request)
         if denied:
             return denied
         action = request.POST.get("action", "")
