@@ -3047,6 +3047,37 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         context[f"{kind}_rows"] = frozen_rows
         context[f"{kind}_totals"] = sum_rows(frozen_rows, kind)
 
+    # Operators' attendance is recorded directly on AttendanceRecord (the
+    # time-punch summary used for salaried staff does not reliably include
+    # piece-rate operators). Count work/paid days directly from those
+    # records, then derive Personal Leave as month working days minus
+    # credited attendance (matching the salary attendance convention).
+    # This is display-only; it does not change piece-rate payroll.
+    operator_rows = context["operator_rows"]
+    operator_ids = [row["employee"].id for row in operator_rows]
+    operator_working_days = {employee_id: Decimal(0) for employee_id in operator_ids}
+    if operator_ids:
+        attendance_rows = AttendanceRecord.objects.filter(
+            employee_id__in=operator_ids,
+            date__year=year,
+            date__month=month,
+            status__in=("P", "PH", "CO", "HD"),
+        ).values_list("employee_id", "status")
+        for employee_id, status in attendance_rows:
+            operator_working_days[employee_id] += Decimal("0.5") if status == "HD" else Decimal(1)
+    for row in operator_rows:
+        employee_id = row["employee"].id
+        row["attendance_working_days"] = operator_working_days[employee_id]
+        row["personal_leave"] = max(
+            Decimal(working_days) - operator_working_days[employee_id], Decimal(0)
+        )
+    context["operator_totals"]["attendance_working_days"] = sum(
+        operator_working_days.values(), Decimal(0)
+    )
+    context["operator_totals"]["personal_leave"] = sum(
+        (row["personal_leave"] for row in operator_rows), Decimal(0)
+    )
+
     # Each operator's piece-rate earnings this month (pieces x Rate Card
     # rate, every style — the same figure Piece Rate > Operator Summary
     # shows). Kept on the row (not shown as its own column — Piece Rate
@@ -3107,6 +3138,23 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         for r in context[rows_key]
         if _row_missing_bank_details(r)
     ]
+    missing_bank_tab_keys = {
+        "Company Workers": "company",
+        "Helpers": "helpers",
+        "Staff": "staff",
+        "Contractors": "contractors",
+        "Operators": "operators",
+        "Ironing & Bartrack": "ironing_bartrack",
+        "Fixed Payments": "fixed_payments",
+    }
+    bank_warnings = {key: [] for key in missing_bank_tab_keys.values()}
+    for missing in context["missing_bank_details"]:
+        tab_key = missing_bank_tab_keys[missing["tab_label"]]
+        bank_warnings[tab_key].append(f'{missing["emp_code"]} {missing["emp_name"]}')
+    context["missing_bank_tooltips"] = {
+        key: "Missing payment details: " + ", ".join(names)
+        for key, names in bank_warnings.items() if names
+    }
     return context
 
 

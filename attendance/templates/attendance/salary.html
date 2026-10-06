@@ -15,6 +15,8 @@
         /* Single yellow header bar — title, date-nav, KPIs, the Salary
            tabs, and their icons all in one line (same convention as
            Device Records' header). */
+        body.salary-page .page { padding: 0.45rem 0.65rem 0.75rem; }
+        body.salary-page .page > .card { margin-bottom: 0; }
         .month-nav {
             display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
             background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
@@ -56,18 +58,43 @@
         }
         .tab-row.nav-tabs .tab-btn:hover:not(.active) { background: rgba(0,47,102,0.07); color: var(--navy); }
         .tab-row.nav-tabs .tab-btn.active { background: var(--navy); color: var(--yellow); }
-        /* Keep the section tabs and utility menus on one compact toolbar.
-           Tabs can scroll horizontally on narrow screens instead of
-           wrapping into extra rows above the salary grid. */
-        .salary-toolbar { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-        .salary-toolbar .tab-row.nav-tabs {
-            flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto;
-            overflow-y: hidden; scrollbar-width: thin; white-space: nowrap;
+        .salary-tab-warning {
+            display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center;
+            position: relative; margin-left: 0.25rem; color: #b42318; line-height: 1;
         }
-        .salary-toolbar .tab-row.nav-tabs .nav-item { flex: 0 0 auto; }
-        .salary-toolbar .tab-row.nav-tabs .tab-btn { padding: 0.4rem 0.55rem; font-size: 0.78rem; }
+        .salary-tab-warning svg { display: block; width: 0.9rem; height: 0.9rem; }
+        .salary-tab-warning:hover::after, .salary-tab-warning:focus::after {
+            content: attr(title); position: absolute; left: 50%; bottom: calc(100% + 0.45rem);
+            transform: translateX(-50%); z-index: 200; width: max-content; max-width: 18rem;
+            padding: 0.45rem 0.6rem; border-radius: 6px; background: #7f1d1d; color: #fff;
+            box-shadow: 0 3px 10px rgba(0,0,0,.2); font-size: 0.72rem; font-weight: 500;
+            line-height: 1.4; text-align: left; white-space: normal; pointer-events: none;
+        }
+        /* Keep tabs readable: let them wrap onto another row when the
+           available width is tight instead of clipping the tab labels. */
+        .salary-toolbar {
+            display: flex; align-items: center; gap: 0.3rem; min-width: 0;
+            padding: 0.15rem 0.45rem; border: 1px solid #cbd5e1; border-radius: 10px;
+            background: #f8fafc; box-shadow: 0 2px 6px rgba(15,23,42,.08);
+        }
+        .salary-toolbar .tab-row.nav-tabs {
+            flex: 1 1 40rem; min-width: 0; flex-wrap: wrap; overflow: visible;
+            white-space: normal;
+        }
+        .salary-toolbar .tab-row.nav-tabs .nav-item { flex: 0 1 auto; max-width: 9rem; }
+        .salary-toolbar .tab-row.nav-tabs .tab-btn {
+            padding: 0.4rem 0.55rem; font-size: 0.78rem;
+            display: flex; align-items: center; justify-content: center;
+            width: 100%; white-space: normal; text-align: center; overflow-wrap: anywhere;
+        }
         .salary-toolbar .tab-row-icons { flex: 0 0 auto; margin-left: auto; gap: 0.15rem; }
         .salary-toolbar .tab-row-icons .icon-btn { width: 2rem; height: 2rem; }
+        .salary-save-button {
+            flex: 0 1 auto; max-width: 8rem; white-space: normal;
+            text-align: center; overflow-wrap: anywhere;
+            padding: 0.3rem 0.55rem; font-size: 0.78rem; line-height: 1.2;
+        }
+        .salary-save-button[hidden] { display: none !important; }
         .salary-page .topbar nav .accordion-item + .accordion-item { margin-top: 0.08rem; }
         .salary-page .topbar nav .accordion-button { padding: 0.35rem 0.45rem; }
         .salary-page .topbar nav .accordion-body a { padding-top: 0.25rem; padding-bottom: 0.25rem; }
@@ -75,6 +102,7 @@
             .salary-toolbar { flex-wrap: wrap; }
             .salary-toolbar .tab-row.nav-tabs { flex-basis: 100%; }
             .salary-toolbar .tab-row-icons { width: 100%; justify-content: flex-end; }
+            .salary-save-button { margin-left: auto; }
         }
         .working-days { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem; max-width: 700px; line-height: 1.5; }
 
@@ -170,6 +198,16 @@
             overscroll-behavior: contain; border: 1px solid #cbd5e1;
             border-radius: 8px; background: #fff;
         }
+        /* Salary grids grow to their full height so the page is the only
+           scroll area. An overflow wrapper here would trap sticky headers
+           inside the table instead of letting them follow page scrolling. */
+        body.salary-page .page .table-wrap.salary-table-scroll {
+            max-height: none; overflow: visible; overscroll-behavior: auto;
+        }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th {
+            position: sticky; top: 0; z-index: 15;
+            background-clip: padding-box;
+        }
         [data-panel="summary"] .table-wrap.fit-content.salary-table-scroll {
             display: block; max-width: none; width: 100%;
         }
@@ -198,6 +236,7 @@
             text-transform: uppercase; letter-spacing: 0.03em;
             white-space: normal; max-width: 7rem; line-height: 1.3; vertical-align: bottom;
         }
+        body.salary-page .page table.simple th { overflow-wrap: normal; word-break: normal; hyphens: none; }
         /* Sticky cells are pinned to the Bootstrap scroll wrapper. Keep
            the second header row directly under the grouped first row. */
         table.simple tbody td { position: relative; z-index: 1; }
@@ -324,6 +363,41 @@
         table.simple th.personal-leave-cell, table.simple td.personal-leave-cell { background: #FFCDD2; color: #B71C1C; }
         table.simple tbody tr:hover td.personal-leave-cell { background: #f5b3ba; }
 
+        /* Sticky headers must paint an opaque layer above moving rows.
+           Keep the pseudo-element inside each cell so it cannot cover
+           the dark grid border between neighboring header cells. */
+        table.simple thead th { background: #fff4bf !important; box-shadow: none !important; }
+        table.simple thead th.grp-fixed { background: #ECEEF0 !important; }
+        table.simple thead th.grp-attendance { background: #B4C7E7 !important; }
+        table.simple thead th.grp-deduction-emp { background: #FFF2CC !important; }
+        table.simple thead th.grp-deduction-employer { background: #FFE0B2 !important; }
+        table.simple thead th.grp-highlight { background: #FFFF00 !important; }
+        table.simple thead th.grp-el { background: #E1D5F5 !important; }
+        table.simple thead th.personal-leave-cell { background: #FFCDD2 !important; }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th {
+            z-index: 100 !important; isolation: isolate;
+        }
+        body.salary-page .page .table-wrap.salary-table-scroll table.simple thead tr:first-child th {
+            top: 0 !important; z-index: 102 !important;
+        }
+        body.salary-page .page .table-wrap.salary-table-scroll table.simple thead tr:nth-child(2) th {
+            top: var(--thead-row1-h, 0px) !important; z-index: 101 !important;
+        }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th::before {
+            content: ""; position: absolute; inset: 0; z-index: -1;
+            background: #fff4bf; pointer-events: none;
+        }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th.grp-fixed::before { background: #ECEEF0; }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th.grp-attendance::before { background: #B4C7E7; }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th.grp-deduction-emp::before { background: #FFF2CC; }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th.grp-deduction-employer::before { background: #FFE0B2; }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th.grp-highlight::before { background: #FFFF00; }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th.grp-el::before { background: #E1D5F5; }
+        body.salary-page .page .table-wrap.salary-table-scroll thead th.personal-leave-cell::before { background: #FFCDD2; }
+        body.salary-page .page table.simple tbody td {
+            position: static; z-index: auto;
+        }
+
         /* Base look (border/radius/focus ring/height) all comes from
            Bootstrap's own .form-control.form-control-sm now (see the
            markup) — this only still owns what Bootstrap doesn't give it:
@@ -438,29 +512,36 @@
         </div>
 
     <div class="page">
-        <div class="card" style="padding-top:0.75rem;">
+        <div class="card">
             <div class="salary-toolbar">
             <ul class="nav nav-tabs tab-row">
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "summary" %} active{% endif %}" data-tab="summary">Summary</button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "company" %} active{% endif %}" data-tab="company">Company Workers
+                    {% if missing_bank_tooltips.company %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.company }}" aria-label="{{ missing_bank_tooltips.company }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_company" data-label="Company Workers" data-action="{% if lock_status.company %}unlock{% else %}lock{% endif %}">{% if lock_status.company %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "helpers" %} active{% endif %}" data-tab="helpers">Helpers
+                    {% if missing_bank_tooltips.helpers %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.helpers }}" aria-label="{{ missing_bank_tooltips.helpers }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_helper" data-label="Helpers" data-action="{% if lock_status.helpers %}unlock{% else %}lock{% endif %}">{% if lock_status.helpers %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "staff" %} active{% endif %}" data-tab="staff">Staff
+                    {% if missing_bank_tooltips.staff %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.staff }}" aria-label="{{ missing_bank_tooltips.staff }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_staff" data-label="Staff" data-action="{% if lock_status.staff %}unlock{% else %}lock{% endif %}">{% if lock_status.staff %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "contractors" %} active{% endif %}" data-tab="contractors">Contractors
+                    {% if missing_bank_tooltips.contractors %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.contractors }}" aria-label="{{ missing_bank_tooltips.contractors }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_contractors" data-label="Contractors" data-action="{% if lock_status.contractors %}unlock{% else %}lock{% endif %}">{% if lock_status.contractors %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "operators" %} active{% endif %}" data-tab="operators">Operators
+                    {% if missing_bank_tooltips.operators %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.operators }}" aria-label="{{ missing_bank_tooltips.operators }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_operators" data-label="Operators" data-action="{% if lock_status.operators %}unlock{% else %}lock{% endif %}">{% if lock_status.operators %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "ironing_bartrack" %} active{% endif %}" data-tab="ironing_bartrack">Ironing &amp; Bartrack
+                    {% if missing_bank_tooltips.ironing_bartrack %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.ironing_bartrack }}" aria-label="{{ missing_bank_tooltips.ironing_bartrack }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_ironing_bartrack" data-label="Ironing & Bartrack" data-action="{% if lock_status.ironing_bartrack %}unlock{% else %}lock{% endif %}">{% if lock_status.ironing_bartrack %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "fixed_payments" %} active{% endif %}" data-tab="fixed_payments">Fixed Payments
+                    {% if missing_bank_tooltips.fixed_payments %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.fixed_payments }}" aria-label="{{ missing_bank_tooltips.fixed_payments }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_fixed_payments" data-label="Fixed Payments" data-action="{% if lock_status.fixed_payments %}unlock{% else %}lock{% endif %}">{% if lock_status.fixed_payments %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
             </ul>
@@ -610,6 +691,9 @@
                 </div>
                 {% endif %}
             </div>
+            {% if not is_salary_viewer %}
+            <button type="submit" class="btn btn-primary salary-save-button" data-salary-save hidden></button>
+            {% endif %}
             </div>
         </div>
 
@@ -619,14 +703,6 @@
 
         {% if is_salary_viewer %}
             <div class="msg info">👁️ View-only access — you can view and download, but not edit, save, lock, or send to Telegram.</div>
-        {% endif %}
-
-        {% if missing_bank_details %}
-            <div class="alert alert-danger alert-dismissible fade show" id="missingBankDetailsMsg" role="alert">
-                Missing bank details (still included in the Bank Excel, flagged in red) —
-                {% for m in missing_bank_details %}{{ m.emp_code }} {{ m.emp_name }} ({{ m.tab_label }}){% if not forloop.last %}, {% endif %}{% endfor %}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
         {% endif %}
 
         <div class="card">
@@ -665,13 +741,12 @@
 
             <div class="tab-panel" data-panel="company"{% if initial_tab != "company" %} style="display:none;"{% endif %}>
                 {% if company_rows %}
-                <form method="post">
+                <form method="post" id="salary-company-form" data-save-label="Save Company Workers">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="company">
                     {% if lock_status.company %}<p class="alert lock-banner" role="alert">🔒 Company Workers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.company or is_salary_viewer %}disabled{% endif %}>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Company Workers</button></div>
                     <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content" id="companyTable">
                             <thead>
@@ -794,13 +869,12 @@
 
             <div class="tab-panel" data-panel="helpers"{% if initial_tab != "helpers" %} style="display:none;"{% endif %}>
                 {% if helper_rows %}
-                <form method="post">
+                <form method="post" id="salary-helpers-form" data-save-label="Save Helpers">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="helpers">
                     {% if lock_status.helpers %}<p class="alert lock-banner" role="alert">🔒 Helpers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.helpers or is_salary_viewer %}disabled{% endif %}>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Helpers</button></div>
                     <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
@@ -870,13 +944,12 @@
 
             <div class="tab-panel" data-panel="staff"{% if initial_tab != "staff" %} style="display:none;"{% endif %}>
                 {% if staff_rows %}
-                <form method="post">
+                <form method="post" id="salary-staff-form" data-save-label="Save Staff">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="staff">
                     {% if lock_status.staff %}<p class="alert lock-banner" role="alert">🔒 Staff is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.staff or is_salary_viewer %}disabled{% endif %}>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Staff</button></div>
                     <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content" id="staffTable">
                             <thead>
@@ -971,13 +1044,12 @@
 
             <div class="tab-panel" data-panel="contractors"{% if initial_tab != "contractors" %} style="display:none;"{% endif %}>
                 {% if contractor_rows %}
-                <form method="post">
+                <form method="post" id="salary-contractors-form" data-save-label="Save Contractors">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="contractors">
                     {% if lock_status.contractors %}<p class="alert lock-banner" role="alert">🔒 Contractors is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.contractors or is_salary_viewer %}disabled{% endif %}>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Contractors</button></div>
                     <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
@@ -1047,20 +1119,18 @@
 
             <div class="tab-panel" data-panel="operators"{% if initial_tab != "operators" %} style="display:none;"{% endif %}>
                 {% if operator_rows %}
-                <form method="post">
+                <form method="post" id="salary-operators-form" data-save-label="Save Operators">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="operators">
                     {% if lock_status.operators %}<p class="alert lock-banner" role="alert">🔒 Operators is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.operators or is_salary_viewer %}disabled{% endif %}>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Operators</button></div>
                     <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th>
-                                    <th class="num grp-attendance sum-cell">Earned Days</th>
-                                    <th class="num grp-attendance">Paid Holiday</th>
+                                    <th class="num grp-attendance" title="Attendance records: Present, Paid Holiday and Comp Off count as 1 day; Half Day counts as 0.5 day.">Working Days</th>
                                     <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th class="num grp-fixed" title="Pieces x Rate Card rate this month, auto-filled here — see Piece Rate > Operator Summary. Edit to override.">Manual Amount</th>
                                     <th class="num grp-deduction-emp">Company Pay</th>
@@ -1075,8 +1145,7 @@
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
-                                    <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
-                                    <td class="num grp-attendance">{{ row.paid_holiday }}</td>
+                                    <td class="num grp-attendance">{{ row.attendance_working_days|floatformat:"-1" }}</td>
                                     <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} piece-rate-differs{% endif %}" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} title="Piece rate total this month: {{ row.piece_rate_amount }}"{% endif %}></td>
                                     <td class="num grp-deduction-emp" data-field="already_paid">{% if row.calc.already_paid %}{{ row.calc.already_paid }}{% endif %}</td>
@@ -1092,8 +1161,7 @@
                             <tfoot>
                                 <tr>
                                     <td colspan="2">Total</td>
-                                    <td class="num">{{ operator_totals.earned_days }}</td>
-                                    <td class="num">{{ operator_totals.paid_holiday }}</td>
+                                    <td class="num">{{ operator_totals.attendance_working_days|floatformat:"-1" }}</td>
                                     <td class="num personal-leave-cell">{{ operator_totals.personal_leave }}</td>
                                     <td class="num" data-total="manual_amount">{{ operator_totals.manual_amount }}</td>
                                     <td class="num" data-total="already_paid">{{ operator_totals.calc.already_paid }}</td>
@@ -1116,20 +1184,17 @@
 
             <div class="tab-panel" data-panel="ironing_bartrack"{% if initial_tab != "ironing_bartrack" %} style="display:none;"{% endif %}>
                 {% if ironing_bartrack_rows %}
-                <form method="post">
+                <form method="post" id="salary-ironing-bartrack-form" data-save-label="Save Ironing &amp; Bartrack">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="ironing_bartrack">
                     {% if lock_status.ironing_bartrack %}<p class="alert lock-banner" role="alert">🔒 Ironing & Bartrack is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.ironing_bartrack or is_salary_viewer %}disabled{% endif %}>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Ironing &amp; Bartrack</button></div>
                     <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
                                 <tr>
                                     <th>Code</th><th>Employee</th>
-                                    <th class="num grp-attendance sum-cell">Earned Days</th>
-                                    <th class="num grp-attendance">Paid Holiday</th>
                                     <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th class="num grp-fixed">Manual Amount</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
@@ -1143,8 +1208,6 @@
                                     <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                     <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}</td>
-                                    <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
-                                    <td class="num grp-attendance">{{ row.paid_holiday }}</td>
                                     <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
@@ -1162,8 +1225,6 @@
                             <tfoot>
                                 <tr>
                                     <td colspan="2">Total</td>
-                                    <td class="num">{{ ironing_bartrack_totals.earned_days }}</td>
-                                    <td class="num">{{ ironing_bartrack_totals.paid_holiday }}</td>
                                     <td class="num personal-leave-cell">{{ ironing_bartrack_totals.personal_leave }}</td>
                                     <td class="num" data-total="manual_amount">{{ ironing_bartrack_totals.manual_amount }}</td>
                                     <td class="num" data-total="deductions">{{ ironing_bartrack_totals.deductions }}</td>
@@ -1187,13 +1248,12 @@
 
             <div class="tab-panel" data-panel="fixed_payments"{% if initial_tab != "fixed_payments" %} style="display:none;"{% endif %}>
                 {% if fixed_payment_rows %}
-                <form method="post">
+                <form method="post" id="salary-fixed-payments-form" data-save-label="Save Fixed Payments">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="fixed_payments">
                     {% if lock_status.fixed_payments %}<p class="alert lock-banner" role="alert">🔒 Fixed Payments is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.fixed_payments or is_salary_viewer %}disabled{% endif %}>
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Fixed Payments</button></div>
                     <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
@@ -1444,6 +1504,27 @@
         // Scoped to [data-tab] so the Download link and Send to Telegram
         // button (plain .tab-btn elements with no data-tab, since neither
         // switches panels) don't get treated as switchable tabs.
+        var salaryHeaderObservers = new WeakMap();
+        function syncGroupedHeaderOffsets(panel) {
+            panel.querySelectorAll('table.simple').forEach(function (table) {
+                var rows = table.tHead ? table.tHead.rows : [];
+                if (rows.length < 2) return;
+                var firstRow = rows[0];
+                // The row box gives the actual table track height. Measuring
+                // individual cells can include rowspan height and push the
+                // second grouped-header row too far down (visible around Gross).
+                var measuredHeight = firstRow.offsetHeight;
+                if (measuredHeight) table.style.setProperty('--thead-row1-h', measuredHeight + 'px');
+                if (!salaryHeaderObservers.has(table) && window.ResizeObserver) {
+                    var observer = new ResizeObserver(function () {
+                        var rowHeight = firstRow.offsetHeight;
+                        if (rowHeight) table.style.setProperty('--thead-row1-h', rowHeight + 'px');
+                    });
+                    observer.observe(firstRow);
+                    salaryHeaderObservers.set(table, observer);
+                }
+            });
+        }
         function activateSalaryTab(tabKey) {
             var btn = document.querySelector('.tab-btn[data-tab="' + tabKey + '"]');
             var panel = document.querySelector('.tab-panel[data-panel="' + tabKey + '"]');
@@ -1452,8 +1533,29 @@
             document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
             btn.classList.add('active');
             panel.style.display = '';
+            requestAnimationFrame(function () { syncGroupedHeaderOffsets(panel); });
+            var saveButton = document.querySelector('[data-salary-save]');
+            if (saveButton) {
+                var form = panel.querySelector('form[id][data-save-label]');
+                if (form) {
+                    saveButton.setAttribute('form', form.id);
+                    saveButton.textContent = form.dataset.saveLabel;
+                    saveButton.disabled = !!panel.querySelector('fieldset[disabled]');
+                    saveButton.hidden = false;
+                } else {
+                    saveButton.removeAttribute('form');
+                    saveButton.textContent = '';
+                    saveButton.disabled = false;
+                    saveButton.hidden = true;
+                }
+            }
             return true;
         }
+        activateSalaryTab('{{ initial_tab|escapejs }}');
+        window.addEventListener('resize', function () {
+            var activePanel = document.querySelector('.tab-panel:not([style*="display:none"])');
+            if (activePanel) syncGroupedHeaderOffsets(activePanel);
+        });
         // Which tab starts open is decided server-side (salary_view's
         // ?tab= handling, passed through as initial_tab — see the active
         // class/display:none on the buttons/panels above), including
@@ -1836,21 +1938,6 @@
             });
         })();
 
-        // Missing bank details banner — a real Bootstrap alert now (its
-        // own btn-close/data-bs-dismiss handles the close click, nothing
-        // custom needed there); this only adds the auto-hide after 10s,
-        // same reasoning the WhatsApp/Telegram send status text already
-        // has elsewhere: a persistent warning that never goes away
-        // becomes background noise you stop reading, and this one
-        // re-lists every missing employee on every page load regardless
-        // of whether anything changed.
-        (function () {
-            var msgEl = document.getElementById('missingBankDetailsMsg');
-            if (!msgEl) return;
-            setTimeout(function () {
-                bootstrap.Alert.getOrCreateInstance(msgEl).close();
-            }, 10000);
-        })();
     </script>
 {% include "attendance/_htmx_scripts.html" %}
     <script>

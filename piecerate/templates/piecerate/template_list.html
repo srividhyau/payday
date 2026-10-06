@@ -8,87 +8,70 @@
 {% include "attendance/_bootstrap_head.html" %}
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-    /* flex column so .table-wrap (flex: 1 below) fills exactly whatever
-       height is left after everything else in .page takes its own
-       natural space — see production.html for the original version of
-       this pattern. */
+    /* Let the table grow to its full height; .page owns vertical scrolling
+       so the sticky heading remains attached to the page, not this box. */
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; display: flex; flex-direction: column; }
-    /* Its own bounded scroll box — sticky thead (app.css) binds to this
-       instead of .page, so it freezes flush with zero gap above it. */
-    .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
+    .table-wrap { flex: 0 0 auto; min-height: 0; max-height: none; overflow: visible; }
     .table-wrap.fit-content { width: 100%; }
     .table-wrap.fit-content > table { width: 100%; }
     .inactive-count { color: var(--text-muted); font-size: 0.78rem; font-weight: 400; }
-    .delete-btn {
-        background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
-        padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
-    }
-    .delete-btn:hover { background: #fdecea; }
-    .delete-btn:disabled { color: var(--text-muted); cursor: not-allowed; background: none; }
-    .edit-link {
-        display: inline-block; background: none; border: 1px solid var(--border); border-radius: 6px;
-        color: var(--navy); padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer;
-        font-family: inherit; text-decoration: none;
-    }
-    .edit-link:hover { background: var(--bg); }
     .inline-name-form { display: flex; width: 100%; gap: 0.4rem; align-items: center; }
-    .inline-name-form input[type="text"] {
-        padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 6px;
-        font-size: 0.85rem; font-family: inherit; width: 220px; flex: 1 1 auto; min-width: 0;
-    }
+    .inline-name-form .form-floating { flex: 1 1 12rem; min-width: 0; }
     .template-image { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); }
     .template-image-placeholder { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 6px; color: var(--text-muted); }
     .template-thumb-label { display: inline-flex; align-items: center; cursor: pointer; }
-    .inline-name-form input[type="text"]:focus { outline: none; border-color: var(--navy); }
-    .save-btn {
-        background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
-        padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
+    .template-toolbar {
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+        gap: 0.8rem 1.25rem; padding: 0.85rem 1rem; margin-bottom: 1rem;
+        background: #f8fafc; border: 1px solid var(--border); border-radius: 0.65rem;
     }
-    .save-btn:hover { background: var(--bg); }
+    .template-toolbar-copy { min-width: 14rem; flex: 1 1 18rem; }
+    .template-toolbar-copy p { margin: 0; }
+    .template-create-form { display: flex; align-items: center; gap: 0.5rem; width: min(100%, 28rem); }
+    .template-create-form .form-floating { flex: 1 1 14rem; min-width: 0; }
     .rate-higher { color: #1e7e34; font-weight: 700; }
     .rate-lower { color: #b3261e; font-weight: 700; }
-    /* Single yellow header bar — title and Add Template all in one
-       line (same convention as Device Records' header). */
+    /* Keep page title in its yellow header; page actions live below. */
     .month-nav {
         display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
         background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
         box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
     }
     .month-nav h1 { font-size: 0.92rem; margin: 0; }
-    .month-nav .action-row { margin: 0 0 0 auto; }
 </style>
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_templates" page_title="Templates" %}
-    {% if is_piece_rate_editor %}
     <div class="month-nav">
         {% include "attendance/_header_pill.html" with current="piece_rate_templates" page_title="Templates" %}
-            <div class="action-row">
-                <form method="post" style="display:flex; gap:0.5rem;">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="create_template">
-                    <input type="text" name="name" class="search-input" placeholder="New template name (e.g. L_Pyjama)" required>
-                    <button type="submit" class="post-btn">+ Add Template</button>
-                </form>
-            </div>
-        </div>
-    {% else %}
-    {% include "attendance/_header_pill.html" with floating=True current="piece_rate_templates" page_title="Templates" %}
-    {% endif %}
+    </div>
 
     <div class="page">
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
-        {% if is_piece_rate_group_member and not is_piece_rate_editor %}
-        <p class="caption" style="color:var(--text-muted); font-size:0.82rem;">Verify your OTP to upload or change template images.</p>
-        {% elif not is_piece_rate_group_member %}
-        <p class="caption" style="color:var(--text-muted); font-size:0.82rem;">Template images can be changed by a Piece Rate Editor.</p>
-        {% endif %}
-
-        <p class="caption" style="color:var(--text-muted); font-size:0.85rem; margin: 0 0 1rem;">
-            Permanent, reusable rate cards — kept as a reference, never used for production directly.
-        </p>
+        <section class="template-toolbar" aria-label="Template actions">
+            <div class="template-toolbar-copy">
+                <p class="fw-semibold">Reusable rate card templates</p>
+                <p class="small text-body-secondary">Reference cards for creating styles; templates are not used directly for production.</p>
+                {% if is_piece_rate_group_member and not is_piece_rate_editor %}
+                <p class="small text-body-secondary mt-1">Verify your OTP to upload or change template images.</p>
+                {% elif not is_piece_rate_group_member %}
+                <p class="small text-body-secondary mt-1">Template images can be changed by a Piece Rate Editor.</p>
+                {% endif %}
+            </div>
+            {% if is_piece_rate_editor %}
+            <form method="post" class="template-create-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_template">
+                <div class="form-floating">
+                    <input type="text" id="new-template-name" name="name" class="form-control" placeholder=" " required>
+                    <label for="new-template-name">New template name</label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm text-nowrap">Add Template</button>
+            </form>
+            {% endif %}
+        </section>
 
         {% if templates %}
         <div class="table-wrap fit-content">
@@ -121,8 +104,11 @@
                                 {% else %}
                                 <span class="template-image-placeholder">—</span>
                                 {% endif %}
-                                <input type="text" name="name" value="{{ row.style.name }}">
-                                <button type="submit" class="save-btn">Save</button>
+                                <div class="form-floating">
+                                    <input type="text" id="template-name-{{ row.style.id }}" name="name" value="{{ row.style.name }}" class="form-control" placeholder=" " required>
+                                    <label for="template-name-{{ row.style.id }}">Template name</label>
+                                </div>
+                                <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
                             </form>
                             {% else %}
                             {% if row.style.image_data %}<img src="{% url 'piece_rate_style_image' row.style.id %}" alt="" class="template-image">{% else %}<span class="template-image-placeholder">—</span>{% endif %}
@@ -131,14 +117,14 @@
                         </td>
                         <td class="num">{{ row.operation_count }}{% if row.inactive_count %} <span class="inactive-count">({{ row.inactive_count }} inactive)</span>{% endif %}</td>
                         <td class="num {{ row.rate_class }}">{{ row.total_rate }}</td>
-                        <td><a href="{% url 'piece_rate_rate_card' row.style.id %}" class="edit-link">Rate Card</a></td>
+                        <td><a href="{% url 'piece_rate_rate_card' row.style.id %}" class="btn btn-outline-primary btn-sm text-nowrap">Rate Card</a></td>
                         <td>
                             {% if is_piece_rate_group_member %}
                             <form method="post" style="display:inline;" onsubmit="return confirm('Delete template {{ row.style.name|escapejs }} and its entire rate card?');">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
-                                <button type="submit" class="delete-btn" {% if not is_piece_rate_editor %}disabled title="Verify with OTP to delete"{% endif %}>Delete</button>
+                                <button type="submit" class="btn btn-outline-danger btn-sm" {% if not is_piece_rate_editor %}disabled title="Verify with OTP to delete"{% endif %}>Delete</button>
                             </form>
                             {% endif %}
                         </td>

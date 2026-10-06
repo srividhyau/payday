@@ -9,7 +9,7 @@
          top instead — covering whatever was near the bottom of the
          screen (here, the Submit button right below the quantity
          field) instead of the page reflowing above it. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
     <title>{{ employee.name }} — Payday</title>
     <!-- Android Chrome's "Add to Home Screen" names the shortcut after
          <title> when there's no manifest; iOS Safari uses this meta
@@ -39,6 +39,49 @@
     .header { padding: 1.25rem 0.25rem 1rem; color: #fff; }
     .header .name { font-size: 1.4rem; font-weight: 700; }
     .header .date { font-size: 0.95rem; opacity: 0.8; margin-top: 0.15rem; }
+    .attendance-calendar-toggle {
+        display: inline-flex; width: 2.5rem; height: 2.5rem; flex: none; align-items: center; justify-content: center;
+        padding: 0; border: 1px solid rgba(255,255,255,0.45); border-radius: 9px;
+        background: rgba(255,255,255,0.1); color: #fff; font: inherit; font-size: 0.85rem;
+        font-weight: 600; cursor: pointer;
+    }
+    .attendance-calendar-toggle svg { width: 20px; height: 20px; }
+    .attendance-calendar-toggle:hover, .attendance-calendar-toggle[aria-expanded="true"] { background: rgba(255,255,255,0.2); }
+    .operator-header-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+    .attendance-card[hidden] { display: none; }
+    .attendance-card { padding: 0.75rem; }
+    .attendance-calendar-nav { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.6rem; }
+    .attendance-calendar-nav h2 { margin: 0; text-align: center; }
+    .attendance-working-days { display: block; width: 100%; margin: 0 0 0.6rem; padding: 0.35rem 0.5rem; border-radius: 8px; background: #fff6cc; color: #596273; font-size: 0.68rem; text-align: center; }
+    .attendance-working-days strong { color: #0f1b2d; }
+    .attendance-calendar-actions { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .attendance-calendar-close {
+        width: 2rem; height: 2rem; padding: 0; border: 1px solid #e2e5ea; border-radius: 50%;
+        background: #fff; color: #0f1b2d; font-size: 1.15rem; line-height: 1; cursor: pointer;
+    }
+    .attendance-calendar-wrap { overflow-x: auto; }
+    .attendance-calendar { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 2px; }
+    .attendance-calendar th { padding: 0.1rem 0; color: #7b8494; font-size: 0.63rem; text-align: center; }
+    .attendance-calendar td { height: 36px; padding: 0.1rem; border-radius: 6px; background: #f5f7fa; text-align: center; vertical-align: middle; }
+    .attendance-calendar td.outside-month { background: transparent; }
+    .attendance-calendar td.is-today { box-shadow: inset 0 0 0 2px #0f1b2d; }
+    .attendance-day-number { display: block; color: #596273; font-size: 0.66rem; line-height: 1.05; }
+    .attendance-day-status { display: block; margin-top: 0.1rem; color: #465064; font-size: 0.56rem; font-weight: 800; line-height: 1; }
+    .attendance-calendar td.status-P { background: #e6f4ea; }
+    .attendance-calendar td.status-P .attendance-day-status { color: #1e7e34; }
+    .attendance-calendar td.status-A { background: #fdecea; }
+    .attendance-calendar td.status-A .attendance-day-status { color: #b3261e; }
+    .attendance-calendar td.status-PH { background: #4FB3A9; }
+    .attendance-calendar td.status-H { background: #D6D6D6; }
+    .attendance-calendar td.status-CO { background: #fce3c9; }
+    .attendance-calendar td.status-PL, .attendance-calendar td.status-EL { background: #eae3fb; }
+    .attendance-calendar td.status-WO { background: #eceff3; }
+    .attendance-calendar td.status-HD { background: #fff6cc; }
+    .attendance-calendar td.status-PM { background: #dbeafe; }
+    .attendance-calendar td.day-type-H { background: #D6D6D6; }
+    .attendance-calendar td.day-type-PH { background: #4FB3A9; }
+    .attendance-calendar td.day-type-CO { background: #F5A85C; }
+    .attendance-calendar td.day-type-PH .attendance-day-status { color: #0f504a; }
 
     .card { background: #fff; border-radius: 14px; padding: 1.1rem; margin-bottom: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
     .card h2 { margin: 0 0 0.8rem; font-size: 1rem; color: #0f1b2d; }
@@ -180,19 +223,17 @@
     table.mini-cal td.other-month:not(.out):not(.has-qty):not(.today) { background: #fff3e0; border-radius: 6px; }
     table.mini-cal td .mo { font-size: 0.52rem; font-weight: 700; color: #b45309; text-transform: uppercase; margin-left: 1px; }
 
-    /* Style -> Operation, a real table — same grouping the desktop
-       Operator Summary page uses, with Qty/Rate/Amount as explicit
-       columns (Rate/Amount only present once show_rate/viewed_show_rate
-       is true) and a subtotal row per style. Horizontally scrollable
-       (rather than letting a long operation name squeeze the number
-       columns) so narrow phones never break layout. */
-    .log-table-wrap { overflow: auto; max-height: min(42vh, 360px); margin-top: 0.4rem; }
+    /* Keep the history table in the page's single scroll flow. */
+    .log-table-wrap {
+        overflow: visible; max-height: none; margin-top: 0.4rem;
+        overscroll-behavior: auto; -webkit-overflow-scrolling: touch;
+    }
     .log-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .log-table th, .log-table td { padding: 0.45rem 0.5rem; text-align: left; white-space: nowrap; }
+    .log-table th, .log-table td { padding: 0.45rem 0.5rem; text-align: left; white-space: nowrap; border: 1px solid #6b7280; }
     .log-table th.op, .log-table td.op { white-space: normal; }
     .log-table th {
         font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.02em; color: #8a92a0;
-        font-weight: 700; border-bottom: 2px solid #0f1b2d;
+        font-weight: 700; border-bottom: 2px solid #6b7280; white-space: normal; overflow-wrap: anywhere;
     }
     .log-table thead th { position: sticky; top: 0; z-index: 2; background: #fff; }
     .log-table td.num, .log-table th.num { text-align: right; }
@@ -210,10 +251,10 @@
     .log-table tr.op-row td.qty { font-weight: 700; color: #1e7e34; }
     .log-table tr.op-row td.amount { font-weight: 600; color: #0f1b2d; }
     .log-table tr.subtotal-row td {
-        font-weight: 700; color: #1e7e34; font-size: 0.8rem; border-bottom: 2px solid #eef0f4;
+        font-weight: 700; color: #1e7e34; font-size: 0.8rem; background: #fffbea; border-bottom: 2px solid #eef0f4;
     }
     .log-table tfoot td {
-        font-weight: 700; color: #0f1b2d; border-top: 2px solid #0f1b2d; padding-top: 0.6rem;
+        font-weight: 700; color: #0f1b2d; background: #fff4bf; border-top: 2px solid #0f1b2d; padding-top: 0.6rem;
     }
     .log-table tfoot td.num { color: #1e7e34; font-size: 1rem; }
 
@@ -251,13 +292,53 @@
         </div>
 
         <div class="header">
-            <div class="name">{{ employee.name }}</div>
-            <div class="date">{{ today|date:"l, d M Y" }}</div>
+            <div class="operator-header-row">
+                <div>
+                    <div class="name">{{ employee.name }}</div>
+                    <div class="date">{{ today|date:"l, d M Y" }}</div>
+                </div>
+                <button type="button" class="attendance-calendar-toggle" id="attendanceCalendarToggle" aria-label="{% trans 'My attendance' %}" title="{% trans 'My attendance' %}" aria-controls="operatorAttendanceCalendar" aria-expanded="{% if show_attendance %}true{% else %}false{% endif %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                </button>
+            </div>
         </div>
 
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
+
+        <div class="card attendance-card" id="operatorAttendanceCalendar" {% if not show_attendance %}hidden{% endif %}>
+            <div class="attendance-calendar-nav">
+                <a class="nav-arrow" href="?show_attendance=1&amp;attendance_month={{ attendance_prev_month }}" aria-label="{% trans 'Previous month' %}">&larr;</a>
+                <h2>{{ attendance_month_label }}</h2>
+                <div class="attendance-calendar-actions">
+                    {% if attendance_has_next %}
+                    <a class="nav-arrow" href="?show_attendance=1&amp;attendance_month={{ attendance_next_month }}" aria-label="{% trans 'Next month' %}">&rarr;</a>
+                    {% else %}
+                    <span class="nav-arrow disabled" aria-hidden="true">&rarr;</span>
+                    {% endif %}
+                    <button type="button" class="attendance-calendar-close" id="attendanceCalendarClose" aria-label="{% trans 'Close attendance calendar' %}" title="{% trans 'Close' %}">&times;</button>
+                </div>
+            </div>
+            <div class="attendance-working-days">{% trans "Working days" %}: <strong>{{ attendance_working_days }} / {{ attendance_total_working_days }}</strong></div>
+            <div class="attendance-calendar-wrap">
+                <table class="attendance-calendar">
+                    <thead><tr>
+                        <th>{% trans "Mon" %}</th><th>{% trans "Tue" %}</th><th>{% trans "Wed" %}</th>
+                        <th>{% trans "Thu" %}</th><th>{% trans "Fri" %}</th><th>{% trans "Sat" %}</th><th>{% trans "Sun" %}</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for week in attendance_weeks %}<tr>
+                            {% for day in week %}
+                            <td class="{% if not day.in_month %}outside-month{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.status %} status-{{ day.status }}{% endif %}{% if day.special_day_type %} day-type-{{ day.special_day_type }}{% endif %}"{% if day.special_day_label or day.status_label %} title="{% if day.special_day_label %}{{ day.special_day_label }}{% if day.status_label %} — {{ day.status_label }}{% endif %}{% else %}{{ day.status_label }}{% endif %}"{% endif %}>
+                                {% if day.in_month %}<span class="attendance-day-number">{{ day.day }}</span>{% if day.status or day.special_day_type %}<span class="attendance-day-status">{% if day.status %}{{ day.status }}{% else %}{{ day.special_day_type }}{% endif %}</span>{% endif %}{% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
         {% if style_rows %}
         <div class="card" id="styleSelectCard">
@@ -446,6 +527,24 @@
         </div>
     </div>
 
+    <script>
+        (function () {
+            var toggle = document.getElementById('attendanceCalendarToggle');
+            var panel = document.getElementById('operatorAttendanceCalendar');
+            var close = document.getElementById('attendanceCalendarClose');
+            if (!toggle || !panel) return;
+            toggle.addEventListener('click', function () {
+                panel.hidden = !panel.hidden;
+                toggle.setAttribute('aria-expanded', String(!panel.hidden));
+                if (!panel.hidden) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+            if (close) close.addEventListener('click', function () {
+                panel.hidden = true;
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.focus();
+            });
+        })();
+    </script>
     <script>
         (function () {
             var selector = '.style-card img, .entry-style-img, .style-image-icon';

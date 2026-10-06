@@ -9,16 +9,9 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
-    /* flex column so .table-wrap (flex: 1 below) fills exactly whatever
-       height is left after everything else in .page takes its own
-       natural space — see production.html for the original version of
-       this pattern. */
+    /* Let the summary table grow to its full height and scroll with .page. */
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; display: flex; flex-direction: column; }
-    /* Its own bounded scroll box — sticky thead (app.css) binds to this
-       instead of .page, so it freezes flush with zero gap above it.
-       The downward-opening-tooltip workaround below is for this box's
-       own overflow clipping an upward one. */
-    .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
+    .table-wrap { flex: 0 0 auto; min-height: 0; max-height: none; overflow: visible; }
     /* Single yellow header bar — title, view links, Expand/Collapse
        All, and date-nav all in one line (same convention as Device
        Records' header). */
@@ -50,11 +43,7 @@
         border-color: rgba(0,47,102,0.3);
     }
     table.simple thead th .icon-btn svg { width: 12px; height: 12px; }
-    /* Tooltip opens downward here instead of app.css's normal upward
-       (bottom:100%) — these buttons sit right at the top of
-       .table-wrap, which (overflow-x:auto, same as every other page's
-       table-wrap) implicitly clips overflow-y too, so an upward tooltip
-       had nowhere to render and was just invisible. */
+    /* Open header tooltips downward so they stay clear of the fixed page bar. */
     table.simple thead th .icon-btn[data-tooltip]:hover::after {
         bottom: auto; top: 100%; margin-top: 6px; margin-bottom: 0;
     }
@@ -145,10 +134,10 @@
                 <thead>
                     <tr>
                         <th>Style / Operation / Operator
-                            <button type="button" id="expandAllBtn" class="icon-btn" data-tooltip="Expand All" aria-label="Expand All">
+                            <button type="button" id="expandAllBtn" class="icon-btn" data-tooltip="Expand first level" aria-label="Expand first level">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                             </button>
-                            <button type="button" id="collapseAllBtn" class="icon-btn" data-tooltip="Collapse All" aria-label="Collapse All">
+                            <button type="button" id="collapseAllBtn" class="icon-btn" data-tooltip="Collapse deepest level" aria-label="Collapse deepest level">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                             </button>
                         </th>
@@ -213,9 +202,9 @@
         // operation rows; an operation (separately) shows/hides its own
         // operator rows. Expanding a style only reveals its operations —
         // it also resets every one of those operations' operator rows
-        // back to hidden, so "Expand All" always lands at the operation
+        // back to hidden, so the first expand click lands at the operation
         // level rather than leaking whatever an earlier per-operation
-        // click had left open.
+        // click had left open. Further clicks reveal the next level.
         function setOpCollapsed(opRow, collapsed) {
             opRow.classList.toggle('collapsed', collapsed);
             var opId = opRow.dataset.opId;
@@ -247,6 +236,8 @@
             if (opRow.querySelector('.op-toggle-arrow')) {
                 opRow.addEventListener('click', function () {
                     setOpCollapsed(opRow, !opRow.classList.contains('collapsed'));
+                    refreshExpandAllLabel();
+                    refreshCollapseAllLabel();
                 });
             }
         });
@@ -254,20 +245,58 @@
         document.querySelectorAll('tr.style-top-row').forEach(function (row) {
             row.addEventListener('click', function () {
                 setRowCollapsed(row, !row.classList.contains('collapsed'));
+                refreshExpandAllLabel();
+                refreshCollapseAllLabel();
             });
         });
 
-        document.getElementById('expandAllBtn').addEventListener('click', function () {
-            document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, false); });
+        var expandAllBtn = document.getElementById('expandAllBtn');
+        var topRows = Array.from(document.querySelectorAll('tr.style-top-row'));
+        var expandableOperations = Array.from(document.querySelectorAll('tr.operation-row')).filter(function (row) {
+            return row.querySelector('.op-toggle-arrow');
         });
-        document.getElementById('collapseAllBtn').addEventListener('click', function () {
-            document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, true); });
+        var collapseAllBtn = document.getElementById('collapseAllBtn');
+        function refreshExpandAllLabel() {
+            var label = topRows.some(function (row) { return row.classList.contains('collapsed'); })
+                ? 'Expand first level'
+                : expandableOperations.some(function (row) { return row.classList.contains('collapsed'); })
+                    ? 'Expand next level' : 'All levels expanded';
+            expandAllBtn.dataset.tooltip = label;
+            expandAllBtn.setAttribute('aria-label', label);
+        }
+        function refreshCollapseAllLabel() {
+            var label = expandableOperations.some(function (row) { return !row.classList.contains('collapsed'); })
+                ? 'Collapse deepest level'
+                : topRows.some(function (row) { return !row.classList.contains('collapsed'); })
+                    ? 'Collapse next level' : 'All levels collapsed';
+            collapseAllBtn.dataset.tooltip = label;
+            collapseAllBtn.setAttribute('aria-label', label);
+        }
+        expandAllBtn.addEventListener('click', function () {
+            if (topRows.some(function (row) { return row.classList.contains('collapsed'); })) {
+                topRows.forEach(function (row) { setRowCollapsed(row, false); });
+            } else {
+                expandableOperations.forEach(function (row) { setOpCollapsed(row, false); });
+            }
+            refreshExpandAllLabel();
+            refreshCollapseAllLabel();
+        });
+        collapseAllBtn.addEventListener('click', function () {
+            if (expandableOperations.some(function (row) { return !row.classList.contains('collapsed'); })) {
+                expandableOperations.forEach(function (row) { setOpCollapsed(row, true); });
+            } else {
+                topRows.forEach(function (row) { setRowCollapsed(row, true); });
+            }
+            refreshExpandAllLabel();
+            refreshCollapseAllLabel();
         });
 
         // Starts collapsed — with every operation on every style listed
         // out, a fully-expanded page load is a wall of rows before you
         // can see anything.
         document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, true); });
+        refreshExpandAllLabel();
+        refreshCollapseAllLabel();
 
         // "Send to WhatsApp" — screenshots the table as currently
         // expanded/collapsed on screen, same single-table capture as

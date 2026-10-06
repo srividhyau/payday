@@ -23,7 +23,7 @@ from django.utils.translation import gettext as _
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
 from attendance.audit import log_change, log_changes
-from attendance.models import AuditLogEntry, Employee, SpecialDay
+from attendance.models import AttendanceRecord, AuditLogEntry, Employee, SpecialDay
 
 from src import metrics, payroll
 
@@ -428,7 +428,7 @@ def template_list_view(request):
     master_map = _master_rate_map()
     return render(request, "piecerate/template_list.html", {
         "templates": [_style_row(s, master_map) for s in templates],
-        "can_edit_template_images": is_piece_rate_editor and request.user.is_verified(),
+        "can_edit_template_images": can_edit_piece_rate(request.user) and request.user.is_verified(),
     })
 
 
@@ -2009,6 +2009,53 @@ def operator_entry_view(request, token):
     employee = link.employee
     today = date_cls.today()
 
+    # The operator token is already scoped to this employee. Reuse it for
+    # a read-only attendance calendar, with month navigation that cannot
+    # move into future dates.
+    try:
+        attendance_month = date_cls.fromisoformat(f"{request.GET.get('attendance_month', '')}-01")
+    except ValueError:
+        attendance_month = today.replace(day=1)
+    if attendance_month > today.replace(day=1):
+        attendance_month = today.replace(day=1)
+    attendance_status_by_day = {
+        record.date: record.status
+        for record in AttendanceRecord.objects.filter(
+            employee=employee, date__year=attendance_month.year, date__month=attendance_month.month,
+        ).only("date", "status")
+    }
+    attendance_working_days = sum(
+        0.5 if status == "HD" else 1
+        for status in attendance_status_by_day.values()
+        if status in ("P", "PH", "CO", "HD")
+    )
+    attendance_total_working_days = payroll.working_days_in_month(attendance_month.year, attendance_month.month)
+    special_day_types = {
+        special_day.date: special_day.day_type
+        for special_day in SpecialDay.objects.filter(
+            date__year=attendance_month.year, date__month=attendance_month.month,
+        )
+    }
+    attendance_status_labels = dict(AttendanceRecord.STATUS_CHOICES)
+    special_day_labels = dict(SpecialDay.TYPE_CHOICES)
+    attendance_weeks = []
+    for week in calendar.Calendar(firstweekday=0).monthdatescalendar(attendance_month.year, attendance_month.month):
+        attendance_week = []
+        for day in week:
+            status = attendance_status_by_day.get(day) if day.month == attendance_month.month else ""
+            attendance_week.append({
+                "day": day.day,
+                "in_month": day.month == attendance_month.month,
+                "is_today": day == today,
+                "status": status,
+                "status_label": attendance_status_labels.get(status, ""),
+                "special_day_type": special_day_types.get(day, "") if day.month == attendance_month.month else "",
+                "special_day_label": special_day_labels.get(special_day_types.get(day, ""), "") if day.month == attendance_month.month else "",
+            })
+        attendance_weeks.append(attendance_week)
+    attendance_prev_month = (attendance_month - timedelta(days=1)).replace(day=1)
+    attendance_next_month = (attendance_month.replace(day=28) + timedelta(days=4)).replace(day=1)
+
     styles = Style.objects.filter(
         year=today.year, month=today.month, is_template=False,
     ).prefetch_related("operations")
@@ -2329,4 +2376,13 @@ def operator_entry_view(request, token):
         "has_later": has_later,
         "viewed_prev_date": viewed_prev_date.isoformat(),
         "viewed_next_date": viewed_next_date.isoformat(),
+        "show_attendance": request.GET.get("show_attendance") == "1",
+        "attendance_month": attendance_month,
+        "attendance_month_label": f"{calendar.month_name[attendance_month.month]} {attendance_month.year}",
+        "attendance_working_days": f"{attendance_working_days:g}",
+        "attendance_total_working_days": attendance_total_working_days,
+        "attendance_prev_month": attendance_prev_month.strftime("%Y-%m"),
+        "attendance_next_month": attendance_next_month.strftime("%Y-%m"),
+        "attendance_has_next": attendance_next_month <= today.replace(day=1),
+        "attendance_weeks": attendance_weeks,
     })

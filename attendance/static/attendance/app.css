@@ -106,7 +106,7 @@ body:has(.topbar.collapsed) .header-nav-toggle-floating { left: 0.85rem; }
 /* .page is the scroll container now, not body — the header (.month-nav,
    see below) is truly position: fixed, outside .page entirely, so
    nothing reserves its space in normal flow any more. margin-top pushes
-   .page's content below it; height + overflow-y bound .page to exactly
+   .page's content below it; height + overflow bound .page to exactly
    the remaining viewport so IT scrolls, not body. --header-h is the
    fixed header's real rendered height, measured at runtime (see
    _htmx_scripts.html) since it varies page to page (one row vs two,
@@ -119,7 +119,10 @@ body:has(.topbar.collapsed) .header-nav-toggle-floating { left: 0.85rem; }
 body .page {
     margin-top: var(--header-h, 0px);
     height: calc(100vh - var(--header-h, 0px));
-    overflow-y: auto;
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
     box-sizing: border-box;
 }
 .brand-row { display: flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.15rem 0.6rem 0.3rem; }
@@ -295,21 +298,20 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
 }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-/* All page tables use a bounded scroll region. This keeps horizontal and
-   vertical scrolling with the table component, so sticky headers remain
-   attached to the visible grid instead of being tied to the full page. */
+/* Tables expand to their full height. The page is the single vertical
+   scroll area across the app; wrappers do not create nested scroll traps.
+   Wide grids use the page's horizontal scroll on smaller screens. */
 body .page .table-wrap,
 body .page .table-responsive,
 body .page .grid-scroll,
 body .page .log-table-wrap {
-    max-height: min(68vh, 720px);
-    overflow: auto;
-    overscroll-behavior: contain;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
 }
-/* Summary grids are page work areas rather than small inline tables:
-   let their flex parent decide the height left after the page controls. */
+/* Summary grids use the page scroll too; let them grow to their full height. */
 .page .table-wrap.summary-table-wrap {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-height: 0;
     max-height: none;
 }
@@ -345,11 +347,50 @@ body .page .grid-scroll thead th.label { z-index: 18; }
    before landing here as the shared default; border-spacing:0 keeps
    cell spacing looking the same as collapse did. */
 table.simple { border-collapse: separate; border-spacing: 0; width: 100%; }
-table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
-table.simple tbody tr:last-child td { border-bottom: none; }
-table.simple tbody tr:hover td { background: #fafbff; }
-table.simple td.num, table.simple th.num { text-align: right; }
+/* A single shared table treatment across Attendance and Piece Rate pages.
+   The page qualifier also keeps these defaults consistent with older
+   page-local rules while leaving semantic cell classes free to add color. */
+.page table.simple th, .page table.simple td {
+    padding: 0.5rem 0.65rem;
+    font-size: 0.84rem;
+    line-height: 1.35;
+    text-align: left;
+    vertical-align: middle;
+    border: 0;
+    border-right: 1px solid #6b7280;
+    border-bottom: 1px solid #6b7280;
+    white-space: nowrap;
+}
+.page table.simple tr > :first-child { border-left: 1px solid #6b7280; }
+.page table.simple thead tr:first-child > * { border-top: 1px solid #6b7280; }
+body .page table.simple th,
+body .page table.month th,
+body .page table.month th[class] { border-color: #6b7280; }
+.page table.simple th {
+    background: #fff4bf;
+    color: var(--navy-deep);
+    font-weight: 700;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.035em;
+}
+/* Let long headings use multiple lines instead of forcing wide columns.
+   This covers both list grids (.simple) and month/day data grids. */
+body .page table th,
+body .page table.simple th,
+body .page table.month th,
+body .page table.month th[class] { white-space: normal; overflow-wrap: anywhere; }
+.page table.simple tbody tr:nth-child(even) { background-color: #f8fafc; }
+.page table.simple tbody tr:hover td:not([class]) { background-color: #eef4fb; }
+.page table.simple td.num, .page table.simple th.num { text-align: right; }
+/* Summary tables contain many cells with their own semantic fills
+   (attendance flags, rate warnings, hierarchy levels). Tint every cell on
+   hover without replacing those underlying colors. */
+body .page #operatorSummaryGrid tbody tr:hover > td,
+body .page #managementSummaryGrid tbody tr:hover > td,
+body .page #styleSummaryGrid tbody tr:hover > td {
+    box-shadow: inset 0 0 0 9999px rgba(59, 130, 246, 0.2) !important;
+}
 
 .style-image-icon, .style-image-icon-placeholder {
     display: inline-flex;
@@ -388,8 +429,8 @@ table.simple td.num, table.simple th.num { text-align: right; }
    markup (not nested inside it — see e.g. style_list.html), spanning
    the content area beside the sidebar; left tracks the sidebar's own
    width/collapse state exactly like body's own padding-left does.
-   table headers stick inside their nearest table scroll wrapper above.
-   Page-specific styles continue to own each table's colors and spacing. */
+   table headers stick to the page's single scroll area. Page-specific
+   styles continue to own each table's colors and spacing. */
 .month-nav { position: fixed; top: 0; left: var(--sidebar-w); right: 0; z-index: 20; transition: left .16s ease; }
 body:has(.topbar.collapsed) .month-nav { left: 0; }
 

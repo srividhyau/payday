@@ -9,34 +9,16 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
-    /* flex column so .table-wrap (flex: 1 below) fills exactly whatever
-       height is left after .legendPanel/.filter-bar/messages take their
-       own natural space — no guessing at "everything above the table"
-       as one hand-tuned constant, which previously either left dead
-       space or let the table overshoot the bottom of the viewport
-       depending on how tall that other content happened to be. */
+    /* Keep controls in natural flow; the full-height grid scrolls with .page. */
     .page { width: 100%; margin: 0; padding: 0.6rem 1rem 0.6rem; display: flex; flex-direction: column; }
 
     .report-status { font-size: 0.8rem; color: var(--text-muted); }
     .report-status.error { color: #b3261e; }
     .report-status.success { color: #1e7e34; }
 
-    /* Extra bottom room inside the scroll container — without it the
-       horizontal scrollbar sits flush against the last row, making its
-       cells fiddly to click/edit right at the bottom of a scroll.
-       box-sizing keeps the flex-assigned height the actual on-screen
-       height rather than growing taller by the padding amount. Needs
-       both overflow-x (wide day-grid) and overflow-y together — a page
-       relying on .page itself as the scroll container (see app.css)
-       only works for a table that's sticky on ONE axis; this one needs
-       sticky-top AND sticky-left together (see .col-opcode etc. below),
-       which both need the SAME nearest scrolling ancestor, so this box
-       keeps doing that job itself instead, same as dashboard.html's
-       day-grid. flex: 1 + min-height: 0 is what makes it fill the rest
-       of .page's own height (itself already bounded to the viewport
-       minus the fixed header — see app.css) instead of growing to fit
-       its content like a plain block would. */
-    .table-wrap { overflow-x: scroll; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-bottom: 2.5rem; box-sizing: border-box; }
+    /* No height cap or nested scroll area: sticky headings and frozen
+       first columns both follow the single .page scroll container. */
+    .table-wrap { flex: 0 0 auto; min-height: 0; max-height: none; overflow: visible; }
     /* border-separate is app.css's shared default now (was a local
        override here first) — table-layout: fixed is this page's own
        addition, for the day-grid's fixed-width day columns. */
