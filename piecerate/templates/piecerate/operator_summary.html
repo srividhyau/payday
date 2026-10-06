@@ -9,12 +9,18 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
-    /* Lets the sticky page header + sticky table header (app.css) track
-       real page scroll instead of being boxed to just this table — the
-       downward-opening-tooltip workaround below (for the overflow-y
-       side effect of overflow-x:auto) is now unneeded but harmless. */
-    .table-wrap { overflow: visible; }
+    /* flex column so .table-wrap (flex: 1 below) fills exactly whatever
+       height is left after everything else in .page takes its own
+       natural space — see production.html for the original version of
+       this pattern. */
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; display: flex; flex-direction: column; }
+    /* Its own bounded scroll box — sticky thead (app.css) binds to this
+       instead of .page, so it freezes flush with zero gap above it
+       (this used to show a scrolled-past row above the frozen header,
+       since .page's own padding gave it room to; see git history for
+       the measured bug). The downward-opening-tooltip workaround below
+       is for this box's own overflow clipping an upward one. */
+    .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
     /* Single yellow header bar — title, view links, Expand/Collapse
        All, and date-nav all in one line (same convention as Device
        Records' header). */
@@ -57,14 +63,6 @@
     .rate-toggle input:focus-visible + .slider { outline: 2px solid var(--navy); outline-offset: 2px; }
     .rate-toggle-label { font-size: 0.72rem; color: var(--text-muted); margin: 0 0.3rem; vertical-align: middle; }
 
-    /* border-collapse:collapse (app.css's default for table.simple) +
-       position:sticky thead is a known browser rendering bug — a
-       scrolled-past row can stay painted (a "ghost") just above the
-       stuck header instead of being cleanly clipped away, especially
-       noticeable here since .employee-row's own background color makes
-       the ghost obvious. border-separate avoids it (same fix
-       production.html already uses for the same reason). */
-    table.simple { border-collapse: separate; border-spacing: 0; }
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
     table.simple thead th { background: #fef9c3; color: var(--navy); }
     /* Expand All/Collapse All — moved into the first column header as
@@ -220,7 +218,7 @@
         {% endfor %}
 
         {% if operator_rows %}
-        <div class="table-wrap fit-content">
+        <div class="table-wrap fit-content summary-table-wrap">
             <table class="table simple" id="operatorSummaryGrid">
                 <thead>
                     <tr>
@@ -258,7 +256,7 @@
                     </tr>
                     {% for style in row.styles %}
                     <tr class="style-row" data-employee-id="{{ row.employee.id }}" data-style-key="{{ row.employee.id }}_{{ forloop.counter }}">
-                        <td class="label">{% if style.ops %}<span class="toggle-arrow op-toggle-arrow">▾</span>{% endif %}{{ style.style_name }}</td>
+                        <td class="label">{% if style.ops %}<span class="toggle-arrow op-toggle-arrow">▾</span>{% endif %}{% include "piecerate/_style_icon.html" with style=style.style %}{{ style.style_name }}</td>
                         <td></td>
                         <td></td>
                         <td></td>

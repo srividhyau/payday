@@ -13,6 +13,7 @@ urlpatterns = [
     path("management-summary/", views.management_summary_view, name="piece_rate_management_summary"),
     path("management-summary/download/", views.management_summary_download_view, name="piece_rate_management_summary_download"),
     path("production/", views.production_shortcut_view, name="piece_rate_production_shortcut"),
+    path("styles/<int:style_id>/image/", views.style_image_view, name="piece_rate_style_image"),
     path("styles/<int:style_id>/", views.rate_card_view, name="piece_rate_rate_card"),
     path("styles/<int:style_id>/download/", views.rate_card_download_view, name="piece_rate_rate_card_download"),
     path("styles/<int:style_id>/production/", views.production_view, name="piece_rate_production"),

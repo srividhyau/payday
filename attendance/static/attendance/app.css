@@ -33,7 +33,6 @@ body {
 body:has(.topbar) { padding-left: var(--sidebar-w); transition: padding-left .16s ease, padding-top .16s ease; }
 /* Collapsed reclaims the sidebar's width entirely. */
 body:has(.topbar.collapsed) { padding-left: 0; }
-
 /* ---------- sidebar (was a horizontal topbar) ---------- */
 .topbar {
     position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
@@ -296,39 +295,103 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
 }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-table.simple { border-collapse: collapse; width: 100%; }
+/* All page tables use a bounded scroll region. This keeps horizontal and
+   vertical scrolling with the table component, so sticky headers remain
+   attached to the visible grid instead of being tied to the full page. */
+body .page .table-wrap,
+body .page .table-responsive,
+body .page .grid-scroll,
+body .page .log-table-wrap {
+    max-height: min(68vh, 720px);
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+/* Summary grids are page work areas rather than small inline tables:
+   let their flex parent decide the height left after the page controls. */
+.page .table-wrap.summary-table-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+body .page .table-wrap thead th,
+body .page .table-responsive thead th,
+body .page .grid-scroll thead th,
+body .page .log-table-wrap thead th,
+body .page .table-wrap table tr:first-child th,
+body .page .table-responsive table tr:first-child th,
+body .page .grid-scroll table tr:first-child th,
+body .page .log-table-wrap table tr:first-child th {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+}
+body .page .table-wrap thead tr:nth-child(2) th,
+body .page .table-responsive thead tr:nth-child(2) th,
+body .page .grid-scroll thead tr:nth-child(2) th,
+body .page .log-table-wrap thead tr:nth-child(2) th {
+    top: var(--thead-row1-h, 0px);
+    z-index: 16;
+}
+/* Header cells that also pin to the left need to sit above both the
+   ordinary header cells and the sticky body columns at their crossing. */
+body .page .table-wrap thead th[class*="col-"],
+body .page .table-responsive thead th[class*="col-"],
+body .page .grid-scroll thead th.label { z-index: 18; }
+/* border-separate, not collapse: border-collapse + position:sticky thead
+   is a known browser rendering bug — a scrolled-past row can stay
+   painted (a "ghost") just above the stuck header instead of being
+   cleanly clipped away, especially visible on a table with its own
+   colored group rows. Found and fixed individually on several pages
+   before landing here as the shared default; border-spacing:0 keeps
+   cell spacing looking the same as collapse did. */
+table.simple { border-collapse: separate; border-spacing: 0; width: 100%; }
 table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
 table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
 table.simple tbody tr:last-child td { border-bottom: none; }
 table.simple tbody tr:hover td { background: #fafbff; }
 table.simple td.num, table.simple th.num { text-align: right; }
 
-/* Fixed page header bar + table header frozen within .page's own
-   scroll box (see .page above), shared base. Each page's own <style>
-   block still owns the actual look (background/padding/colors, e.g.
-   piece-rate's yellow) — only position/z-index/top live here.
+.style-image-icon, .style-image-icon-placeholder {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin-right: 0.35rem;
+    border-radius: 5px;
+}
+.style-image-icon { object-fit: cover; border: 1px solid var(--border); }
+.style-image-icon-placeholder { background: #eef1f5; font-size: 0.9rem; }
+
+/* Hover previews for small style/template thumbnails. The fixed overlay
+   stays visible outside scrollable table containers. */
+.image-hover-zoom {
+    position: fixed;
+    z-index: 10000;
+    display: none;
+    width: min(320px, calc(100vw - 24px));
+    height: min(320px, calc(100vh - 24px));
+    padding: 6px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28);
+    pointer-events: none;
+}
+.image-hover-zoom.is-visible { display: block; }
+
+/* Fixed page header bar + shared table header positioning.
    .month-nav is a sibling placed immediately BEFORE .page in the
    markup (not nested inside it — see e.g. style_list.html), spanning
    the content area beside the sidebar; left tracks the sidebar's own
    width/collapse state exactly like body's own padding-left does.
-   table.simple thead th needs no offset any more — it's sticky
-   *within* .page's own bounded box, so top: 0 already means "flush
-   with the top of whatever's currently scrolled into view", not the
-   real viewport.
-   CAVEAT a page must handle itself if its table.simple sits inside the
-   shared .table-wrap (overflow-x: auto above): overflow anything but
-   visible on an ancestor makes IT the sticky containing block instead
-   of .page, so sticky stops tracking .page's scroll. A page with a
-   comfortably narrow table can just add ".table-wrap { overflow:
-   visible; }" locally (same fix master_operations.html/rate_card.html
-   already use); a page with a genuinely wide table that still needs
-   horizontal scrolling needs the two-wrapper trick instead (an inner
-   overflow-x:auto div for the table, with the sticky thead's
-   containing block left at the outer, overflow-visible level) rather
-   than losing horizontal scroll. */
+   table headers stick inside their nearest table scroll wrapper above.
+   Page-specific styles continue to own each table's colors and spacing. */
 .month-nav { position: fixed; top: 0; left: var(--sidebar-w); right: 0; z-index: 20; transition: left .16s ease; }
 body:has(.topbar.collapsed) .month-nav { left: 0; }
-table.simple thead th { position: sticky; z-index: 15; top: 0; }
 
 .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
 

@@ -76,17 +76,6 @@ WHATSAPP_PHONE_NUMBER_ID = os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
 # Comma-separated E.164 numbers without the leading "+", e.g. "9198XXXXXXXX".
 WHATSAPP_RECIPIENTS = ['919071426633', '919840911975']
 
-# Template (WhatsApp Manager > Message Templates) used to send the report
-# image outside the 24h free-form window — "report" has an approved IMAGE
-# header plus a body with one named variable ({{name}}, filled from the
-# caption passed to _whatsapp_send_image). name/language must match exactly
-# or the send fails with "template not found"; it must also be approved on
-# the WABA that owns WHATSAPP_PHONE_NUMBER_ID specifically, not just any
-# WABA under this app.
-WHATSAPP_USE_TEMPLATE = os.environ.get('WHATSAPP_USE_TEMPLATE', 'false').strip().lower() in ('1', 'true', 'yes')
-WHATSAPP_TEMPLATE_NAME = os.environ.get('WHATSAPP_TEMPLATE_NAME', 'report')
-WHATSAPP_TEMPLATE_LANGUAGE = os.environ.get('WHATSAPP_TEMPLATE_LANGUAGE', 'en')
-
 # WhatsApp Embedded Signup (Meta's official onboarding JS flow) — lets an
 # admin connect/reconnect the business's own WhatsApp number from inside
 # this app (Admin > WhatsApp Setup) instead of the Business Manager UI.

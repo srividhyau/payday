@@ -106,6 +106,7 @@
     <div class="month-nav">
         {# page_title here is just "Rate Card" (not "Rate Card — <style>" like _topbar.html's own, above) — the style switcher dropdown right next to this pill already shows the style name, so the pill repeating it would be a duplicate. #}
         {% include "attendance/_header_pill.html" with current="piece_rate_styles" page_title="Rate Card" %}
+            {% include "piecerate/_style_icon.html" with style=style %}
             <select id="styleSwitch" class="search-input" style="min-width:180px;">
                 {% for s in all_styles %}
                 <option value="{% url 'piece_rate_rate_card' s.id %}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>

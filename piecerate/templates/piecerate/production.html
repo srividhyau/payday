@@ -37,10 +37,10 @@
        minus the fixed header — see app.css) instead of growing to fit
        its content like a plain block would. */
     .table-wrap { overflow-x: scroll; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-bottom: 2.5rem; box-sizing: border-box; }
-    /* border-collapse:collapse + position:sticky cells is a known
-       browser rendering bug — scrolled-under content can bleed through
-       a sticky cell's border/background. border-separate avoids it. */
-    table.simple { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+    /* border-separate is app.css's shared default now (was a local
+       override here first) — table-layout: fixed is this page's own
+       addition, for the day-grid's fixed-width day columns. */
+    table.simple { table-layout: fixed; }
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.15rem 0.3rem; font-size: 0.75rem; text-align: center; white-space: nowrap; }
     table.simple thead th { background: #fef9c3; position: sticky; top: 0; z-index: 6; }
 
@@ -265,6 +265,7 @@
     <div class="month-nav">
         {# page_title here is just "Production" (not "Production — <style>" like _topbar.html's own, above) — the style switcher dropdown right next to this pill already shows the style name, so the pill repeating it would be a duplicate. #}
         {% include "attendance/_header_pill.html" with current="piece_rate_production" page_title="Production" %}
+            {% include "piecerate/_style_icon.html" with style=style %}
             {% if sibling_styles|length > 1 %}
             <select id="styleSwitcher" class="form-select form-select-sm" style="width:auto;" data-base="{% url 'piece_rate_production' 0 %}" aria-label="Switch style">
                 {% for s in sibling_styles %}

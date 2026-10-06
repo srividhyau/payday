@@ -8,12 +8,17 @@
 {% include "attendance/_bootstrap_head.html" %}
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
-    /* Lets the sticky page header + sticky table header (app.css) track
-       real page scroll instead of being boxed to just this table — see
-       app.css's own comment on table.simple thead th for why overflow
-       on this ancestor otherwise breaks position: sticky. */
-    .table-wrap { overflow: visible; }
+    /* flex column so .table-wrap (flex: 1 below) fills exactly whatever
+       height is left after everything else in .page takes its own
+       natural space — see production.html for the original version of
+       this pattern. */
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; display: flex; flex-direction: column; }
+    /* Its own bounded scroll box — sticky thead/table.simple thead th
+       (app.css) binds to this instead of .page, so it freezes flush
+       with zero gap above it. */
+    .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
+    .table-wrap.fit-content { width: 100%; }
+    .table-wrap.fit-content > table { width: 100%; }
     /* Same bordered-grid table format every other piece-rate page uses
        (Operator Links, Rate Card, Operator/Style/Management Summary) —
        this page was missing it and still had app.css's plain generic
@@ -45,13 +50,12 @@
         font-family: inherit; text-decoration: none;
     }
     .edit-link:hover { background: var(--bg); }
-    .inline-name-form { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+    .inline-name-form { display: flex; width: 100%; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
     .inline-name-form input[type="text"] {
         padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 6px;
-        font-size: 0.85rem; font-family: inherit; width: 160px;
+        font-size: 0.85rem; font-family: inherit; width: 160px; flex: 1 1 auto; min-width: 0;
     }
     .inline-name-form input[type="text"]:focus { outline: none; border-color: var(--navy); }
-    .inline-name-form input[type="file"] { font-size: 0.72rem; max-width: 130px; }
     .inline-name-form input[type="date"] {
         padding: 0.28rem 0.4rem; border: 1px solid var(--border); border-radius: 6px;
         font-size: 0.78rem; font-family: inherit;
@@ -63,19 +67,7 @@
         width: 32px; height: 32px; border-radius: 6px; border: 1px dashed var(--border);
         display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--text-muted);
     }
-    /* Click the thumbnail itself to change the image — a <label>
-       wrapping a visually-hidden file input opens the picker natively
-       (no JS needed for that part), and the input's own onchange
-       submits the form immediately on selection, so there's no
-       separate "pick a file, then remember to hit Save" step just for
-       the image. Name/Start Date/Save stay as their own separate,
-       explicit fields/button since those aren't a single-click action. */
-    .style-thumb-label { position: relative; display: inline-block; cursor: pointer; }
-    .style-thumb-label input[type="file"] {
-        position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; margin: 0;
-    }
-    .style-thumb-label:hover .style-thumb,
-    .style-thumb-label:hover .style-thumb-placeholder { border-color: var(--navy); }
+    .style-thumb-label { display: inline-flex; align-items: center; cursor: pointer; }
     .save-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
         padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
@@ -143,6 +135,9 @@
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
+        {% if not can_edit_styles %}
+        <p class="caption" style="color:var(--text-muted); font-size:0.82rem;">Verify your OTP to upload or change style images.</p>
+        {% endif %}
 
         {% if styles %}
         <div class="table-wrap fit-content">
@@ -167,22 +162,22 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="rename_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
-                                <label class="style-thumb-label" title="Click to change image — saves immediately">
-                                    {% if row.style.image %}
-                                    <img src="{{ row.style.image.url }}" alt="" class="style-thumb">
+                                <label for="style-image-{{ row.style.id }}" class="style-thumb-label" title="Click to change style image">
+                                    {% if row.style.image_data %}
+                                    <img src="{% url 'piece_rate_style_image' row.style.id %}" alt="" class="style-thumb">
                                     {% else %}
                                     <span class="style-thumb-placeholder">—</span>
                                     {% endif %}
-                                    <input type="file" name="image" accept="image/*" onchange="this.form.submit()">
                                 </label>
+                                <input type="file" class="visually-hidden" id="style-image-{{ row.style.id }}" name="image" accept="image/*" aria-label="Choose image for {{ row.style.name }}" onchange="this.form.submit()">
                                 <input type="text" name="name" value="{{ row.style.name }}" placeholder="Style name">
                                 <input type="date" name="start_date" value="{{ row.style.start_date|date:'Y-m-d' }}" title="Running from — first day operators can log against this style">
                                 <button type="submit" class="save-btn">Save</button>
                             </form>
                             {% else %}
                             <div class="inline-name-form">
-                                {% if row.style.image %}
-                                <img src="{{ row.style.image.url }}" alt="" class="style-thumb">
+                                {% if row.style.image_data %}
+                                <img src="{% url 'piece_rate_style_image' row.style.id %}" alt="" class="style-thumb">
                                 {% else %}
                                 <span class="style-thumb-placeholder">—</span>
                                 {% endif %}

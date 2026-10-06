@@ -9,12 +9,16 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
-    /* Lets the sticky page header + sticky table header (app.css) track
-       real page scroll instead of being boxed to just this table — the
-       downward-opening-tooltip workaround below (for the overflow-y
-       side effect of overflow-x:auto) is now unneeded but harmless. */
-    .table-wrap { overflow: visible; }
+    /* flex column so .table-wrap (flex: 1 below) fills exactly whatever
+       height is left after everything else in .page takes its own
+       natural space — see production.html for the original version of
+       this pattern. */
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; display: flex; flex-direction: column; }
+    /* Its own bounded scroll box — sticky thead (app.css) binds to this
+       instead of .page, so it freezes flush with zero gap above it.
+       The downward-opening-tooltip workaround below is for this box's
+       own overflow clipping an upward one. */
+    .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
     /* Single yellow header bar — title, view links, Expand/Collapse
        All, and date-nav all in one line (same convention as Device
        Records' header). */
@@ -35,15 +39,6 @@
     }
     .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
 
-    /* border-collapse:collapse (app.css's default for table.simple) +
-       position:sticky thead is a known browser rendering bug — a
-       scrolled-past row can stay painted (a "ghost") just above the
-       stuck header instead of being cleanly clipped away, especially
-       noticeable here since these group rows' own background colors
-       make the ghost obvious. border-separate avoids it (same fix
-       production.html/operator_summary.html already use for the same
-       reason). */
-    table.simple { border-collapse: separate; border-spacing: 0; }
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
     table.simple thead th { background: #fef9c3; color: var(--navy); }
     /* Expand All/Collapse All — moved into the first column header as
@@ -145,7 +140,7 @@
         {% endfor %}
 
         {% if style_rows %}
-        <div class="table-wrap fit-content">
+        <div class="table-wrap fit-content summary-table-wrap">
             <table class="table simple" id="managementSummaryGrid">
                 <thead>
                     <tr>
@@ -168,7 +163,7 @@
                 <tbody>
                     {% for row in style_rows %}
                     <tr class="style-top-row" data-style-id="{{ forloop.counter }}">
-                        <td><span class="toggle-arrow">▾</span>{{ row.style.name }}</td>
+                        <td><span class="toggle-arrow">▾</span>{% include "piecerate/_style_icon.html" with style=row.style %}{{ row.style.name }}</td>
                         <td></td>
                         <td class="num">{{ row.order_quantity }}</td>
                         <td class="num">{{ row.rate_sum }}</td>

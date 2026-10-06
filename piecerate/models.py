@@ -31,7 +31,10 @@ class Style(TimestampedModel):
     # style by photo instead of just reading its English code — the
     # Google Translate widget on that page handles translating the
     # name itself, so there's no separate translated-name field.
-    image = models.ImageField(upload_to="style_images/", blank=True, null=True)
+    # Keep the original image bytes in the database so production photos
+    # survive deployments without a shared MEDIA_ROOT volume.
+    image_data = models.BinaryField(blank=True, null=True, editable=False)
+    image_content_type = models.CharField(max_length=100, blank=True)
     # The first day operators may log against this style — defaults to
     # the 1st of its year/month, but a style that actually started
     # partway through (e.g. the 20th) can be set to that real date so

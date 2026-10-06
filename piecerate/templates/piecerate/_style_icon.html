@@ -1,0 +1,5 @@
+{% if style.image_data %}
+<img src="{% url 'piece_rate_style_image' style.id %}" alt="" class="style-image-icon" title="{{ style.name }}">
+{% else %}
+<span class="style-image-icon-placeholder" role="img" aria-label="{{ style.name }}" title="{{ style.name }}">👕</span>
+{% endif %}

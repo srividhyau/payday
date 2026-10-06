@@ -8,7 +8,7 @@
 {% include "attendance/_bootstrap_head.html" %}
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-                                .page { width: 100%; margin: 0; padding: 1rem 1rem 5rem; }
+                                .page { width: 100%; margin: 0; padding: 1rem 1rem 7rem; }
 
         /* Single yellow header bar — title, date-nav, department
            picker, and the Day view/Month view tabs all in one line
@@ -116,6 +116,13 @@
         .emp-list tr:first-child td { border-top: none; }
         .emp-name { font-weight: 700; font-size: 0.9rem; color: var(--text); white-space: nowrap; }
 
+        /* Keep attendance rows in the page scroll. */
+        body .page .table-responsive {
+            max-height: none;
+            overflow-x: auto;
+            overscroll-behavior: auto;
+        }
+
         /* Present/Absent is now a Bootstrap btn-check + btn-group pair
            (see the markup) — the checked/unchecked fill states are
            Bootstrap's own .btn-check:checked+.btn-outline-* behavior,
@@ -129,27 +136,20 @@
         .status-toggle { flex: none; }
         .status-toggle .btn { min-width: 4.2rem; --bs-btn-border-radius: 999px; }
 
-        /* .status-more (the "More…" select) and .quick-actions/.save-bar
-           buttons are now plain Bootstrap form-select/btn/btn-primary
-           (see the markup) — no page-specific CSS left for them beyond
-           .save-bar's own sticky-footer positioning and its button's
-           extra-large tap target below. */
+        /* The save action is outside the page scroller so its fixed footer
+           stays visible and isn't clipped by .page's overflow. */
         .save-bar {
-            position: sticky;
+            position: fixed;
+            left: var(--sidebar-w, 0px);
+            right: 0;
             bottom: 0;
-            left: 0; right: 0;
+            z-index: 25;
             background: var(--bg);
-            padding: 0.85rem 0 1.2rem;
-            margin-top: -0.5rem;
-            /* Bootstrap's .btn-group gives its *checked* .btn-check button
-               z-index:1 (so its border wins over the adjacent button's
-               overlapping edge) — with nothing else in between set to a
-               higher stacking level, that z-index:1 escaped all the way up
-               and painted a scrolled-under row's checked Absent/Present
-               pill on top of this sticky bar. z-index here (any value >1)
-               fixes it. */
-            z-index: 2;
+            padding: 0.75rem 1rem 1rem;
+            box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.08);
         }
+        body:has(.topbar.collapsed) .save-bar { left: 0; }
+        @media (max-width: 700px) { .save-bar { left: 0; } }
         .save-bar .btn {
             padding: 0.9rem 1.2rem; font-size: 1rem;
             box-shadow: 0 2px 10px rgba(0,47,102,0.25);
@@ -206,7 +206,7 @@
         {% elif not rows %}
             <div class="empty">No employees in {{ dept.name }}.</div>
         {% else %}
-            <form method="post">
+            <form method="post" id="attendanceForm">
                 {% csrf_token %}
                 <input type="hidden" name="date" value="{{ target_date|date:'Y-m-d' }}">
                 <input type="hidden" name="department" value="{{ dept.id }}">
@@ -243,12 +243,15 @@
                     </table>
                 </div>
 
-                <div class="save-bar">
-                    <button type="submit" class="btn btn-primary w-100" {% if is_locked %}disabled{% endif %}>Save Attendance ({{ rows|length }})</button>
-                </div>
             </form>
         {% endif %}
     </div>
+
+    {% if dept and rows %}
+        <div class="save-bar">
+            <button type="submit" form="attendanceForm" class="btn btn-primary w-100" {% if is_locked %}disabled{% endif %}>Save Attendance ({{ rows|length }})</button>
+        </div>
+    {% endif %}
 
     {% if dept and month_table_rows %}
         <div class="offscreen-month" aria-hidden="true">

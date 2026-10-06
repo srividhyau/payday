@@ -56,6 +56,26 @@
         }
         .tab-row.nav-tabs .tab-btn:hover:not(.active) { background: rgba(0,47,102,0.07); color: var(--navy); }
         .tab-row.nav-tabs .tab-btn.active { background: var(--navy); color: var(--yellow); }
+        /* Keep the section tabs and utility menus on one compact toolbar.
+           Tabs can scroll horizontally on narrow screens instead of
+           wrapping into extra rows above the salary grid. */
+        .salary-toolbar { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+        .salary-toolbar .tab-row.nav-tabs {
+            flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto;
+            overflow-y: hidden; scrollbar-width: thin; white-space: nowrap;
+        }
+        .salary-toolbar .tab-row.nav-tabs .nav-item { flex: 0 0 auto; }
+        .salary-toolbar .tab-row.nav-tabs .tab-btn { padding: 0.4rem 0.55rem; font-size: 0.78rem; }
+        .salary-toolbar .tab-row-icons { flex: 0 0 auto; margin-left: auto; gap: 0.15rem; }
+        .salary-toolbar .tab-row-icons .icon-btn { width: 2rem; height: 2rem; }
+        .salary-page .topbar nav .accordion-item + .accordion-item { margin-top: 0.08rem; }
+        .salary-page .topbar nav .accordion-button { padding: 0.35rem 0.45rem; }
+        .salary-page .topbar nav .accordion-body a { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        @media (max-width: 900px) {
+            .salary-toolbar { flex-wrap: wrap; }
+            .salary-toolbar .tab-row.nav-tabs { flex-basis: 100%; }
+            .salary-toolbar .tab-row-icons { width: 100%; justify-content: flex-end; }
+        }
         .working-days { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem; max-width: 700px; line-height: 1.5; }
 
         /* One line, each KPI its own boxed cell. */
@@ -136,18 +156,28 @@
         .tab-picker-menu .email-field textarea.form-control { resize: vertical; }
         .tab-picker-menu hr.picker-sep { border: none; border-top: 1px solid var(--border); margin: 0.2rem 0; width: 100%; }
 
-                .table-wrap.fit-content { display: inline-block; max-width: 100%; }
-                table.simple.fit-content { width: auto; }
-        /* Table carries its own full grid border (traditional bordered
-           table), so .table-wrap doesn't need a second boxed border
-           around it too. overflow: visible (was the base overflow-x:
-           auto) so the sticky page header + sticky table header
-           (app.css) track real page scroll instead of being boxed to
-           just this table — these tables run wide, so they now overflow
-           the page itself horizontally when needed, same trade-off
-           dashboard.html's day-grid already makes. */
+        .table-wrap.fit-content { display: inline-block; max-width: 100%; }
+        table.simple.fit-content { width: auto; }
+        /* The salary tables carry their own grid border; their Bootstrap
+           scroll wrapper provides the rounded outer edge and scrollbars. */
         .table-wrap { border: none; border-radius: 0; overflow: visible; }
-        table.simple { border: 1px solid #666; }
+        /* Bootstrap's responsive table wrapper owns both scroll axes.
+           This gives every salary grid a dependable sticky-header scroll
+           area and keeps wide columns inside the page. */
+        .table-wrap.salary-table-scroll {
+            display: block; width: 100%; max-width: 100%;
+            max-height: min(68vh, 720px); overflow: auto;
+            overscroll-behavior: contain; border: 1px solid #cbd5e1;
+            border-radius: 8px; background: #fff;
+        }
+        [data-panel="summary"] .table-wrap.fit-content.salary-table-scroll {
+            display: block; max-width: none; width: 100%;
+        }
+        /* Bootstrap table foundation with a lighter, consistent grid finish. */
+        table.simple {
+            border: 1px solid #cbd5e1; border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        }
         table.simple tr.dept-row td {
             background: #FCE4D6;
             font-weight: 700;
@@ -162,17 +192,25 @@
            these tables run wide (many columns) more than tall, so a
            compact row height keeps more of a department visible at once
            without scrolling. */
-        table.simple th, table.simple td { padding: 0.3rem 0.6rem; font-size: 0.82rem; text-align: left; border: 1px solid #666; white-space: nowrap; }
+        table.simple th, table.simple td { padding: 0.45rem 0.65rem; font-size: 0.82rem; text-align: left; border: 1px solid #d7dee8; white-space: nowrap; }
         table.simple th {
-            background: #FFF9B0; color: var(--text-muted); font-weight: 600; font-size: 0.72rem;
+            background: #fff4bf; color: #26364b; font-weight: 700; font-size: 0.7rem;
             text-transform: uppercase; letter-spacing: 0.03em;
-            white-space: normal; max-width: 6.5rem; line-height: 1.25; vertical-align: bottom;
+            white-space: normal; max-width: 7rem; line-height: 1.3; vertical-align: bottom;
         }
-        table.simple tbody tr:hover td { background: #fafbff; }
+        /* Sticky cells are pinned to the Bootstrap scroll wrapper. Keep
+           the second header row directly under the grouped first row. */
+        table.simple tbody td { position: relative; z-index: 1; }
+        table.simple thead th {
+            position: sticky; top: 0; z-index: 20;
+            background-clip: padding-box;
+        }
+        table.simple tbody tr:nth-child(even) td { background-color: #f8fafc; }
+        table.simple tbody tr:hover td { background: #eef4ff; }
         table.simple td.num, table.simple th.num { text-align: right; }
         table.simple tfoot td {
             font-weight: 700; color: var(--navy-deep); background: #fafbfc;
-            border-top: 2px solid #666;
+            border-top: 2px solid #94a3b8;
         }
         table.simple tfoot tr:hover td { background: #fafbfc; }
         /* PF/ESI numbers (Company Workers' Employee column) — a tooltip
@@ -218,18 +256,11 @@
         td.change-cell ul { margin: 0.2rem 0 0; padding-left: 1rem; color: var(--text-muted); }
         td.change-cell .loading { color: var(--text-muted); }
         table.simple td.net, table.simple th.net { text-align: right; font-weight: 700; color: var(--navy); }
-        /* Sub-header row (PF/ESI/PF+ESI under the "Emp"/"Employer" group
-           label) — smaller and lighter than the main header row above it.
-           Its own sticky top stacks below the main header row (app.css's
-           shared table.simple thead th rule puts every thead th, this
-           row included, at top: 0 — the real first row's own measured
-           height, --thead-row1-h from _htmx_scripts.html, pushes this
-           one down from there instead of overlapping it; no outer-header
-           offset needed any more since thead is sticky within .page's
-           own scroll box now, not the viewport). */
-        table.simple th.sub-th {
+        /* Sub-header cells stack below the first header row while the
+           table body scrolls inside its responsive wrapper. */
+        table.simple thead th.sub-th {
             font-size: 0.62rem; font-weight: 500; padding-top: 0.3rem;
-            top: var(--thead-row1-h, 0px);
+            top: var(--thead-row1-h, 0px); z-index: 21;
         }
         /* Per-group collapse — each group keeps one or more always-visible
            "anchor" columns (its sum/total, already a sum-cell) plus N
@@ -360,7 +391,7 @@
         .edit-modal .edit-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.9rem; }
     </style>
 </head>
-<body>
+<body class="salary-page">
     {% include "attendance/_topbar.html" with current="salary" page_title="Salary" %}
 
     <div class="month-nav">
@@ -408,6 +439,7 @@
 
     <div class="page">
         <div class="card" style="padding-top:0.75rem;">
+            <div class="salary-toolbar">
             <ul class="nav nav-tabs tab-row">
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "summary" %} active{% endif %}" data-tab="summary">Summary</button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "company" %} active{% endif %}" data-tab="company">Company Workers
@@ -578,6 +610,7 @@
                 </div>
                 {% endif %}
             </div>
+            </div>
         </div>
 
         {% for message in messages %}
@@ -598,7 +631,7 @@
 
         <div class="card">
             <div class="tab-panel" data-panel="summary"{% if initial_tab != "summary" %} style="display:none;"{% endif %}>
-                <div class="table-wrap fit-content">
+                <div class="table-wrap fit-content table-responsive salary-table-scroll">
                     <table class="table simple fit-content">
                         <thead>
                             <tr>
@@ -639,7 +672,7 @@
                     {% if lock_status.company %}<p class="alert lock-banner" role="alert">🔒 Company Workers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.company or is_salary_viewer %}disabled{% endif %}>
                     <div class="save-bar"><button type="submit" class="btn btn-primary">Save Company Workers</button></div>
-                    <div class="table-wrap fit-content">
+                    <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content" id="companyTable">
                             <thead>
                                 <tr>
@@ -768,7 +801,7 @@
                     {% if lock_status.helpers %}<p class="alert lock-banner" role="alert">🔒 Helpers is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.helpers or is_salary_viewer %}disabled{% endif %}>
                     <div class="save-bar"><button type="submit" class="btn btn-primary">Save Helpers</button></div>
-                    <div class="table-wrap fit-content">
+                    <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
                                 <tr>
@@ -844,7 +877,7 @@
                     {% if lock_status.staff %}<p class="alert lock-banner" role="alert">🔒 Staff is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.staff or is_salary_viewer %}disabled{% endif %}>
                     <div class="save-bar"><button type="submit" class="btn btn-primary">Save Staff</button></div>
-                    <div class="table-wrap fit-content">
+                    <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content" id="staffTable">
                             <thead>
                                 <tr>
@@ -945,7 +978,7 @@
                     {% if lock_status.contractors %}<p class="alert lock-banner" role="alert">🔒 Contractors is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.contractors or is_salary_viewer %}disabled{% endif %}>
                     <div class="save-bar"><button type="submit" class="btn btn-primary">Save Contractors</button></div>
-                    <div class="table-wrap fit-content">
+                    <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
                                 <tr>
@@ -1021,7 +1054,7 @@
                     {% if lock_status.operators %}<p class="alert lock-banner" role="alert">🔒 Operators is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.operators or is_salary_viewer %}disabled{% endif %}>
                     <div class="save-bar"><button type="submit" class="btn btn-primary">Save Operators</button></div>
-                    <div class="table-wrap fit-content">
+                    <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
                                 <tr>
@@ -1090,7 +1123,7 @@
                     {% if lock_status.ironing_bartrack %}<p class="alert lock-banner" role="alert">🔒 Ironing & Bartrack is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.ironing_bartrack or is_salary_viewer %}disabled{% endif %}>
                     <div class="save-bar"><button type="submit" class="btn btn-primary">Save Ironing &amp; Bartrack</button></div>
-                    <div class="table-wrap fit-content">
+                    <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
                                 <tr>
@@ -1161,7 +1194,7 @@
                     {% if lock_status.fixed_payments %}<p class="alert lock-banner" role="alert">🔒 Fixed Payments is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.fixed_payments or is_salary_viewer %}disabled{% endif %}>
                     <div class="save-bar"><button type="submit" class="btn btn-primary">Save Fixed Payments</button></div>
-                    <div class="table-wrap fit-content">
+                    <div class="table-wrap fit-content table-responsive salary-table-scroll">
                         <table class="table simple fit-content">
                             <thead>
                                 <tr>

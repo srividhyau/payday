@@ -8,10 +8,16 @@
 {% include "attendance/_bootstrap_head.html" %}
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
-    /* Lets the sticky page header + sticky table header (app.css) track
-       real page scroll instead of being boxed to just this table. */
-    .table-wrap { overflow: visible; }
+    /* flex column so .table-wrap (flex: 1 below) fills exactly whatever
+       height is left after everything else in .page takes its own
+       natural space — see production.html for the original version of
+       this pattern. */
+    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; display: flex; flex-direction: column; }
+    /* Its own bounded scroll box — sticky thead (app.css) binds to this
+       instead of .page, so it freezes flush with zero gap above it. */
+    .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
+    .table-wrap.fit-content { width: 100%; }
+    .table-wrap.fit-content > table { width: 100%; }
     .inactive-count { color: var(--text-muted); font-size: 0.78rem; font-weight: 400; }
     .delete-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
@@ -25,11 +31,14 @@
         font-family: inherit; text-decoration: none;
     }
     .edit-link:hover { background: var(--bg); }
-    .inline-name-form { display: flex; gap: 0.4rem; align-items: center; }
+    .inline-name-form { display: flex; width: 100%; gap: 0.4rem; align-items: center; }
     .inline-name-form input[type="text"] {
         padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 6px;
-        font-size: 0.85rem; font-family: inherit; width: 220px;
+        font-size: 0.85rem; font-family: inherit; width: 220px; flex: 1 1 auto; min-width: 0;
     }
+    .template-image { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); }
+    .template-image-placeholder { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 6px; color: var(--text-muted); }
+    .template-thumb-label { display: inline-flex; align-items: center; cursor: pointer; }
     .inline-name-form input[type="text"]:focus { outline: none; border-color: var(--navy); }
     .save-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--navy);
@@ -71,6 +80,11 @@
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
+        {% if is_piece_rate_group_member and not is_piece_rate_editor %}
+        <p class="caption" style="color:var(--text-muted); font-size:0.82rem;">Verify your OTP to upload or change template images.</p>
+        {% elif not is_piece_rate_group_member %}
+        <p class="caption" style="color:var(--text-muted); font-size:0.82rem;">Template images can be changed by a Piece Rate Editor.</p>
+        {% endif %}
 
         <p class="caption" style="color:var(--text-muted); font-size:0.85rem; margin: 0 0 1rem;">
             Permanent, reusable rate cards — kept as a reference, never used for production directly.
@@ -93,14 +107,25 @@
                     <tr>
                         <td>
                             {% if is_piece_rate_editor %}
-                            <form method="post" class="inline-name-form">
+                            <form method="post" class="inline-name-form" enctype="multipart/form-data">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="rename_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
+                                {% if can_edit_template_images %}
+                                <label for="template-image-{{ row.style.id }}" class="template-thumb-label" title="Click to change template image">
+                                    {% if row.style.image_data %}<img src="{% url 'piece_rate_style_image' row.style.id %}" alt="" class="template-image">{% else %}<span class="template-image-placeholder">—</span>{% endif %}
+                                </label>
+                                <input type="file" class="visually-hidden" id="template-image-{{ row.style.id }}" name="image" accept="image/*" aria-label="Choose image for {{ row.style.name }}" onchange="this.form.submit()">
+                                {% elif row.style.image_data %}
+                                <img src="{% url 'piece_rate_style_image' row.style.id %}" alt="" class="template-image">
+                                {% else %}
+                                <span class="template-image-placeholder">—</span>
+                                {% endif %}
                                 <input type="text" name="name" value="{{ row.style.name }}">
                                 <button type="submit" class="save-btn">Save</button>
                             </form>
                             {% else %}
+                            {% if row.style.image_data %}<img src="{% url 'piece_rate_style_image' row.style.id %}" alt="" class="template-image">{% else %}<span class="template-image-placeholder">—</span>{% endif %}
                             {{ row.style.name }}
                             {% endif %}
                         </td>

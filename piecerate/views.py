@@ -34,6 +34,22 @@ from .models import (
 from .permissions import can_edit_piece_rate, can_revoke_operator_links
 
 
+def _style_image_bytes(upload):
+    """Validate an uploaded raster image and return its bytes and MIME type."""
+    try:
+        with Image.open(upload) as image:
+            image_format = image.format
+            image.verify()
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise ValueError("Choose a valid image file.") from exc
+
+    content_type = Image.MIME.get(image_format)
+    if not content_type or not content_type.startswith("image/"):
+        raise ValueError("This image format isn't supported.")
+    upload.seek(0)
+    return upload.read(), content_type
+
+
 def _require_piece_rate_editor(request, redirect_to=None):
     """Shared gate for Master Operations/Templates writes — everyone with
     general app access can still view both pages; only a superuser or a
@@ -190,14 +206,12 @@ def piece_rate_view(request):
         if action == "duplicate_template":
             template = get_object_or_404(Style, id=request.POST.get("template_id"), is_template=True)
             new_name = _unique_name(f"{template.name} {calendar.month_abbr[month]} {year}")
-            # Shares the template's image file at first (cheap — same
-            # storage path, nothing physically copied) rather than leaving
-            # it blank; uploading a new one via "rename_style" later saves
-            # under its own new filename, so overriding it here never
-            # touches the template's own image.
+            # Copy the image bytes so this style can later replace its own
+            # image without changing the reusable template.
             new_style = Style.objects.create(
                 name=new_name, year=year, month=month, start_date=date_cls(year, month, 1),
-                image=template.image,
+                image_data=template.image_data,
+                image_content_type=template.image_content_type,
             )
             RateCardOperation.objects.bulk_create([
                 RateCardOperation(
@@ -216,6 +230,13 @@ def piece_rate_view(request):
             elif Style.objects.filter(name__iexact=name).exclude(pk=style.pk).exists():
                 messages.error(request, f'A style named "{name}" already exists.')
             else:
+                uploaded_image = request.FILES.get("image")
+                if uploaded_image:
+                    try:
+                        style.image_data, style.image_content_type = _style_image_bytes(uploaded_image)
+                    except ValueError as exc:
+                        messages.error(request, str(exc))
+                        return redirect(redirect_url)
                 style.name = name
                 start_date_raw = request.POST.get("start_date", "").strip()
                 if start_date_raw:
@@ -223,8 +244,6 @@ def piece_rate_view(request):
                         style.start_date = date_cls.fromisoformat(start_date_raw)
                     except ValueError:
                         pass
-                if request.FILES.get("image"):
-                    style.image = request.FILES["image"]
                 style.save()
                 messages.success(request, f'Style "{name}" updated.')
             return redirect(redirect_url)
@@ -284,7 +303,12 @@ def piece_rate_view(request):
                 messages.info(request, f'"{style.name}" is already saved as a template.')
                 return redirect(redirect_url)
             new_name = candidate
-            new_template = Style.objects.create(name=new_name, is_template=True, image=style.image)
+            new_template = Style.objects.create(
+                name=new_name,
+                is_template=True,
+                image_data=style.image_data,
+                image_content_type=style.image_content_type,
+            )
             RateCardOperation.objects.bulk_create([
                 RateCardOperation(
                     style=new_template, op_code=op.op_code, section=op.section, name=op.name,
@@ -340,6 +364,20 @@ def piece_rate_view(request):
     })
 
 
+def style_image_view(request, style_id):
+    """Serve a style photo directly from its database blob."""
+    style = get_object_or_404(Style.objects.only("image_data", "image_content_type"), pk=style_id)
+    if not style.image_data:
+        raise Http404("Style image not found.")
+    response = HttpResponse(
+        bytes(style.image_data),
+        content_type=style.image_content_type or "application/octet-stream",
+    )
+    response["Cache-Control"] = "public, max-age=300"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 @login_required
 def template_list_view(request):
     """Permanent, reusable rate cards with no month of their own — kept
@@ -370,9 +408,16 @@ def template_list_view(request):
             elif Style.objects.filter(name__iexact=name).exclude(pk=style.pk).exists():
                 messages.error(request, f'A style named "{name}" already exists.')
             else:
+                uploaded_image = request.FILES.get("image")
+                if uploaded_image:
+                    try:
+                        style.image_data, style.image_content_type = _style_image_bytes(uploaded_image)
+                    except ValueError as exc:
+                        messages.error(request, str(exc))
+                        return redirect("piece_rate_templates")
                 style.name = name
                 style.save()
-                messages.success(request, f'Template renamed to "{name}".')
+                messages.success(request, f'Template "{name}" updated.')
             return redirect("piece_rate_templates")
         if action == "delete_style":
             Style.objects.filter(id=request.POST.get("style_id"), is_template=True).delete()
@@ -383,6 +428,7 @@ def template_list_view(request):
     master_map = _master_rate_map()
     return render(request, "piecerate/template_list.html", {
         "templates": [_style_row(s, master_map) for s in templates],
+        "can_edit_template_images": is_piece_rate_editor and request.user.is_verified(),
     })
 
 
@@ -1263,7 +1309,7 @@ def _operator_summary_context(request) -> dict:
         rc_op = e.rate_card_operation
         style = rc_op.style
         emp_bucket = by_employee.setdefault(e.employee_id, {"employee": e.employee, "styles": {}})
-        style_bucket = emp_bucket["styles"].setdefault(style.id, {"style_name": style.name, "ops": {}})
+        style_bucket = emp_bucket["styles"].setdefault(style.id, {"style": style, "style_name": style.name, "ops": {}})
         op_bucket = style_bucket["ops"].setdefault(rc_op.id, {
             "op_name": rc_op.name, "section": rc_op.section, "rate": rc_op.rate,
             "order_quantity": rc_op.order_quantity, "quantity": 0,
@@ -1298,7 +1344,7 @@ def _operator_summary_context(request) -> dict:
                 employee_rate += op_bucket["rate"]
                 employee_quantity += op_bucket["quantity"]
             op_list.sort(key=lambda o: o["op_name"])
-            style_list.append({"style_name": style_data["style_name"], "ops": op_list, "total": style_total})
+            style_list.append({"style": style_data["style"], "style_name": style_data["style_name"], "ops": op_list, "total": style_total})
             employee_total += style_total
             employee_order_qty += style_order_qty
         style_list.sort(key=lambda s: s["style_name"])
@@ -1457,7 +1503,7 @@ def _style_summary_context(request) -> dict:
     for e in entries:
         rc_op = e.rate_card_operation
         style = rc_op.style
-        style_bucket = by_style.setdefault(style.id, {"style_name": style.name, "employees": {}})
+        style_bucket = by_style.setdefault(style.id, {"style": style, "style_name": style.name, "employees": {}})
         emp_bucket = style_bucket["employees"].setdefault(e.employee_id, {"employee": e.employee, "ops": {}})
         op_bucket = emp_bucket["ops"].setdefault(rc_op.id, {
             "op_name": rc_op.name, "section": rc_op.section, "rate": rc_op.rate,
@@ -1509,7 +1555,7 @@ def _style_summary_context(request) -> dict:
             style_total += employee_total
         employee_list.sort(key=lambda e: e["employee"].name)
         style_rows.append({
-            "style_name": style_data["style_name"], "employees": employee_list, "total": style_total,
+            "style": style_data["style"], "style_name": style_data["style_name"], "employees": employee_list, "total": style_total,
             "order_quantity": style_order_qty, "rate_sum": style_rate, "quantity_sum": style_quantity,
         })
         grand_total += style_total
@@ -2224,7 +2270,7 @@ def operator_entry_view(request, token):
     for e in _month_piece_rate_entries(viewed_year, viewed_month).filter(employee=employee):
         rc_op = e.rate_card_operation
         style_bucket = viewed_by_style.setdefault(rc_op.style_id, {
-            "style_name": rc_op.style.name, "ops": {}, "amount_total": Decimal("0"), "order_qty": 0,
+            "style": rc_op.style, "style_name": rc_op.style.name, "ops": {}, "amount_total": Decimal("0"), "order_qty": 0,
         })
         op_bucket = style_bucket["ops"].setdefault(rc_op.id, {
             "op_name": _op_display_name(rc_op), "rate": rc_op.rate, "quantity": 0,
@@ -2248,7 +2294,7 @@ def operator_entry_view(request, token):
             ops_list.append(op_row)
         ops_list.sort(key=lambda r: r["op_name"])
         viewed_styles.append({
-            "style_name": style_bucket["style_name"], "ops": ops_list,
+            "style": style_bucket["style"], "style_name": style_bucket["style_name"], "ops": ops_list,
             "amount_total": style_bucket["amount_total"], "order_qty": style_bucket["order_qty"],
         })
         viewed_total_amount += style_bucket["amount_total"]
@@ -2284,5 +2330,3 @@ def operator_entry_view(request, token):
         "viewed_prev_date": viewed_prev_date.isoformat(),
         "viewed_next_date": viewed_next_date.isoformat(),
     })
-
-

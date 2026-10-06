@@ -157,6 +157,7 @@
     <div class="page">
         <div class="header-row">
             <div class="header-title">
+                {% include "piecerate/_style_icon.html" with style=style %}
                 {% if sibling_styles|length > 1 %}
                 <select id="styleSwitcher" data-base="{% url 'piece_rate_production_mobile' 0 %}">
                     {% for s in sibling_styles %}

@@ -117,6 +117,19 @@
         width: 44px; height: 44px; border-radius: 8px; background: #eef1f5; font-size: 1.3rem;
         display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
+    .operator-image-hover-zoom {
+        position: fixed; z-index: 10000; display: none;
+        width: min(320px, calc(100vw - 24px)); height: min(320px, calc(100vh - 24px));
+        padding: 6px; object-fit: contain; background: #fff; border: 1px solid #d7dce5;
+        border-radius: 10px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.3); pointer-events: none;
+    }
+    .operator-image-hover-zoom.is-visible { display: block; }
+    .style-image-icon, .style-image-icon-placeholder {
+        display: inline-flex; width: 24px; height: 24px; flex: none; align-items: center;
+        justify-content: center; vertical-align: middle; margin-right: 0.35rem; border-radius: 5px;
+    }
+    .style-image-icon { object-fit: cover; border: 1px solid #d7dce5; }
+    .style-image-icon-placeholder { background: #eef1f5; font-size: 0.9rem; }
 
     /* Shown as soon as an operation is picked in .op-select (see JS) —
        what the operator has already logged for it this month, right
@@ -173,7 +186,7 @@
        is true) and a subtotal row per style. Horizontally scrollable
        (rather than letting a long operation name squeeze the number
        columns) so narrow phones never break layout. */
-    .log-table-wrap { overflow-x: auto; margin-top: 0.4rem; }
+    .log-table-wrap { overflow: auto; max-height: min(42vh, 360px); margin-top: 0.4rem; }
     .log-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     .log-table th, .log-table td { padding: 0.45rem 0.5rem; text-align: left; white-space: nowrap; }
     .log-table th.op, .log-table td.op { white-space: normal; }
@@ -181,12 +194,15 @@
         font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.02em; color: #8a92a0;
         font-weight: 700; border-bottom: 2px solid #0f1b2d;
     }
+    .log-table thead th { position: sticky; top: 0; z-index: 2; background: #fff; }
     .log-table td.num, .log-table th.num { text-align: right; }
     .log-table tr.style-row td {
         font-weight: 700; color: #0f1b2d; background: #f8fafc;
         border-top: 1px solid #0f1b2d; border-bottom: 1px solid #0f1b2d;
-        display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; white-space: normal;
     }
+    .style-row-content { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 0.5rem; white-space: normal; }
+    .style-row-label { display: flex; min-width: 0; align-items: center; gap: 0.25rem; }
+    .style-row-label .style-name { overflow-wrap: anywhere; }
     .log-table tr.style-row .style-order-qty { font-weight: 600; color: #8a92a0; font-size: 0.75rem; white-space: nowrap; }
     .log-table tr.op-row { border-bottom: 1px solid #eef0f4; }
     .log-table tr.op-row.clickable { cursor: pointer; }
@@ -249,8 +265,8 @@
             <div class="style-grid">
                 {% for row in style_rows %}
                 <button type="button" class="style-card" data-style-id="{{ row.style.id }}">
-                    {% if row.style.image %}
-                    <img src="{{ row.style.image.url }}" alt="">
+                    {% if row.style.image_data %}
+                    <img src="{% url 'piece_rate_style_image' row.style.id %}" alt="">
                     {% else %}
                     <span class="style-img-placeholder">👕</span>
                     {% endif %}
@@ -266,8 +282,8 @@
         <div class="card entry-card" id="entry-{{ row.style.id }}" hidden>
             <button type="button" class="back-btn" data-back>&larr; {% trans "Change style" %}</button>
             <div class="entry-card-heading">
-                {% if row.style.image %}
-                <img src="{{ row.style.image.url }}" alt="" class="entry-style-img">
+                {% if row.style.image_data %}
+                <img src="{% url 'piece_rate_style_image' row.style.id %}" alt="" class="entry-style-img">
                 {% else %}
                 <span class="entry-style-img-placeholder">👕</span>
                 {% endif %}
@@ -334,8 +350,10 @@
                     <tbody>
                         {% for style_bucket in logged_styles %}
                         <tr class="style-row"><td colspan="{% if show_rate %}4{% else %}2{% endif %}">
-                            <span class="style-name">{{ style_bucket.style.name }}</span>
-                            {% if style_bucket.order_qty %}<span class="style-order-qty">{% blocktrans with qty=style_bucket.order_qty %}{{ qty }} allowed{% endblocktrans %}</span>{% endif %}
+                            <div class="style-row-content">
+                                <span class="style-row-label">{% include "piecerate/_style_icon.html" with style=style_bucket.style %}<span class="style-name">{{ style_bucket.style.name }}</span></span>
+                                {% if style_bucket.order_qty %}<span class="style-order-qty">{% blocktrans with qty=style_bucket.order_qty %}{{ qty }} allowed{% endblocktrans %}</span>{% endif %}
+                            </div>
                         </td></tr>
                         {% for row in style_bucket.ops %}
                         <tr class="op-row clickable" data-open-op data-style-id="{{ style_bucket.style.id }}" data-op-id="{{ row.op.id }}" tabindex="0" role="button">
@@ -383,8 +401,10 @@
                     <tbody>
                         {% for style_bucket in viewed_styles %}
                         <tr class="style-row"><td colspan="{% if viewed_show_rate %}4{% else %}2{% endif %}">
-                            <span class="style-name">{{ style_bucket.style_name }}</span>
-                            {% if style_bucket.order_qty %}<span class="style-order-qty">{% blocktrans with qty=style_bucket.order_qty %}{{ qty }} allowed{% endblocktrans %}</span>{% endif %}
+                            <div class="style-row-content">
+                                <span class="style-row-label">{% include "piecerate/_style_icon.html" with style=style_bucket.style %}<span class="style-name">{{ style_bucket.style_name }}</span></span>
+                                {% if style_bucket.order_qty %}<span class="style-order-qty">{% blocktrans with qty=style_bucket.order_qty %}{{ qty }} allowed{% endblocktrans %}</span>{% endif %}
+                            </div>
                         </td></tr>
                         {% for row in style_bucket.ops %}
                         <tr class="op-row">
@@ -426,6 +446,46 @@
         </div>
     </div>
 
+    <script>
+        (function () {
+            var selector = '.style-card img, .entry-style-img, .style-image-icon';
+            var preview = document.createElement('img');
+            preview.className = 'operator-image-hover-zoom';
+            preview.alt = '';
+            preview.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(preview);
+
+            var activeImage = null;
+            function placePreview(event) {
+                if (!activeImage) return;
+                var rect = preview.getBoundingClientRect();
+                var gap = 16;
+                var left = event.clientX + gap;
+                var top = event.clientY + gap;
+                if (left + rect.width > window.innerWidth - 8) left = event.clientX - rect.width - gap;
+                if (top + rect.height > window.innerHeight - 8) top = event.clientY - rect.height - gap;
+                preview.style.left = Math.max(8, Math.min(left, window.innerWidth - rect.width - 8)) + 'px';
+                preview.style.top = Math.max(8, Math.min(top, window.innerHeight - rect.height - 8)) + 'px';
+            }
+            document.addEventListener('pointerover', function (event) {
+                if (event.pointerType === 'touch') return;
+                var image = event.target.closest(selector);
+                if (!image) return;
+                activeImage = image;
+                preview.src = image.currentSrc || image.src;
+                preview.classList.add('is-visible');
+                placePreview(event);
+            });
+            document.addEventListener('pointermove', function (event) {
+                if (activeImage) placePreview(event);
+            });
+            document.addEventListener('pointerout', function (event) {
+                if (!activeImage || event.target !== activeImage) return;
+                activeImage = null;
+                preview.classList.remove('is-visible');
+            });
+        })();
+    </script>
     <script>
         // Keep the Submit button reachable once the on-screen keyboard
         // opens for a quantity field — some browsers overlay the
