@@ -38,6 +38,11 @@
     {% else %}
     {% include "attendance/_topbar.html" with current="employee_list" page_title="Add Employee" %}
     {% endif %}
+    {% if instance %}
+    {% include "attendance/_header_pill.html" with floating=True current="employee_list" page_title="Edit"|add:" "|add:instance.code|add:" — "|add:instance.name %}
+    {% else %}
+    {% include "attendance/_header_pill.html" with floating=True current="employee_list" page_title="Add Employee" %}
+    {% endif %}
 
     <div class="page">
         {% for message in messages %}

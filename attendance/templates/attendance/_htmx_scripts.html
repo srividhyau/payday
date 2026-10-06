@@ -8,3 +8,77 @@
   immediately, the same way a full page load already would.
 {% endcomment %}
 <script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.12/dist/ext/head-support.js"></script>
+<script>
+    // Fixed page header + table headers frozen within .page's own scroll
+    // box (see .month-nav/.page/table.simple thead th in app.css, which
+    // read the --header-h/--thead-row1-h custom properties set here).
+    // Measured at runtime instead of hand-tuned per page in CSS, since
+    // the header bar's real height varies (one row vs two, wrapped
+    // content on a narrow screen, a message/alert banner appearing) —
+    // any of that would silently throw a fixed CSS offset off and either
+    // leave a gap or let .page's content start underneath the header.
+    (function () {
+        // A page with a second row in its fixed header (e.g. Dashboard/
+        // OT's view-switch-row) wraps both in .fixed-header-group, which
+        // is what's actually position: fixed there instead of .month-nav
+        // itself — see those pages' own <style> blocks. Every other page
+        // has no such wrapper, so .month-nav (the thing that IS
+        // position: fixed per app.css) is measured directly.
+        function headerEl() {
+            return document.querySelector('.fixed-header-group') || document.querySelector('.month-nav');
+        }
+        // A page with several tabs (e.g. salary.html) has a
+        // table.simple inside EVERY tab-panel, hidden ones included —
+        // querySelector's plain first-match would just as easily land on
+        // a hidden tab's thead (0 height always) as the visible one.
+        // offsetParent is null for anything inside a display: none
+        // ancestor, so this always resolves to the real, currently
+        // visible table, whichever tab that happens to be.
+        function visibleFirstTheadRow() {
+            var rows = document.querySelectorAll('table.simple thead tr:first-child');
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].offsetParent !== null) return rows[i];
+            }
+            return null;
+        }
+        function updateHeaderHeight() {
+            var header = headerEl();
+            var h = header ? header.getBoundingClientRect().height : 0;
+            document.documentElement.style.setProperty('--header-h', h + 'px');
+            // A table whose own <thead> is two physical rows (e.g.
+            // salary.html's rowspan="2" headers + a sub-header row)
+            // needs the first row's real height too, so the second row
+            // can stack directly under it instead of overlapping.
+            var firstTheadRow = visibleFirstTheadRow();
+            var rowH = firstTheadRow ? firstTheadRow.getBoundingClientRect().height : 0;
+            document.documentElement.style.setProperty('--thead-row1-h', rowH + 'px');
+        }
+        updateHeaderHeight();
+        window.addEventListener('resize', updateHeaderHeight);
+        window.addEventListener('load', updateHeaderHeight);
+        // Content that changes the header's height after first paint
+        // (e.g. a page message/alert banner appearing, or an
+        // htmx-boosted swap bringing in a different page) needs this
+        // re-measured too, not just window resize.
+        if (window.ResizeObserver) {
+            var header = headerEl();
+            if (header) new ResizeObserver(updateHeaderHeight).observe(header);
+        }
+        document.body.addEventListener('htmx:afterSettle', updateHeaderHeight);
+        // Switching tabs (salary.html, master_operations.html's section
+        // filter, ...) shows/hides a different table.simple without a
+        // resize or htmx swap — the generic signal for that, regardless
+        // of which page's own JS does the switching, is a tab-panel's
+        // style attribute changing (how every one of them is shown/
+        // hidden). Re-measuring here covers the "a 2-row thead becomes
+        // the visible one" case above.
+        if (window.MutationObserver) {
+            var panels = document.querySelectorAll('.tab-panel');
+            if (panels.length) {
+                new MutationObserver(updateHeaderHeight).observe(document.body, {
+                    attributes: true, attributeFilter: ['style'], subtree: true,
+                });
+            }
+        }
+    })();
+</script>

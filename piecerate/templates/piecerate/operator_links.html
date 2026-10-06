@@ -10,10 +10,26 @@
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
 
+    /* Single yellow header bar — just the title, same convention as
+       every other page's .month-nav (this one has no month/date to
+       switch between, so nothing else belongs here). */
+    .month-nav {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem;
+        background: var(--yellow); border: 1px solid rgba(0,47,102,0.15); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 0.5rem 0.85rem;
+    }
+    .month-nav h1 { font-size: 0.92rem; margin: 0; }
+    /* Hidden once the sidebar is collapsed — the pill's own breadcrumb
+       (see _header_pill.html) already reads "Operator Links" then, so
+       this would just be the same title shown twice side by side. */
+    body:has(.topbar.collapsed) .month-nav h1 { display: none; }
+
     /* Table carries its own full grid border (traditional bordered
        table), so .table-wrap doesn't need a second boxed border around
-       it too. */
-    .table-wrap { border: none; border-radius: 0; }
+       it too. overflow: visible also lets the table header (app.css)
+       track .page's own scroll instead of being boxed to just this
+       table. */
+    .table-wrap { border: none; border-radius: 0; overflow: visible; }
     table.simple { border: 1px solid #8a92a0; }
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.4rem 0.6rem; font-size: 0.85rem; vertical-align: middle; }
     table.simple thead th { background: #fef9c3; color: var(--navy); }
@@ -62,6 +78,11 @@
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_operator_links" page_title="Operator Links" %}
+
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="piece_rate_operator_links" page_title="Operator Links" %}
+        <h1>Operator Links</h1>
+    </div>
 
     <div class="page">
         {% if can_manage %}

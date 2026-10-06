@@ -1,0 +1,24 @@
+{% load static %}
+{% comment %}
+Reopen control for a collapsed sidebar — icon + the current page's own
+breadcrumb, doubling as the sidebar toggle (see _topbar.html's own
+<script> for the click handler, which just targets #headerNavToggle
+regardless of where this markup physically lives). Included as the
+FIRST CHILD of a page's own .month-nav so it's a real part of the
+fixed header bar, not a separately-floating element — pass floating=True
+(see .header-nav-toggle-floating in app.css) on a page with no
+.month-nav to merge it into instead.
+
+Needs its OWN current/page_title, matching whatever was passed to the
+page's _topbar.html include a couple lines above — {% include %}'s own
+`with` scopes those variables to that one tag, so they don't carry over
+to this separate include even though it's right next to it. Easy to
+miss (the breadcrumb just silently falls back to plain "Payday"
+instead of erroring), so keep the two include lines' current/page_title
+in sync by eye whenever either one changes.
+{% endcomment %}
+<button type="button" class="header-nav-toggle{% if floating %} header-nav-toggle-floating{% endif %}" id="headerNavToggle" aria-label="Show/hide menu" title="Show/hide menu">
+    <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
+    {# Breadcrumb: sidebar section -> page, e.g. "Piece Rate -> Production" — see _crumb.html/_crumb_render.html (same split as stitch360's tracker/_crumb.html). #}
+    <span>{% include "attendance/_crumb.html" %}</span>
+</button>

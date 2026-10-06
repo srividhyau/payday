@@ -9,6 +9,15 @@
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
                                 .page { width: 100%; padding: 0.75rem 1rem 3rem; }
+        /* .month-nav AND .view-switch-row together make up this page's
+           fixed header (unlike most pages, which only have .month-nav) —
+           this wrapper is what's actually position: fixed (see app.css's
+           shared .month-nav rule cancelled below), so the two rows stay
+           part of one solid block instead of needing their own stacked
+           offsets. */
+        .fixed-header-group { position: fixed; top: 0; left: var(--sidebar-w); right: 0; z-index: 20; background: var(--surface); }
+        body:has(.topbar.collapsed) .fixed-header-group { left: 0; }
+        .month-nav { position: static; }
 
                 h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .card { margin-bottom: 0.75rem; }
@@ -118,6 +127,7 @@
             align-items: center;
             gap: 1rem;
             margin: 0 0 0.9rem;
+            padding: 0.3rem 0.85rem;
         }
         .report-status { font-size: 0.8rem; color: var(--text-muted); }
         .report-status.error { color: #b3261e; }
@@ -208,9 +218,12 @@
         table.month tr.dept:hover td { filter: brightness(0.97); }
         table.month .toggle-icon { display: inline-block; width: 0.9em; }
         /* Freeze the date header row and the name column while scrolling
-           the page — same rules as ot_details.html (see the comments
-           there). Borders don't travel with sticky cells under
-           border-collapse, so an inset box-shadow redraws them. */
+           .page (see app.css) — same rules as ot_details.html (see the
+           comments there). Borders don't travel with sticky cells under
+           border-collapse, so an inset box-shadow redraws them. top: 0
+           needs no offset — sticky here is relative to .page's own
+           scroll box, not the viewport, and the fixed header
+           (.fixed-header-group) isn't part of that box at all any more. */
         table.month thead th { position: sticky; top: 0; z-index: 3; box-shadow: inset 0 -1px 0 #666; }
         table.month tbody td.label:not(.dept-header), table.month th.label {
             position: sticky; left: 0; z-index: 2; box-shadow: inset -1px 0 0 #666;
@@ -538,14 +551,10 @@
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="dashboard" page_title="Device Records" %}
-    <div class="page">
-
-    {% for message in messages %}
-        <div class="msg {{ message.tags }}">{{ message }}</div>
-    {% endfor %}
-
     {% if has_data %}
+    <div class="fixed-header-group">
     <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="dashboard" page_title="Device Records" %}
         <div class="month-nav-row title-row">
             <a href="?date={{ prev_date }}&view={{ current_view }}" class="nav-arrow">&larr;</a>
             <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -587,9 +596,19 @@
         <span id="sendDeviceRecordsWhatsappStatus" class="report-status"></span>
     </div>
     {% endif %}
-    {% if is_locked %}
-        <p class="alert lock-banner" role="alert">🔒 {{ current_view_label }} is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>
+    </div>
+    {% else %}
+    {% include "attendance/_header_pill.html" with floating=True current="dashboard" page_title="Device Records" %}
     {% endif %}
+
+    <div class="page">
+
+    {% for message in messages %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+
+    {% if has_data and is_locked %}
+        <p class="alert lock-banner" role="alert">🔒 {{ current_view_label }} is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>
     {% endif %}
 
     {% if not has_data %}

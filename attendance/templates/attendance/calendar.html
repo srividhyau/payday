@@ -103,7 +103,10 @@
         .early-closure-form input:not([value=""]) { color: var(--text); font-weight: 600; }
         .cal-day.has-early-closure { box-shadow: inset 0 0 0 2px #1565C0; }
 
-        .table-wrap.simple-wrap { max-width: 420px; }
+        /* overflow: visible so the sticky page header + sticky table
+           header (app.css) track real page scroll instead of being
+           boxed to just this table. */
+        .table-wrap.simple-wrap { max-width: 420px; overflow: visible; }
                 table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
         table.simple tbody tr:last-child td { border-bottom: none; }
@@ -112,8 +115,8 @@
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="calendar" page_title="Holiday Calendar" %}
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="calendar" page_title="Holiday Calendar" %}
             <div class="month-nav-row title-row">
                 <a href="?year={{ prev_year }}&month={{ prev_month }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -126,6 +129,7 @@
             </div>
         </div>
 
+    <div class="page">
         <div class="card" id="legendPanel" style="display:none;">
             <h2>Legend</h2>
             <div class="legend">
@@ -211,15 +215,17 @@
         // save the scroll position right before submitting and restore
         // it once the reloaded page lands, so the cell you just edited
         // stays in view instead of the page jumping away from it.
+        // .page is the scroll container now (see app.css), not window.
         (function () {
+            var pageEl = document.querySelector('.page');
             var saved = sessionStorage.getItem('calendarScrollY');
             if (saved !== null) {
-                window.scrollTo(0, parseInt(saved, 10));
+                if (pageEl) pageEl.scrollTop = parseInt(saved, 10);
                 sessionStorage.removeItem('calendarScrollY');
             }
             document.querySelectorAll('.day-cell-form, .early-closure-form').forEach(function (form) {
                 form.addEventListener('submit', function () {
-                    sessionStorage.setItem('calendarScrollY', String(window.scrollY));
+                    sessionStorage.setItem('calendarScrollY', String(pageEl ? pageEl.scrollTop : 0));
                 });
             });
         })();

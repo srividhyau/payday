@@ -57,6 +57,7 @@
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="upload" page_title="Upload Daily Attendance" %}
+    {% include "attendance/_header_pill.html" with floating=True current="upload" page_title="Upload Daily Attendance" %}
     <div class="page">
         <p class="caption">Upload the DailyAttendance export from the eSSL fingerprint system. Re-uploading a file (or one covering overlapping dates) updates existing records instead of duplicating them.</p>
 

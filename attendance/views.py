@@ -3073,18 +3073,32 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
 
     # Each operator's piece-rate earnings this month (pieces x Rate Card
     # rate, every style — the same figure Piece Rate > Operator Summary
-    # shows), as a reference column on the Operators tab and the source
-    # for its "Load piece-rate amounts" button. Never written into
-    # manual_amount here — HR loads it into the form and saves it
-    # themselves, so a month already entered by hand is never overwritten.
+    # shows). Kept on the row (not shown as its own column — Piece Rate
+    # and Manual Amount were the same figure in the overwhelming
+    # majority of months, so a separate reference column was dropped)
+    # for the "differs from piece rate" hint on the Manual Amount field
+    # and to auto-fill it below.
     from piecerate.views import _operator_month_totals
     piece_rate_totals = _operator_month_totals(year, month)
     for row in context["operator_rows"]:
         total = piece_rate_totals.get(row["employee"].id)
         row["piece_rate_amount"] = total["total"] if total else None
-    context["operator_piece_rate_total"] = sum(
-        (r["piece_rate_amount"] for r in context["operator_rows"] if r["piece_rate_amount"] is not None), Decimal(0),
-    )
+    # Auto-fill: nobody's typed a Manual Amount for this employee/month
+    # yet, so default it to their Piece Rate total instead of leaving
+    # NET at 0 — it's still the same editable field, so a correction
+    # just overwrites it before Save as usual. Skipped when showing a
+    # locked month's frozen snapshot rows (use_snapshots already False,
+    # or lock_status.operators True) — those are a historical record,
+    # not to be altered by whatever piece-rate data exists today.
+    if not (use_snapshots and lock_status.get("operators")):
+        for row in context["operator_rows"]:
+            if row["manual_amount"] is None and row["piece_rate_amount"] is not None:
+                row["manual_amount"] = row["piece_rate_amount"]
+                row["calc"] = payroll.compute_operator_pay(
+                    row["manual_amount"], row["deductions"], row["additions"],
+                    row["calc"].get("already_paid", Decimal(0)),
+                )
+        context["operator_totals"] = sum_rows(context["operator_rows"], "operators")
 
     # Summary tab — one row per salary group: headcount and NET total
     # (the one figure every group's rows carry in common — see
@@ -3146,6 +3160,17 @@ def _salary_summary_figures(context: dict) -> dict:
 def _signed_money(amount: Decimal, places: int = 2) -> str:
     sign = "+" if amount > 0 else "−" if amount < 0 else ""
     return f"{sign}₹{abs(amount):,.{places}f}"
+
+
+def _signed_number(amount: Decimal) -> str:
+    """Same +/− convention as _signed_money (a proper minus sign, U+2212,
+    not a hyphen) for a plain count rather than a currency amount — e.g.
+    the earned-days delta in a Summary change line, which otherwise sat
+    right next to _signed_money amounts using Python's own '+f' format
+    spec (a plain ASCII hyphen for negative), reading as two different
+    kinds of minus in the same line."""
+    sign = "+" if amount > 0 else "−" if amount < 0 else ""
+    return f"{sign}{format(abs(amount).normalize(), 'f')}"
 
 
 def _salary_summary_changes(prev: dict, cur: dict, pay_basis: str) -> list[dict]:
@@ -3226,7 +3251,7 @@ def _salary_summary_changes(prev: dict, cur: dict, pay_basis: str) -> list[dict]
     if pay_basis == "days":
         d_days = delta("earned_days")
         revised = sum(1 for i in both if cur[i]["basic_salary"] != prev[i]["basic_salary"])
-        detail = [f"{format(d_days.normalize(), '+f')} earned days"] if d_days else []
+        detail = [f"{_signed_number(d_days)} earned days"] if d_days else []
         if revised:
             detail.append(f"salary revised for {revised}")
         changes.append({

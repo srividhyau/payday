@@ -10,6 +10,11 @@
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    /* Lets the sticky page header + sticky table header (app.css) track
+       real page scroll instead of being boxed to just this table — the
+       downward-opening-tooltip workaround below (for the overflow-y
+       side effect of overflow-x:auto) is now unneeded but harmless. */
+    .table-wrap { overflow: visible; }
     /* Single yellow header bar — title, view links, Expand/Collapse
        All, and date-nav all in one line (same convention as Device
        Records' header). */
@@ -30,6 +35,15 @@
     }
     .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
 
+    /* border-collapse:collapse (app.css's default for table.simple) +
+       position:sticky thead is a known browser rendering bug — a
+       scrolled-past row can stay painted (a "ghost") just above the
+       stuck header instead of being cleanly clipped away, especially
+       noticeable here since these group rows' own background colors
+       make the ghost obvious. border-separate avoids it (same fix
+       production.html/operator_summary.html already use for the same
+       reason). */
+    table.simple { border-collapse: separate; border-spacing: 0; }
     table.simple th, table.simple td { border: 1px solid #8a92a0; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
     table.simple thead th { background: #fef9c3; color: var(--navy); }
     /* Expand All/Collapse All — moved into the first column header as
@@ -105,8 +119,8 @@
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_operator_summary" page_title="Management Summary" %}
 
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="piece_rate_operator_summary" page_title="Management Summary" %}
             <div class="date-nav-group">
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -125,6 +139,7 @@
             </div>
         </div>
 
+    <div class="page">
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}

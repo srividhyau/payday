@@ -1,19 +1,20 @@
 {% load static %}
 <button type="button" class="sidebar-mobile-toggle" id="sidebarMobileToggle" aria-label="Toggle menu">☰</button>
 {% comment %}
-Always rendered now, even when a page forgets to pass page_title — this
-is the ONLY reopen control on desktop once the sidebar is collapsed
-(see .header-nav-toggle in app.css), so gating it behind a page_title
-check used to leave a page with no page_title completely unable to
-reopen a collapsed menu (the bug that hit home.html). _crumb.html
-already falls back to plain "Payday" when there's no page_title and no
-matching current section, so there's no empty/broken state here.
+The reopen-control pill (#headerNavToggle, see _header_pill.html) is NOT
+rendered here any more — a page with its own .month-nav includes it as
+that bar's first child instead, so it's a real part of the fixed
+header rather than a separately-floating element. A page with no
+.month-nav includes _header_pill.html itself (with floating=True)
+right after this include — see e.g. home.html/whatsapp_setup.html.
+Always rendered somewhere, even when a page forgets to pass page_title
+— this is the ONLY reopen control on desktop once the sidebar is
+collapsed, so gating it behind a page_title check used to leave a page
+with no page_title completely unable to reopen a collapsed menu (the
+bug that hit home.html). _crumb.html already falls back to plain
+"Payday" when there's no page_title and no matching current section,
+so there's no empty/broken state to worry about there.
 {% endcomment %}
-<button type="button" class="header-nav-toggle" id="headerNavToggle" aria-label="Show/hide menu" title="Show/hide menu">
-    <img src="{% static 'attendance/mvic_logo.png' %}" alt="" class="brand-logo">
-    {# Breadcrumb: sidebar section -> page, e.g. "Piece Rate -> Production" — see _crumb.html/_crumb_render.html (same split as stitch360's tracker/_crumb.html). #}
-    <span>{% include "attendance/_crumb.html" %}</span>
-</button>
 <aside class="topbar{% if sidebar_collapsed %} collapsed{% endif %}" id="sidebar">
     <div class="brand-row">
         <a href="{% if is_salary_viewer %}{% url 'salary' %}{% elif is_employee_editor %}{% url 'employee_list' %}{% elif is_production_head %}{% url 'piece_rate' %}{% elif is_operator_link_revoker %}{% url 'piece_rate_operator_links' %}{% else %}{% url 'home' %}{% endif %}" class="brand">
@@ -114,7 +115,6 @@ matching current section, so there's no empty/broken state here.
     // time too, so the very first paint already has the sidebar in the
     // right state instead of flashing open then collapsing).
     var sidebar = document.getElementById('sidebar');
-    var headerNavToggle = document.getElementById('headerNavToggle');
     var collapseBtn = document.getElementById('sidebarCollapseBtn');
     var mobileToggle = document.getElementById('sidebarMobileToggle');
 
@@ -130,14 +130,20 @@ matching current section, so there's no empty/broken state here.
         setCookie('sidebarCollapsed', collapsed ? '1' : '0');
     }
     collapseBtn.addEventListener('click', function () { setCollapsed(true); });
-    // One toggle button, always visible (icon + current page name),
-    // floating over the page's own header — flips whichever way the
-    // sidebar currently isn't, rather than only ever reopening.
-    if (headerNavToggle) {
-        headerNavToggle.addEventListener('click', function () {
+    // One toggle button, always visible (icon + current page name) —
+    // flips whichever way the sidebar currently isn't, rather than only
+    // ever reopening. Delegated on document rather than looked up by id
+    // here: this script runs where _topbar.html is included, at the top
+    // of <body> — but the button itself (#headerNavToggle, see
+    // _header_pill.html) now lives inside each page's own .month-nav,
+    // rendered further down the page, so it doesn't exist in the DOM
+    // yet at this point. A plain getElementById here would always find
+    // nothing and silently attach no listener at all.
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('#headerNavToggle')) {
             setCollapsed(!sidebar.classList.contains('collapsed'));
-        });
-    }
+        }
+    });
 
     // Auto-collapse: picking a destination collapses it immediately
     // (the new page then renders already-collapsed, per the cookie
@@ -146,7 +152,7 @@ matching current section, so there's no empty/broken state here.
     // distracted, never picked anything"; any interaction inside the
     // sidebar resets the idle clock so actually browsing it doesn't get
     // cut off mid-decision.
-    var IDLE_COLLAPSE_MS = 4000;
+    var IDLE_COLLAPSE_MS = 60000;
     var idleTimer = null;
     function scheduleIdleCollapse() {
         clearTimeout(idleTimer);

@@ -46,6 +46,7 @@
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="home" page_title="Home" %}
+    {% include "attendance/_header_pill.html" with floating=True current="home" page_title="Home" %}
     <div class="landing">
         <img class="logo" src="{% static 'attendance/mvic_logo.png' %}" alt="Payday logo">
         <h1>Payday</h1>

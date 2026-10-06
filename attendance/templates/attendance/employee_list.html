@@ -9,6 +9,13 @@
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
                                 .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+        /* overflow: visible (not the base overflow-x: auto) so the
+           sticky page header + sticky table header (app.css) track real
+           page scroll instead of being boxed to just this table — this
+           table runs wide (24 columns), so it now overflows the page
+           itself horizontally when needed, same trade-off
+           dashboard.html's day-grid already makes. */
+        .table-wrap { overflow: visible; }
 
         /* Single yellow header bar — title, Add Employee, the
            Active/Non-working tabs, and Search all in one line (same
@@ -61,8 +68,8 @@
 <body>
     {% include "attendance/_topbar.html" with current="employee_list" page_title="Employee Details" %}
 
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="employee_list" page_title="Employee Details" %}
             <div class="tab-row">
                 <a class="tab-btn{% if tab == "active" %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}&tab=active">Active</a>
                 <a class="tab-btn{% if tab == "inactive" %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}&tab=inactive">Non-working</a>
@@ -79,6 +86,7 @@
             <a href="{% url 'employee_create' %}" class="post-btn">+ Add Employee</a>
         </div>
 
+    <div class="page">
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}

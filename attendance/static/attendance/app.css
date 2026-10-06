@@ -31,11 +31,7 @@ body {
    login screen) gets the matching gutter — :has() lets this stay a
    single shared rule instead of every page's own <style> needing it. */
 body:has(.topbar) { padding-left: var(--sidebar-w); transition: padding-left .16s ease, padding-top .16s ease; }
-/* Collapsed reclaims the sidebar's width entirely — the page's own
-   header no longer needs to dodge a corner-pinned icon (see
-   .header-nav-toggle below, which floats centered over the header
-   instead of sitting at the edge), so no compensating indent is
-   needed here the way there used to be. */
+/* Collapsed reclaims the sidebar's width entirely. */
 body:has(.topbar.collapsed) { padding-left: 0; }
 
 /* ---------- sidebar (was a horizontal topbar) ---------- */
@@ -58,34 +54,38 @@ body:has(.topbar.collapsed) { padding-left: 0; }
 }
 .sidebar-collapse-btn:hover { background: rgba(0,47,102,0.08); }
 /* Reopen control for a collapsed sidebar — icon + the current page's
-   own name (passed in as page_title; see the pages that {% include %}
-   this partial), pinned at the top-left of the content area rather
-   than sitting mid-row — that way it never has to overlap the header's
-   own left-edge content (date-nav arrows, etc.) the way a vertically-
-   centered version would. Doubles as both "what page is this" (now
-   that the page's own <h1> is gone — its text became this button's
-   label) and the sidebar toggle; hidden once the sidebar is already
-   open (see body:has(.topbar:not(.collapsed)) below), since the
-   sidebar's own collapse button covers that job then. Each page's
-   .month-nav reserves matching room at its own top (see .page >
-   .month-nav below) so its content starts clear of this instead of
-   tucking in underneath it. */
+   own name (see _header_pill.html, included as the first child of
+   each page's own .month-nav — a real part of the fixed header now,
+   not a separately-floating element, so it can never visually drift
+   apart from it while scrolling or during the collapse animation).
+   Doubles as both "what page is this" (now that the page's own <h1>
+   is gone — its text became this button's label) and the sidebar
+   toggle; hidden once the sidebar is already open (see
+   body:has(.topbar:not(.collapsed)) below), since the sidebar's own
+   collapse button covers that job then. */
 .header-nav-toggle {
-    position: fixed; top: 0.6rem; left: calc(var(--sidebar-w) + 0.85rem); z-index: 32;
     display: flex; align-items: center; gap: 0.45rem;
     border: 1px solid rgba(0,47,102,0.3); border-radius: 999px;
     background: var(--yellow); color: var(--navy); cursor: pointer; font-family: inherit;
     font-size: 0.85rem; font-weight: 700; letter-spacing: -0.01em;
     padding: 0.35rem 0.9rem 0.35rem 0.35rem; box-shadow: var(--shadow);
-    transition: left .16s ease;
 }
-body:has(.topbar.collapsed) .header-nav-toggle { left: 0.85rem; }
 /* Only needed to reopen a collapsed sidebar — once it's open, the
    sidebar's own collapse button (.sidebar-collapse-btn) already covers
-   that job, so this pill would just be a redundant floating label. */
+   that job, so this pill would just be a redundant label. */
 body:has(.topbar:not(.collapsed)) .header-nav-toggle { display: none; }
 .header-nav-toggle .brand-logo { width: 1.6rem; height: 1.6rem; display: block; border-radius: 50%; flex: none; }
 .header-nav-toggle span { white-space: nowrap; }
+/* A handful of simple pages (Roles, WhatsApp Setup, ...) have no
+   .month-nav to merge the pill into — _header_pill.html gives those
+   this extra class instead, restoring the old floating-over-the-page
+   behavior exactly as it worked before the merge, since there's
+   nothing there to merge it into. */
+.header-nav-toggle-floating {
+    position: fixed; top: 0.6rem; left: calc(var(--sidebar-w) + 0.85rem); z-index: 32;
+    transition: left .16s ease;
+}
+body:has(.topbar.collapsed) .header-nav-toggle-floating { left: 0.85rem; }
 /* Breadcrumb (see _crumb.html/_crumb_render.html) — the plain-text "A →
    B" separator used inside .header-nav-toggle (a <button>, so a real
    nested <a> isn't valid there), plus the real clickable Bootstrap
@@ -104,20 +104,25 @@ body:has(.topbar:not(.collapsed)) .header-nav-toggle { display: none; }
 .crumb-nav .breadcrumb-item a { color: var(--navy); text-decoration: none; }
 .crumb-nav .breadcrumb-item a:hover { text-decoration: underline; }
 .crumb-nav .breadcrumb-item.active { color: var(--navy); overflow: hidden; text-overflow: ellipsis; }
-/* Every page's own yellow .month-nav card sets its own padding (a
-   plain shorthand, so it always wins there against a same-specificity
-   app.css rule regardless of source order) — reserving room at the
-   top needs a rule specific enough to survive that: .page > :first-
-   child (a class plus a pseudo-class) beats a page's own bare
-   .month-nav or .card rule (one class) outright, regardless of source
-   order. Targets the page's first element generically — not just
-   .month-nav — since a handful of pages (Roles, WhatsApp Setup, ...)
-   have no header card at all and would otherwise have their own
-   first line of text sit right under the toggle instead of below it.
-   This also gives every page's header the same reserved top strip
-   regardless of how much content is in it, which is most of why
-   header heights don't wildly vary page to page anymore. */
-.page > :first-child { padding-top: 2.2rem; }
+/* .page is the scroll container now, not body — the header (.month-nav,
+   see below) is truly position: fixed, outside .page entirely, so
+   nothing reserves its space in normal flow any more. margin-top pushes
+   .page's content below it; height + overflow-y bound .page to exactly
+   the remaining viewport so IT scrolls, not body. --header-h is the
+   fixed header's real rendered height, measured at runtime (see
+   _htmx_scripts.html) since it varies page to page (one row vs two,
+   wrapped content on a narrow screen, a messages banner appearing).
+   body .page (element + class) is specific enough to win over every
+   page's own local "body .page { padding: ...; width: ...; }" shorthand
+   regardless of source order — same trick used elsewhere in this file —
+   though here there's nothing to actually fight: no page sets these
+   particular properties locally, so this is purely additive. */
+body .page {
+    margin-top: var(--header-h, 0px);
+    height: calc(100vh - var(--header-h, 0px));
+    overflow-y: auto;
+    box-sizing: border-box;
+}
 .brand-row { display: flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.15rem 0.6rem 0.3rem; }
 .topbar .brand {
     display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 0.86rem;
@@ -187,17 +192,21 @@ h1 { font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; color: var(--navy);
     .topbar.collapsed .brand-row, .topbar.collapsed nav { opacity: 1; pointer-events: auto; }
     .topbar { transform: translateX(-100%); transition: transform .16s ease; }
     .topbar.open { transform: translateX(0); box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 8px 0 24px rgba(0,0,0,0.18); }
-    /* The hamburger toggle (below) floats at the top-left at this width
-       when the drawer is closed — same "share its row instead of a
-       blank strip above it" treatment as the desktop collapsed reopen
-       tab. */
     body:has(.topbar) { padding-left: 0; }
-    body:has(.topbar) .page > :first-child { padding-left: 3.2rem; }
+    /* .month-nav spans edge-to-edge at this width (no sidebar gutter to
+       track — the drawer overlays instead) — body:has(.topbar) (element
+       + class) is specific enough to beat the plain .month-nav rule
+       below it in the file regardless of source order, same trick used
+       elsewhere in this file. Left padding clears the hamburger toggle
+       (below), which still floats on its own here rather than merging
+       into the header the way the desktop pill does — there's little
+       room for a labeled pill at this width, and the drawer itself
+       already shows context once opened. */
+    body:has(.topbar) .month-nav { left: 0; right: 0; padding-left: 2.6rem; }
     /* The hamburger toggle is the only show/hide control at this width
        — the desktop header-nav-toggle pill and in-sidebar collapse
        button would be redundant (tapping outside the open drawer
-       already closes it), and there's little room to float a labeled
-       pill over the header at this width anyway. */
+       already closes it). */
     .header-nav-toggle { display: none !important; }
     .sidebar-collapse-btn { display: none; }
     .sidebar-mobile-toggle {
@@ -293,6 +302,33 @@ table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 60
 table.simple tbody tr:last-child td { border-bottom: none; }
 table.simple tbody tr:hover td { background: #fafbff; }
 table.simple td.num, table.simple th.num { text-align: right; }
+
+/* Fixed page header bar + table header frozen within .page's own
+   scroll box (see .page above), shared base. Each page's own <style>
+   block still owns the actual look (background/padding/colors, e.g.
+   piece-rate's yellow) — only position/z-index/top live here.
+   .month-nav is a sibling placed immediately BEFORE .page in the
+   markup (not nested inside it — see e.g. style_list.html), spanning
+   the content area beside the sidebar; left tracks the sidebar's own
+   width/collapse state exactly like body's own padding-left does.
+   table.simple thead th needs no offset any more — it's sticky
+   *within* .page's own bounded box, so top: 0 already means "flush
+   with the top of whatever's currently scrolled into view", not the
+   real viewport.
+   CAVEAT a page must handle itself if its table.simple sits inside the
+   shared .table-wrap (overflow-x: auto above): overflow anything but
+   visible on an ancestor makes IT the sticky containing block instead
+   of .page, so sticky stops tracking .page's scroll. A page with a
+   comfortably narrow table can just add ".table-wrap { overflow:
+   visible; }" locally (same fix master_operations.html/rate_card.html
+   already use); a page with a genuinely wide table that still needs
+   horizontal scrolling needs the two-wrapper trick instead (an inner
+   overflow-x:auto div for the table, with the sticky thead's
+   containing block left at the outer, overflow-visible level) rather
+   than losing horizontal scroll. */
+.month-nav { position: fixed; top: 0; left: var(--sidebar-w); right: 0; z-index: 20; transition: left .16s ease; }
+body:has(.topbar.collapsed) .month-nav { left: 0; }
+table.simple thead th { position: sticky; z-index: 15; top: 0; }
 
 .empty-state { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
 

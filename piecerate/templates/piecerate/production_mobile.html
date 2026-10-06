@@ -151,6 +151,8 @@
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_production" page_title="Production — "|add:style.name %}
+    {# page_title here is just "Production" (not "Production — <style>" like _topbar.html's own, above) — the style switcher dropdown right below this pill already shows the style name, so the pill repeating it would be a duplicate. #}
+    {% include "attendance/_header_pill.html" with floating=True current="piece_rate_production" page_title="Production" %}
 
     <div class="page">
         <div class="header-row">

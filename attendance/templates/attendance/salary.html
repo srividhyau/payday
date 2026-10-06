@@ -140,8 +140,13 @@
                 table.simple.fit-content { width: auto; }
         /* Table carries its own full grid border (traditional bordered
            table), so .table-wrap doesn't need a second boxed border
-           around it too. */
-        .table-wrap { border: none; border-radius: 0; }
+           around it too. overflow: visible (was the base overflow-x:
+           auto) so the sticky page header + sticky table header
+           (app.css) track real page scroll instead of being boxed to
+           just this table — these tables run wide, so they now overflow
+           the page itself horizontally when needed, same trade-off
+           dashboard.html's day-grid already makes. */
+        .table-wrap { border: none; border-radius: 0; overflow: visible; }
         table.simple { border: 1px solid #666; }
         table.simple tr.dept-row td {
             background: #FCE4D6;
@@ -186,10 +191,11 @@
         }
         /* Summary tab's month comparison — filled in by the script at the
            bottom of the page once /salary/summary-compare/ answers. */
-        /* Operators tab: piece-rate reference column + "Load" button. */
-        .piece-rate-load { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0 0 0.6rem; }
-        .piece-rate-load-note { font-size: 0.8rem; color: var(--text-muted); }
-        table.simple td.piece-rate-differs { color: #b3261e; font-weight: 700; }
+        /* Operators tab: Manual Amount is auto-filled from the Piece Rate
+           total (see the view), so it's flagged if it's been hand-edited
+           away from that — same red-and-bold treatment the mismatch used
+           to get as a separate column. */
+        input.adj-input.piece-rate-differs { color: #b3261e; font-weight: 700; }
         .prev-month-btn {
             border: 0; background: transparent; color: var(--text-muted); padding: 0 0.25rem;
             font-size: 0.85rem; line-height: 1; cursor: pointer; vertical-align: middle;
@@ -213,8 +219,18 @@
         td.change-cell .loading { color: var(--text-muted); }
         table.simple td.net, table.simple th.net { text-align: right; font-weight: 700; color: var(--navy); }
         /* Sub-header row (PF/ESI/PF+ESI under the "Emp"/"Employer" group
-           label) — smaller and lighter than the main header row above it. */
-        table.simple th.sub-th { font-size: 0.62rem; font-weight: 500; padding-top: 0.3rem; }
+           label) — smaller and lighter than the main header row above it.
+           Its own sticky top stacks below the main header row (app.css's
+           shared table.simple thead th rule puts every thead th, this
+           row included, at top: 0 — the real first row's own measured
+           height, --thead-row1-h from _htmx_scripts.html, pushes this
+           one down from there instead of overlapping it; no outer-header
+           offset needed any more since thead is sticky within .page's
+           own scroll box now, not the viewport). */
+        table.simple th.sub-th {
+            font-size: 0.62rem; font-weight: 500; padding-top: 0.3rem;
+            top: var(--thead-row1-h, 0px);
+        }
         /* Per-group collapse — each group keeps one or more always-visible
            "anchor" columns (its sum/total, already a sum-cell) plus N
            detail columns that are hidden by default and revealed by
@@ -347,8 +363,8 @@
 <body>
     {% include "attendance/_topbar.html" with current="salary" page_title="Salary" %}
 
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="salary" page_title="Salary" %}
             <div class="date-nav-group">
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -390,6 +406,7 @@
             </div>
         </div>
 
+    <div class="page">
         <div class="card" style="padding-top:0.75rem;">
             <ul class="nav nav-tabs tab-row">
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "summary" %} active{% endif %}" data-tab="summary">Summary</button></li>
@@ -1003,14 +1020,7 @@
                     <input type="hidden" name="tab" value="operators">
                     {% if lock_status.operators %}<p class="alert lock-banner" role="alert">🔒 Operators is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.operators or is_salary_viewer %}disabled{% endif %}>
-                    {% if operator_piece_rate_total %}
-                    <div class="piece-rate-load">
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="loadPieceRateBtn">Load piece-rate amounts</button>
-                        <span class="piece-rate-load-note" id="loadPieceRateNote">Copies each operator's Piece Rate total into Manual Amount — review, then Save Operators.</span>
-                        <span class="save-bar-inline"><button type="submit" class="btn btn-primary">Save Operators</button></span>
-                    </div>
-                    {% endif %}{% if not operator_piece_rate_total %}
-                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Operators</button></div>{% endif %}
+                    <div class="save-bar"><button type="submit" class="btn btn-primary">Save Operators</button></div>
                     <div class="table-wrap fit-content">
                         <table class="table simple fit-content">
                             <thead>
@@ -1019,11 +1029,10 @@
                                     <th class="num grp-attendance sum-cell">Earned Days</th>
                                     <th class="num grp-attendance">Paid Holiday</th>
                                     <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
-                                    <th class="num grp-fixed" title="Pieces x Rate Card rate this month — see Piece Rate > Operator Summary">Piece Rate</th>
-                                    <th class="num grp-fixed">Manual Amount</th>
+                                    <th class="num grp-fixed" title="Pieces x Rate Card rate this month, auto-filled here — see Piece Rate > Operator Summary. Edit to override.">Manual Amount</th>
                                     <th class="num grp-deduction-emp">Company Pay</th>
                                     <th class="num grp-deduction-emp">Deductions</th><th class="num">Additions</th>
-                                    <th>Hold</th><th>Notes</th><th class="net grp-highlight">NET</th>
+                                    <th>Hold</th><th class="net grp-highlight">NET</th><th>Notes</th>
                                     <th>Bank A/C Name</th>
                                 </tr>
                             </thead>
@@ -1036,14 +1045,13 @@
                                     <td class="num grp-attendance sum-cell">{{ row.earned_days }}</td>
                                     <td class="num grp-attendance">{{ row.paid_holiday }}</td>
                                     <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
-                                    <td class="num grp-fixed{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} piece-rate-differs{% endif %}"{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} title="Differs from Manual Amount"{% endif %}>{{ row.piece_rate_amount|default_if_none:"—" }}</td>
-                                    <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}" data-piece-rate="{{ row.piece_rate_amount|default_if_none:'' }}"></td>
+                                    <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} piece-rate-differs{% endif %}" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} title="Piece rate total this month: {{ row.piece_rate_amount }}"{% endif %}></td>
                                     <td class="num grp-deduction-emp" data-field="already_paid">{% if row.calc.already_paid %}{{ row.calc.already_paid }}{% endif %}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
                                     <td><input type="checkbox" class="form-check-input" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
-                                    <td><input class="adj-input form-control form-control-sm" type="text" name="notes_{{ row.employee.id }}" value="{{ row.notes }}"></td>
                                     <td class="net grp-highlight" data-field="net">{{ row.calc.net }}</td>
+                                    <td><input class="adj-input form-control form-control-sm" type="text" name="notes_{{ row.employee.id }}" value="{{ row.notes }}"></td>
                                     <td>{{ row.employee.account_name|default:"—" }}</td>
                                 </tr>
                                 {% endfor %}
@@ -1054,13 +1062,13 @@
                                     <td class="num">{{ operator_totals.earned_days }}</td>
                                     <td class="num">{{ operator_totals.paid_holiday }}</td>
                                     <td class="num personal-leave-cell">{{ operator_totals.personal_leave }}</td>
-                                    <td class="num">{{ operator_piece_rate_total }}</td>
                                     <td class="num" data-total="manual_amount">{{ operator_totals.manual_amount }}</td>
                                     <td class="num" data-total="already_paid">{{ operator_totals.calc.already_paid }}</td>
                                     <td class="num" data-total="deductions">{{ operator_totals.deductions }}</td>
                                     <td class="num" data-total="additions">{{ operator_totals.additions }}</td>
-                                    <td></td><td></td>
+                                    <td></td>
                                     <td class="net" data-total="net">{{ operator_totals.calc.net }}</td>
+                                    <td></td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -1813,48 +1821,6 @@
     </script>
 {% include "attendance/_htmx_scripts.html" %}
     <script>
-        // Operators tab: copy each row's Piece Rate total into its Manual
-        // Amount field. Only fills the form — nothing is stored until Save
-        // Operators — and fires the same "input" event typing would, so
-        // NET and the totals row recalculate exactly as for a hand edit.
-        (function () {
-            var btn = document.getElementById('loadPieceRateBtn');
-            if (!btn) return;
-            var note = document.getElementById('loadPieceRateNote');
-            btn.addEventListener('click', function () {
-                var inputs = Array.prototype.filter.call(
-                    document.querySelectorAll('input[data-piece-rate]'),
-                    function (i) { return i.dataset.pieceRate !== ''; }
-                );
-                var differing = inputs.filter(function (i) {
-                    return i.value.trim() !== '' && Number(i.value) !== Number(i.dataset.pieceRate);
-                });
-                var overwrite = true;
-                if (differing.length) {
-                    overwrite = window.confirm(
-                        differing.length + ' operator(s) already have a different Manual Amount.
-
-' +
-                        'OK = replace those with the piece-rate amount too.
-' +
-                        'Cancel = only fill the empty ones.'
-                    );
-                }
-                var filled = 0;
-                inputs.forEach(function (i) {
-                    if (i.value.trim() !== '' && !overwrite) return;
-                    if (Number(i.value) === Number(i.dataset.pieceRate) && i.value.trim() !== '') return;
-                    i.value = i.dataset.pieceRate;
-                    i.dispatchEvent(new Event('input', { bubbles: true }));
-                    filled++;
-                });
-                note.textContent = filled
-                    ? 'Loaded ' + filled + ' amount(s) — not saved yet. Review, then click Save Operators.'
-                    : 'Nothing to load — Manual Amounts already match.';
-            });
-        })();
-    </script>
-    <script>
         // Summary tab: last month's headcount/NET (popup on each row's ⓘ)
         // and what made this month's NET differ — fetched after load since
         // working out last month's payroll takes a few seconds server-side.
@@ -1886,7 +1852,7 @@
                         var parts = [el('div', 'change-total' + cls, g.diff_display || '₹0.00')];
                         if (g.changes && g.changes.length) {
                             var ul = el('ul');
-                            g.changes.forEach(function (c) { ul.appendChild(el('li', null, c.display + ' — ' + c.text)); });
+                            g.changes.forEach(function (c) { ul.appendChild(el('li', null, c.display + ' → ' + c.text)); });
                             parts.push(ul);
                         } else if (g.changes) {
                             parts.push(el('div', 'loading', 'No change'));

@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    /* Lets the sticky page header + sticky table header (app.css) track
+       real page scroll instead of being boxed to just this table. */
+    .table-wrap { overflow: visible; }
     .inactive-count { color: var(--text-muted); font-size: 0.78rem; font-weight: 400; }
     .delete-btn {
         background: none; border: 1px solid var(--border); border-radius: 6px; color: #b3261e;
@@ -48,10 +51,9 @@
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_templates" page_title="Templates" %}
-
-    <div class="page">
-        {% if is_piece_rate_editor %}
-        <div class="month-nav">
+    {% if is_piece_rate_editor %}
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="piece_rate_templates" page_title="Templates" %}
             <div class="action-row">
                 <form method="post" style="display:flex; gap:0.5rem;">
                     {% csrf_token %}
@@ -61,8 +63,11 @@
                 </form>
             </div>
         </div>
-        {% endif %}
+    {% else %}
+    {% include "attendance/_header_pill.html" with floating=True current="piece_rate_templates" page_title="Templates" %}
+    {% endif %}
 
+    <div class="page">
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}

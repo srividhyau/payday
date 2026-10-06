@@ -41,6 +41,11 @@
            All three are the same size now (Legend is a small icon rather
            than a differently-sized text label) — this only still centers
            that icon within its own nav-link, same height as its siblings. */
+        /* Nested inside .month-nav here (unlike dashboard.html/
+           ot_details.html, where it's a separate row below it, promoted
+           into their own .fixed-header-group) — so it's already part of
+           the one fixed header bar for free, no extra positioning
+           needed. */
         .view-switch-row { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
         /* Same circle size as the "Send to WhatsApp" icon button next to
            it (.icon-btn is 2.1rem, see app.css) rather than matching the
@@ -136,7 +141,15 @@
            to fit instead of scrolling — width:auto here keeps the
            horizontal-scroll behavior .grid-scroll (now also carrying
            Bootstrap's table-responsive, see the markup) provides. */
-        .grid-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; background: var(--surface); }
+        /* overflow: visible (was overflow-x: auto, plus Bootstrap's own
+           .table-responsive overflow — both removed, see the markup) so
+           the sticky header row AND sticky name column (below) bind to
+           the real viewport instead of just this box — same fix/
+           trade-off as dashboard.html's day-grid (its own comment below
+           explains why): the table now overflows the page itself
+           horizontally when it's wider than the viewport, rather than
+           getting its own contained scrollbar. */
+        .grid-scroll { overflow: visible; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; background: var(--surface); }
         table.month {
             width: auto;
             table-layout: fixed;
@@ -160,6 +173,11 @@
         table.month th {
             background: #fafafa;
             position: sticky;
+            /* Sticky within .page's own scroll box now (see app.css) —
+               top: 0 is already "flush with whatever's currently
+               scrolled into view", not the real viewport, so this needs
+               no offset even though .view-switch-row is nested inside
+               .month-nav (itself now entirely outside .page). */
             top: 0;
             z-index: 2;
             line-height: 1.15;
@@ -208,28 +226,8 @@
 <body>
     {% include "attendance/_topbar.html" with current="mark_attendance_month" page_title="Mark Attendance — Month View" %}
 
-    <div class="page">
-
-        {% for message in messages %}
-            <div class="msg {{ message.tags }}">{{ message }}</div>
-        {% endfor %}
-
-        {% if undo %}
-            <div class="undo-bar" role="status">
-                <span>Saved — {{ undo.text }}</span>
-                <form method="post" action="{% url 'undo_attendance_status' %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="employee_id" value="{{ undo.employee_id }}">
-                    <input type="hidden" name="date" value="{{ undo.date }}">
-                    <input type="hidden" name="prev_status" value="{{ undo.prev_status }}">
-                    <input type="hidden" name="new_status" value="{{ undo.new_status }}">
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit">Undo</button>
-                </form>
-            </div>
-        {% endif %}
-
-        <div class="month-nav">
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="mark_attendance_month" page_title="Mark Attendance — Month View" %}
             <div class="month-nav-row title-row">
                 <a href="?date={{ prev_date }}{% if dept %}&department={{ dept.id }}{% endif %}" class="nav-arrow" aria-label="Previous month">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -253,6 +251,26 @@
                 </div>
             </div>
         </div>
+
+    <div class="page">
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        {% if undo %}
+            <div class="undo-bar" role="status">
+                <span>Saved — {{ undo.text }}</span>
+                <form method="post" action="{% url 'undo_attendance_status' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="employee_id" value="{{ undo.employee_id }}">
+                    <input type="hidden" name="date" value="{{ undo.date }}">
+                    <input type="hidden" name="prev_status" value="{{ undo.prev_status }}">
+                    <input type="hidden" name="new_status" value="{{ undo.new_status }}">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit">Undo</button>
+                </form>
+            </div>
+        {% endif %}
 
         {% if is_locked %}
             <div class="locked-banner">This month is locked. Unlock it from the dashboard before editing attendance.</div>
@@ -279,7 +297,7 @@
                 <p style="margin:0.75rem 0 0;font-size:0.78rem;color:var(--text-muted);">Tap a day to toggle Present ⇄ Absent. For other statuses (Paid Holiday, Comp Off, etc.), use the <a href="{% url 'mark_attendance' %}{% if dept %}?department={{ dept.id }}{% endif %}" style="color:var(--navy);font-weight:600;">Day view</a>.</p>
             </div>
 
-            <div class="grid-scroll table-responsive">
+            <div class="grid-scroll">
                 <table class="table month{% if is_locked %} locked{% endif %}" id="monthTable">
                     <colgroup>
                         <col class="label-col">

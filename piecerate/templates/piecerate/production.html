@@ -9,7 +9,13 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
     <script src="{% static 'attendance/html2canvas.min.js' %}"></script>
 <style>
-    .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    /* flex column so .table-wrap (flex: 1 below) fills exactly whatever
+       height is left after .legendPanel/.filter-bar/messages take their
+       own natural space — no guessing at "everything above the table"
+       as one hand-tuned constant, which previously either left dead
+       space or let the table overshoot the bottom of the viewport
+       depending on how tall that other content happened to be. */
+    .page { width: 100%; margin: 0; padding: 0.6rem 1rem 0.6rem; display: flex; flex-direction: column; }
 
     .report-status { font-size: 0.8rem; color: var(--text-muted); }
     .report-status.error { color: #b3261e; }
@@ -18,9 +24,19 @@
     /* Extra bottom room inside the scroll container — without it the
        horizontal scrollbar sits flush against the last row, making its
        cells fiddly to click/edit right at the bottom of a scroll.
-       box-sizing keeps max-height the actual on-screen height rather
-       than growing taller by the padding amount. */
-    .table-wrap { overflow-x: scroll; overflow-y: auto; max-height: calc(100vh - 170px); padding-bottom: 2.5rem; box-sizing: border-box; }
+       box-sizing keeps the flex-assigned height the actual on-screen
+       height rather than growing taller by the padding amount. Needs
+       both overflow-x (wide day-grid) and overflow-y together — a page
+       relying on .page itself as the scroll container (see app.css)
+       only works for a table that's sticky on ONE axis; this one needs
+       sticky-top AND sticky-left together (see .col-opcode etc. below),
+       which both need the SAME nearest scrolling ancestor, so this box
+       keeps doing that job itself instead, same as dashboard.html's
+       day-grid. flex: 1 + min-height: 0 is what makes it fill the rest
+       of .page's own height (itself already bounded to the viewport
+       minus the fixed header — see app.css) instead of growing to fit
+       its content like a plain block would. */
+    .table-wrap { overflow-x: scroll; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-bottom: 2.5rem; box-sizing: border-box; }
     /* border-collapse:collapse + position:sticky cells is a known
        browser rendering bug — scrolled-under content can bleed through
        a sticky cell's border/background. border-separate avoids it. */
@@ -113,6 +129,13 @@
     }
     .month-nav h1 { font-size: 0.92rem; margin: 0; }
     .month-nav .tab-row { margin: 0; }
+    /* The style switcher + Rate Card/Mobile view links default to a
+       larger size (Bootstrap's own form-select-sm, and the shared
+       .tab-btn used for real page navigation elsewhere) than this
+       crowded a header row calls for, now that the pill sits in the
+       same row too. */
+    .month-nav #styleSwitcher { font-size: 0.8rem; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .month-nav .tab-btn { font-size: 0.75rem; padding: 0.35rem 0.75rem; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.9rem 1rem; margin-bottom: 0.75rem; }
     .card h2 { font-size: 1rem; margin: 0 0 0.9rem; color: var(--navy); }
 
@@ -193,7 +216,10 @@
        with flex-wrap — this only still sizes the row itself and gives
        the two search boxes a fixed width so they don't stretch to
        fill the row's remaining space. */
-    .filter-bar { flex-wrap: wrap; margin: 0.9rem 0 1rem; }
+    /* No top margin — .page's own top padding (see above) already gives
+       this room now that the header sits above it as a fixed bar rather
+       than flowed content with its own bottom margin to clear. */
+    .filter-bar { flex-wrap: wrap; margin: 0 0 1rem; }
     .filter-bar .form-floating { width: 300px; }
 
     /* Excess/Shortage/Balanced status filter — same diff-more/less/
@@ -236,8 +262,9 @@
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_production" page_title="Production — "|add:style.name %}
 
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {# page_title here is just "Production" (not "Production — <style>" like _topbar.html's own, above) — the style switcher dropdown right next to this pill already shows the style name, so the pill repeating it would be a duplicate. #}
+        {% include "attendance/_header_pill.html" with current="piece_rate_production" page_title="Production" %}
             {% if sibling_styles|length > 1 %}
             <select id="styleSwitcher" class="form-select form-select-sm" style="width:auto;" data-base="{% url 'piece_rate_production' 0 %}" aria-label="Switch style">
                 {% for s in sibling_styles %}
@@ -261,6 +288,7 @@
             </div>
         </div>
 
+    <div class="page">
         <div class="card" id="legendPanel" style="display:none;">
             <h2>Legend</h2>
             <div class="legend">

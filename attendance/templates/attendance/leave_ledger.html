@@ -36,9 +36,13 @@
 
         /* Table now carries its own full grid border (traditional bordered
            table), so .table-wrap doesn't need a second boxed border around
-           it too; overflow-x:auto (for a narrow screen) is all that's
-           still needed from it. */
-        .table-wrap { border: none; border-radius: 0; }
+           it too. overflow: visible (was overflow-x: auto) so the sticky
+           page header + sticky table header (app.css) track real page
+           scroll instead of being boxed to just this table — a wide
+           table now overflows the page itself horizontally (same
+           trade-off dashboard.html's day-grid already makes) rather than
+           getting its own contained scrollbar. */
+        .table-wrap { border: none; border-radius: 0; overflow: visible; }
                         table.simple { border: 1px solid rgba(0,47,102,0.2); }
         table.simple th, table.simple td { padding: 0.55rem 0.8rem; font-size: 0.85rem; text-align: left; border: 1px solid rgba(0,47,102,0.2); white-space: nowrap; }
         table.simple th { background: #fafbfc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
@@ -121,8 +125,8 @@
 <body>
     {% include "attendance/_topbar.html" with current="leave_ledger" page_title="EL & Comp-Off" %}
 
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="leave_ledger" page_title="EL & Comp-Off" %}
             <div class="month-nav-row title-row">
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -138,6 +142,7 @@
             </div>
         </div>
 
+    <div class="page">
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}

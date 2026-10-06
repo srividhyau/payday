@@ -9,6 +9,15 @@
         <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
                                 .page { width: 100%; padding: 1.5rem 1rem 3rem; }
+        /* .month-nav AND .view-switch-row together make up this page's
+           fixed header (unlike most pages, which only have .month-nav) —
+           this wrapper is what's actually position: fixed (see app.css's
+           shared .month-nav rule cancelled below), so the two rows stay
+           part of one solid block instead of needing their own stacked
+           offsets. */
+        .fixed-header-group { position: fixed; top: 0; left: var(--sidebar-w); right: 0; z-index: 20; background: var(--surface); }
+        body:has(.topbar.collapsed) .fixed-header-group { left: 0; }
+        .month-nav { position: static; }
 
                         h2 { font-size: 1.05rem; margin: 0 0 0.9rem; letter-spacing: -0.01em; color: var(--navy); }
         .caption { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; max-width: 700px; }
@@ -54,7 +63,7 @@
            scoped via .nav-tabs so Production/Salary's own tab rows
            (which have their own copy of this same override) are
            unaffected. */
-        .view-switch-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 0.9rem; }
+        .view-switch-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 0.9rem; padding: 0.3rem 0.85rem; }
         .tab-row.nav-tabs { border-bottom: 1px solid var(--border); gap: 0.15rem; margin: 0; flex: 1 1 auto; }
         .tab-row.nav-tabs .tab-btn {
             border-radius: 8px 8px 0 0; border: none; margin-bottom: -1px;
@@ -94,12 +103,9 @@
            View tab, permanently on instead of toggled — see
            attendance/views.py _build_month_grid) --- */
         /* No overflow/height constraint at all — the table just flows
-           into the page's own scroll (both directions), which is what
-           lets thead's sticky positioning below bind to the actual
-           viewport instead of a confined inner box (see the comment
-           further down explaining why sticky header + sticky label
-           column can't coexist with a sticky footer on the same
-           element). */
+           into .page's own scroll (both directions — see app.css), which
+           is what lets thead's sticky positioning below bind to that box
+           instead of a confined inner one. */
         .grid-scroll {
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -130,21 +136,11 @@
         table.month td.dept-header { position: static; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
         table.month tr.dept:hover td { filter: brightness(0.97); }
         table.month .toggle-icon { display: inline-block; width: 0.9em; }
-        /* Freeze the date header row and the name column. No wrapping
-           div here has its own overflow/scroll anymore (see .grid-scroll
-           above) — sticky positioning always binds to the NEAREST
-           ancestor that actually scrolls, and CSS won't let one axis
-           stay "visible" while the other is "auto"/"scroll" on the same
-           element (a real spec quirk, not a bug) — so keeping a
-           horizontally-scrolling inner box would have silently made
-           these bind to that box instead of the page, undoing the
-           "freeze while scrolling the page" effect entirely. With
-           nothing clipping in between, they bind to the real viewport —
-           top: 0 now that the nav is a left sidebar rather than a
-           horizontal bar eating vertical space at the top (it used to
-           need a 56px offset matching that bar's height).
-           Borders don't travel with sticky cells under border-collapse,
-           so an inset box-shadow redraws them. */
+        /* Freeze the date header row and the name column within .page's
+           own scroll box (see app.css) — top: 0 needs no offset, since
+           the fixed header (.fixed-header-group) isn't part of that box
+           at all any more. Borders don't travel with sticky cells under
+           border-collapse, so an inset box-shadow redraws them. */
         table.month thead th { position: sticky; top: 0; z-index: 3; box-shadow: inset 0 -1px 0 #666; }
         /* Scoped to tbody only — the tfoot's own "Total" label cell
            spans every column (colspan); sticking it left too, on top of
@@ -445,12 +441,10 @@
 <body>
     {# current="dashboard": OT is a view of Device Records (see its tab row), so the sidebar highlights that. #}
     {% include "attendance/_topbar.html" with current="dashboard" page_title="Device Records — OT" %}
-    <div class="page">
-        {% for message in messages %}
-        <div class="msg {{ message.tags }}">{{ message }}</div>
-        {% endfor %}
         {% if has_data %}
+        <div class="fixed-header-group">
         <div class="month-nav">
+            {% include "attendance/_header_pill.html" with current="dashboard" page_title="Device Records — OT" %}
             <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
             <span class="current-month">{{ month_name }} {{ year }}</span>
             <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
@@ -494,7 +488,15 @@
             <span id="sendOtWhatsappStatus" class="report-status"></span>
         </div>
         {% endif %}
+        </div>
+        {% else %}
+        {% include "attendance/_header_pill.html" with floating=True current="dashboard" page_title="Device Records — OT" %}
         {% endif %}
+
+    <div class="page">
+        {% for message in messages %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
 
         {% if dept_ot_summary %}
         <div class="card collapse" id="deptPanel">
@@ -1061,8 +1063,9 @@
                     var combinedStr = combined.toFixed(4);
                     if (parseFloat(combinedStr) !== parseFloat(combinedInput.dataset.original || '0')) {
                         combinedInput.value = combinedStr;
-                        sessionStorage.setItem('otPageScrollX', window.scrollX);
-                        sessionStorage.setItem('otPageScrollY', window.scrollY);
+                        var pageEl = document.querySelector('.page');
+                        sessionStorage.setItem('otPageScrollX', pageEl ? pageEl.scrollLeft : 0);
+                        sessionStorage.setItem('otPageScrollY', pageEl ? pageEl.scrollTop : 0);
                         form.submit();
                     }
                 }
@@ -1083,7 +1086,11 @@
             (function restoreScrollAfterInlineSave() {
                 var savedY = sessionStorage.getItem('otPageScrollY');
                 if (savedY !== null) {
-                    window.scrollTo(parseInt(sessionStorage.getItem('otPageScrollX'), 10) || 0, parseInt(savedY, 10) || 0);
+                    var pageEl = document.querySelector('.page');
+                    if (pageEl) {
+                        pageEl.scrollLeft = parseInt(sessionStorage.getItem('otPageScrollX'), 10) || 0;
+                        pageEl.scrollTop = parseInt(savedY, 10) || 0;
+                    }
                     sessionStorage.removeItem('otPageScrollX');
                     sessionStorage.removeItem('otPageScrollY');
                 }

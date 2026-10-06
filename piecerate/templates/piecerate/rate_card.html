@@ -65,7 +65,7 @@
     .table-wrap { overflow: visible; }
     table.simple { border-collapse: collapse; }
     table.simple th, table.simple td { border: 1px solid #b7bcc4; padding: 0.1rem 0.4rem; font-size: 0.78rem; }
-    table.simple th, table.simple th.num { background: #fef9c3; position: sticky; top: 0; z-index: 5; text-align: center; }
+    table.simple th, table.simple th.num { background: #fef9c3; position: sticky; z-index: 5; text-align: center; }
 
     table.simple input[type="text"], table.simple input[type="number"], table.simple select {
         border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.3rem;
@@ -103,8 +103,9 @@
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_styles" page_title="Rate Card — "|add:style.name %}
 
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {# page_title here is just "Rate Card" (not "Rate Card — <style>" like _topbar.html's own, above) — the style switcher dropdown right next to this pill already shows the style name, so the pill repeating it would be a duplicate. #}
+        {% include "attendance/_header_pill.html" with current="piece_rate_styles" page_title="Rate Card" %}
             <select id="styleSwitch" class="search-input" style="min-width:180px;">
                 {% for s in all_styles %}
                 <option value="{% url 'piece_rate_rate_card' s.id %}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
@@ -131,6 +132,7 @@
             <span id="orderSavedNote" style="font-size:0.8rem; color:var(--text-muted); display:none; margin-left:auto;">Order saved</span>
         </div>
 
+    <div class="page">
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}

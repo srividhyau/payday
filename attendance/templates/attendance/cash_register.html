@@ -44,9 +44,10 @@
 
         /* Table now carries its own full grid border (traditional bordered
            table), so .table-wrap doesn't need a second boxed border around
-           it too; overflow-x:auto (for a narrow screen) is all that's
-           still needed from it. */
-        .table-wrap { border: none; border-radius: 0; }
+           it too. overflow: visible (was overflow-x: auto) so the sticky
+           page header + sticky table header (app.css) track real page
+           scroll instead of being boxed to just this table. */
+        .table-wrap { border: none; border-radius: 0; overflow: visible; }
 
         /* Add-row inputs/select, the Add button, per-row Edit/Delete,
            and the edit modal's inputs/select/buttons are now plain
@@ -101,8 +102,8 @@
 <body>
     {% include "attendance/_topbar.html" with current="cash_register" page_title="Cash Register" %}
 
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="cash_register" page_title="Cash Register" %}
             <div class="month-nav-row title-row">
                 <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
@@ -116,6 +117,7 @@
             </div>
         </div>
 
+    <div class="page">
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}

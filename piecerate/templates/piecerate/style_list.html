@@ -9,6 +9,11 @@
     <link rel="stylesheet" href="{% static 'attendance/app.css' %}">
 <style>
     .page { width: 100%; margin: 0; padding: 1.5rem 1rem 3rem; }
+    /* Lets the sticky page header + sticky table header (app.css) track
+       real page scroll instead of being boxed to just this table — see
+       app.css's own comment on table.simple thead th for why overflow
+       on this ancestor otherwise breaks position: sticky. */
+    .table-wrap { overflow: visible; }
     /* Same bordered-grid table format every other piece-rate page uses
        (Operator Links, Rate Card, Operator/Style/Management Summary) —
        this page was missing it and still had app.css's plain generic
@@ -101,8 +106,8 @@
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_styles" page_title="Styles" %}
 
-    <div class="page">
-        <div class="month-nav">
+    <div class="month-nav">
+        {% include "attendance/_header_pill.html" with current="piece_rate_styles" page_title="Styles" %}
             <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
             <span class="current-month">{{ month_name }} {{ year }}</span>
             <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
@@ -134,6 +139,7 @@
             </div>
         </div>
 
+    <div class="page">
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
