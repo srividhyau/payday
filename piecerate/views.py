@@ -2321,8 +2321,10 @@ def operator_entry_view(request, token):
         })
         op_bucket = style_bucket["ops"].setdefault(rc_op.id, {
             "op_name": _op_display_name(rc_op), "rate": rc_op.rate, "quantity": 0,
+            "date_quantities": {}, "op_id": rc_op.id,
         })
         op_bucket["quantity"] += e.quantity
+        op_bucket["date_quantities"][e.date] = op_bucket["date_quantities"].get(e.date, 0) + e.quantity
         # One order size per style (MAX across its operations), same
         # rule logged_by_style above and _operator_summary_context use.
         style_bucket["order_qty"] = max(style_bucket["order_qty"], rc_op.order_quantity)
@@ -2332,7 +2334,25 @@ def operator_entry_view(request, token):
     for style_bucket in viewed_by_style.values():
         ops_list = []
         for op_bucket in style_bucket["ops"].values():
-            op_row = {"op_name": op_bucket["op_name"], "total": op_bucket["quantity"]}
+            op_row = {"op_name": op_bucket["op_name"], "total": op_bucket["quantity"], "op_id": op_bucket["op_id"]}
+            # The history calendar is deliberately read-only: its days
+            # carry display data only, never the selectable date/quantity
+            # attributes used by the production entry form.
+            first = date_cls(viewed_year, viewed_month, 1)
+            last_day = calendar.monthrange(viewed_year, viewed_month)[1]
+            weeks = []
+            days = [None] * first.weekday() + [date_cls(viewed_year, viewed_month, d) for d in range(1, last_day + 1)]
+            days += [None] * ((7 - len(days) % 7) % 7)
+            for offset in range(0, len(days), 7):
+                weeks.append([{
+                    "date": day,
+                    "in_month": day is not None,
+                    "quantity": op_bucket["date_quantities"].get(day, 0) if day else 0,
+                } for day in days[offset:offset + 7]])
+            op_row["calendar"] = {
+                "op_id": op_bucket["op_id"], "month_label": f"{calendar.month_name[viewed_month]} {viewed_year}",
+                "total": op_bucket["quantity"], "weeks": weeks,
+            }
             if viewed_show_rate:
                 amount = (op_bucket["rate"] * op_bucket["quantity"]).quantize(Decimal("0.01"))
                 op_row["rate"] = op_bucket["rate"]

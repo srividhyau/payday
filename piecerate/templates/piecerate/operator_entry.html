@@ -488,11 +488,12 @@
                             </div>
                         </td></tr>
                         {% for row in style_bucket.ops %}
-                        <tr class="op-row">
+                        <tr class="op-row clickable" data-toggle-history-calendar tabindex="0" role="button" aria-expanded="false">
                             <td class="op">{{ row.op_name }}</td>
                             <td class="num qty">{{ row.total }}</td>
                             {% if viewed_show_rate %}<td class="num">₹{{ row.rate }}</td><td class="num amount">₹{{ row.amount }}</td>{% endif %}
                         </tr>
+                        <tr class="history-calendar-row" hidden><td colspan="{% if viewed_show_rate %}4{% else %}2{% endif %}">{% include "piecerate/_op_calendar.html" with cal=row.calendar selectable=False %}</td></tr>
                         {% endfor %}
                         {% if viewed_show_rate %}
                         <tr class="subtotal-row">
@@ -766,6 +767,23 @@
                 var item = card.querySelector('.op-item[data-id="' + btn.dataset.opId + '"]');
                 if (item) item.click();
                 card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+            });
+        });
+        // Past-month history is display-only. Expand the selected
+        // operation's calendar inline without attaching any day handlers.
+        document.querySelectorAll('[data-toggle-history-calendar]').forEach(function (row) {
+            function toggleHistoryCalendar() {
+                var calendarRow = row.nextElementSibling;
+                if (!calendarRow || !calendarRow.classList.contains('history-calendar-row')) return;
+                calendarRow.hidden = !calendarRow.hidden;
+                row.setAttribute('aria-expanded', String(!calendarRow.hidden));
+            }
+            row.addEventListener('click', toggleHistoryCalendar);
+            row.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleHistoryCalendar();
+                }
             });
         });
         // Tapping a corrected day's dot shows what the operator

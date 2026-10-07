@@ -64,6 +64,7 @@ body:has(.topbar.collapsed) { padding-left: 0; }
    collapse button covers that job then. */
 .header-nav-toggle {
     display: flex; align-items: center; gap: 0.45rem;
+    min-width: 0; max-width: 100%; white-space: normal; text-align: left;
     border: 1px solid rgba(0,47,102,0.3); border-radius: 999px;
     background: var(--yellow); color: var(--navy); cursor: pointer; font-family: inherit;
     font-size: 0.85rem; font-weight: 700; letter-spacing: -0.01em;
@@ -74,7 +75,7 @@ body:has(.topbar.collapsed) { padding-left: 0; }
    that job, so this pill would just be a redundant label. */
 body:has(.topbar:not(.collapsed)) .header-nav-toggle { display: none; }
 .header-nav-toggle .brand-logo { width: 1.6rem; height: 1.6rem; display: block; border-radius: 50%; flex: none; }
-.header-nav-toggle span { white-space: nowrap; }
+.header-nav-toggle span { min-width: 0; white-space: normal; overflow-wrap: normal; word-break: normal; }
 /* A handful of simple pages (Roles, WhatsApp Setup, ...) have no
    .month-nav to merge the pill into — _header_pill.html gives those
    this extra class instead, restoring the old floating-over-the-page
@@ -94,15 +95,17 @@ body:has(.topbar.collapsed) .header-nav-toggle-floating { left: 0.85rem; }
 .crumb-sep { font-style: normal; opacity: 0.55; margin: 0 0.2rem; }
 .crumb-nav { display: inline-flex; min-width: 0; max-width: 100%; overflow: hidden; }
 .crumb-nav .breadcrumb {
-    --bs-breadcrumb-divider: "\2192"; display: flex; flex-wrap: nowrap; align-items: center;
-    margin: 0; padding: 0; min-width: 0; overflow: hidden;
+    --bs-breadcrumb-divider: "\2192"; display: flex; flex-wrap: wrap; align-items: center;
+    margin: 0; padding: 0; min-width: 0; overflow: visible;
     font-size: inherit; font-weight: inherit; font-family: inherit;
 }
-.crumb-nav .breadcrumb-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumb-nav .breadcrumb-item { min-width: 0; white-space: normal; overflow-wrap: normal; word-break: normal; }
 .crumb-nav .breadcrumb-item::before { color: var(--navy); opacity: 0.55; padding-right: 0.4rem; }
 .crumb-nav .breadcrumb-item a { color: var(--navy); text-decoration: none; }
 .crumb-nav .breadcrumb-item a:hover { text-decoration: underline; }
-.crumb-nav .breadcrumb-item.active { color: var(--navy); overflow: hidden; text-overflow: ellipsis; }
+.crumb-nav .breadcrumb-item.active { color: var(--navy); }
+.month-nav { min-width: 0; }
+.month-nav h1 { min-width: 0; white-space: normal; overflow-wrap: normal; word-break: normal; }
 /* .page is the scroll container now, not body — the header (.month-nav,
    see below) is truly position: fixed, outside .page entirely, so
    nothing reserves its space in normal flow any more. margin-top pushes
@@ -379,7 +382,7 @@ body .page table.month th[class] { border-color: #6b7280; }
 body .page table th,
 body .page table.simple th,
 body .page table.month th,
-body .page table.month th[class] { white-space: normal; overflow-wrap: anywhere; }
+body .page table.month th[class] { white-space: normal; overflow-wrap: normal; word-break: normal; }
 .page table.simple tbody tr:nth-child(even) { background-color: #f8fafc; }
 .page table.simple tbody tr:hover td:not([class]) { background-color: #eef4fb; }
 .page table.simple td.num, .page table.simple th.num { text-align: right; }
