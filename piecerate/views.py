@@ -400,6 +400,25 @@ def template_list_view(request):
                 Style.objects.create(name=name, is_template=True)
                 messages.success(request, f'Template "{name}" created.')
             return redirect("piece_rate_templates")
+        if action == "duplicate_template":
+            template = get_object_or_404(Style, id=request.POST.get("style_id"), is_template=True)
+            new_name = _unique_name(f"{template.name} Copy")
+            new_template = Style.objects.create(
+                name=new_name,
+                is_template=True,
+                image_data=template.image_data,
+                image_content_type=template.image_content_type,
+            )
+            RateCardOperation.objects.bulk_create([
+                RateCardOperation(
+                    style=new_template, op_code=op.op_code, section=op.section, name=op.name,
+                    machine=op.machine, rate=op.rate, pay_type=op.pay_type,
+                    order_quantity=op.order_quantity, is_enabled=op.is_enabled,
+                )
+                for op in template.operations.all()
+            ])
+            messages.success(request, f'"{new_name}" created from "{template.name}".')
+            return redirect("piece_rate_templates")
         if action == "rename_style":
             style = get_object_or_404(Style, id=request.POST.get("style_id"), is_template=True)
             name = request.POST.get("name", "").strip()
