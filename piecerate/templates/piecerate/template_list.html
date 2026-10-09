@@ -83,6 +83,7 @@
                         <th class="num">Total Rate</th>
                         <th></th>
                         <th></th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -118,6 +119,16 @@
                         <td class="num">{{ row.operation_count }}{% if row.inactive_count %} <span class="inactive-count">({{ row.inactive_count }} inactive)</span>{% endif %}</td>
                         <td class="num {{ row.rate_class }}">{{ row.total_rate }}</td>
                         <td><a href="{% url 'piece_rate_rate_card' row.style.id %}" class="btn btn-outline-primary btn-sm text-nowrap">Rate Card</a></td>
+                        <td>
+                            {% if is_piece_rate_editor %}
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="duplicate_template">
+                                <input type="hidden" name="style_id" value="{{ row.style.id }}">
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">Duplicate</button>
+                            </form>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if is_piece_rate_group_member %}
                             <form method="post" style="display:inline;" onsubmit="return confirm('Delete template {{ row.style.name|escapejs }} and its entire rate card?');">
