@@ -55,7 +55,7 @@
                 <p class="fw-semibold">Reusable rate card templates</p>
                 <p class="small text-body-secondary">Reference cards for creating styles; templates are not used directly for production.</p>
                 {% if is_piece_rate_group_member and not is_piece_rate_editor %}
-                <p class="small text-body-secondary mt-1">Verify your OTP to upload or change template images.</p>
+                <p class="small text-body-secondary mt-1">Verify your OTP to edit templates. <a href="{% url 'otp_verify' %}?next={{ request.path }}" data-otp-popup>Verify now</a></p>
                 {% elif not is_piece_rate_group_member %}
                 <p class="small text-body-secondary mt-1">Template images can be changed by a Piece Rate Editor.</p>
                 {% endif %}
@@ -135,7 +135,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm" {% if not is_piece_rate_editor %}disabled title="Verify with OTP to delete"{% endif %}>Delete</button>
+                                {% if is_piece_rate_editor %}<button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>{% else %}<button type="button" class="btn btn-outline-danger btn-sm" title="Verify with OTP to delete" data-otp-popup>Delete</button>{% endif %}
                             </form>
                             {% endif %}
                         </td>

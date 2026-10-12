@@ -138,7 +138,7 @@
                     </form>
                     {% endif %}
                     {% else %}
-                    <a href="{% url 'otp_verify' %}?next={{ request.path }}" class="btn btn-outline-primary btn-sm">Verify to edit</a>
+                    <a href="{% url 'otp_verify' %}?next={{ request.path }}" class="btn btn-outline-primary btn-sm" data-otp-popup>Verify to edit</a>
                     {% endif %}
                 </div>
             </div>
@@ -233,7 +233,8 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete_style">
                                 <input type="hidden" name="style_id" value="{{ row.style.id }}">
-                                <button type="submit" class="icon-btn icon-btn-danger" data-tooltip="{% if can_edit_styles %}Delete{% else %}Verify with OTP to delete{% endif %}" aria-label="Delete" {% if not can_edit_styles %}disabled{% endif %}>
+                                {% if can_edit_styles %}<button type="submit" class="icon-btn icon-btn-danger" data-tooltip="Delete" aria-label="Delete">
+                                {% else %}<button type="button" class="icon-btn icon-btn-danger" data-tooltip="Verify with OTP to delete" aria-label="Verify with OTP to delete" data-otp-popup>{% endif %}
                                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7v13a2 2 0 002 2h8a2 2 0 002-2V7"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
                                 </button>
                             </form>

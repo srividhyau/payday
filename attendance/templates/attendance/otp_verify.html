@@ -81,6 +81,7 @@
                 <input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" name="token" id="otpToken" autofocus required>
             </p>
             <input type="hidden" name="next" value="{{ next }}">
+            {% if popup_mode %}<input type="hidden" name="popup" value="1">{% endif %}
             <button type="submit">Verify</button>
         </form>
     </div>

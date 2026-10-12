@@ -59,6 +59,7 @@
 
     <div class="month-nav">
         {% include "attendance/_header_pill.html" with current="piece_rate_operations" page_title="Master Operations" %}
+        {% if is_piece_rate_group_member and not is_piece_rate_editor %}<a href="{% url 'otp_verify' %}?next={{ request.path }}" class="btn btn-outline-primary btn-sm" data-otp-popup>Verify to edit</a>{% endif %}
             <div class="tab-row">
                 <a class="tab-btn{% if not section_filter %} active{% endif %}" href="?q={{ query|urlencode }}&sort={{ sort }}&dir={{ dir }}">All</a>
                 {% for sec in sections %}
@@ -123,7 +124,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="op_id" value="{{ op.id }}">
-                                <button type="submit" class="delete-btn" {% if not is_piece_rate_editor %}disabled title="Verify with OTP to delete"{% endif %}>Delete</button>
+                                {% if is_piece_rate_editor %}<button type="submit" class="delete-btn">Delete</button>{% else %}<button type="button" class="delete-btn" title="Verify with OTP to delete" data-otp-popup>Delete</button>{% endif %}
                             </form>
                         </td>
                         {% endif %}

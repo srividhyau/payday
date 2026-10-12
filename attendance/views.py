@@ -134,16 +134,21 @@ def otp_verify_view(request):
     Gated pages (piecerate's Style/Template/Master Operations writes —
     see piecerate.views._require_otp_verified) redirect here with
     ?next=<where they came from> when not yet verified."""
+    popup_mode = request.GET.get("popup") == "1" or request.POST.get("popup") == "1"
     next_url = request.GET.get("next") or request.POST.get("next") or "home"
     if request.user.is_verified():
+        if popup_mode:
+            return render(request, "attendance/otp_verified_popup.html")
         return redirect(next_url)
     if request.method == "POST":
         device = match_token(request.user, request.POST.get("token", "").strip())
         if device:
             django_otp.login(request, device)
+            if popup_mode:
+                return render(request, "attendance/otp_verified_popup.html")
             return redirect(next_url)
         messages.error(request, "Invalid code — try again.")
-    return render(request, "attendance/otp_verify.html", {"next": next_url})
+    return render(request, "attendance/otp_verify.html", {"next": next_url, "popup_mode": popup_mode})
 
 
 # Uploaded files are staged here (as <32-hex-token>.<ext>) between the

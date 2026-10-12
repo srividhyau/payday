@@ -107,6 +107,7 @@
         {# page_title here is just "Rate Card" (not "Rate Card — <style>" like _topbar.html's own, above) — the style switcher dropdown right next to this pill already shows the style name, so the pill repeating it would be a duplicate. #}
         {% include "attendance/_header_pill.html" with current="piece_rate_styles" page_title="Rate Card" %}
             {% include "piecerate/_style_icon.html" with style=style %}
+            {% if not otp_verified %}<a href="{% url 'otp_verify' %}?next={{ request.path }}" class="btn btn-outline-primary btn-sm" data-otp-popup>Verify to edit</a>{% endif %}
             <select id="styleSwitch" class="search-input" style="min-width:180px;">
                 {% for s in all_styles %}
                 <option value="{% url 'piece_rate_rate_card' s.id %}"{% if s.id == style.id %} selected{% endif %}>{{ s.name }}</option>
@@ -268,7 +269,7 @@
                             <td class="col-operators">{% if op.operator_names %}{{ op.operator_names|join:", " }}{% else %}<span class="no-operators-label">No operators</span>{% endif %}</td>
                             <td>
                                 {% if can_see_delete %}
-                                <button type="button" class="delete-btn" disabled title="Verify with OTP to delete">Delete</button>
+                                <button type="button" class="delete-btn" title="Verify with OTP to delete" data-otp-popup>Delete</button>
                                 {% endif %}
                             </td>
                         </tr>

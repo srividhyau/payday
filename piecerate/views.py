@@ -645,7 +645,13 @@ def rate_card_view(request, style_id):
 
     return render(request, "piecerate/rate_card.html", {
         "style": style,
-        "all_styles": Style.objects.all(),
+        "all_styles": (
+            Style.objects.filter(is_template=True).order_by("name")
+            if style.is_template
+            else Style.objects.filter(
+                year=style.year, month=style.month, is_template=False,
+            ).order_by("name")
+        ),
         "operations": operations,
         "master_operations": master_operations,
         "master_map": master_map,

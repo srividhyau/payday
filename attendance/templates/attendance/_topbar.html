@@ -1,5 +1,6 @@
 {% load static %}
 <button type="button" class="sidebar-mobile-toggle" id="sidebarMobileToggle" aria-label="Toggle menu">☰</button>
+<span id="otpPopupEndpoint" data-url="{% url 'otp_verify' %}" hidden></span>
 {% comment %}
 The reopen-control pill (#headerNavToggle, see _header_pill.html) is NOT
 rendered here any more — a page with its own .month-nav includes it as
@@ -203,4 +204,20 @@ so there's no empty/broken state to worry about there.
             e.preventDefault();
         }
     }, { passive: false });
+
+    // Step-up authentication can be opened from a locked control without
+    // leaving the current page. The OTP window notifies this page on success.
+    document.addEventListener('click', function (e) {
+        var trigger = e.target.closest('[data-otp-popup]');
+        if (!trigger) return;
+        e.preventDefault();
+        var endpoint = document.getElementById('otpPopupEndpoint').dataset.url;
+        var next = window.location.pathname + window.location.search;
+        window.open(endpoint + '?popup=1&next=' + encodeURIComponent(next), 'otpVerification', 'width=520,height=650,resizable=yes,scrollbars=yes');
+    });
+    window.addEventListener('message', function (e) {
+        if (e.origin === window.location.origin && e.data && e.data.type === 'otp-verified') {
+            window.location.reload();
+        }
+    });
 </script>

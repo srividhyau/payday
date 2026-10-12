@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Verified</title></head>
+<body>
+<p>Verification complete. You can close this window.</p>
+<script>
+    if (window.opener) {
+        window.opener.postMessage({ type: 'otp-verified' }, window.location.origin);
+        window.close();
+    }
+</script>
+</body>
+</html>
