@@ -2875,11 +2875,11 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
             totals["da"] = sum((r["employee"].da for r in rows), Decimal(0))
             totals["hra"] = sum((r["employee"].hra for r in rows), Decimal(0))
-        elif kind in ("helper", "staff", "contractors"):
+        elif kind in ("helper", "staff", "contractor", "contractors"):
             totals["basic_salary"] = sum((r["employee"].basic_salary for r in rows), Decimal(0))
-        elif kind in ("operators", "ironing_bartrack"):
+        elif kind in ("operator", "operators", "ironing_bartrack"):
             totals["manual_amount"] = sum((r["manual_amount"] or Decimal(0) for r in rows), Decimal(0))
-        elif kind == "fixed_payments":
+        elif kind in ("fixed_payment", "fixed_payments"):
             # manual_amount on top of the per-row fixed amount for the odd
             # month it's more/less than usual (see build_rows/
             # compute_fixed_payment_pay) — the fixed amount itself sums via
@@ -3524,9 +3524,8 @@ def _salary_company_sheet_rows(rows, totals):
         "Earned Basic+DA", "Earned HRA", "Earned Total Wages",
         "PF (Employee) 12%", "ESI (Employee) 0.75%", "PF+ESI (Employee)",
         "PF (Employer) 13% of Earned Total", "ESI (Employer) 3.25%", "PF+ESI (Employer)",
-        "Expected CTC (Full Attendance)", "Actual CTC",
         "Other Deductions", "Profession Tax", "Total Deductions (Employee PF + Employee ESI + Other Deductions + PT)",
-        "Additions", "Hold", "NET",
+        "Additions", "Hold", "NET", "Expected CTC (Full Attendance)", "Actual CTC",
     ]
     col_groups = [
         None, None, "fixed", "fixed", "fixed", "fixed", "fixed",
@@ -3534,7 +3533,7 @@ def _salary_company_sheet_rows(rows, totals):
         None, None, None,
         "deduction-emp", "deduction-emp", "deduction-emp",
         "deduction-employer", "deduction-employer", "deduction-employer",
-        "highlight", "highlight", "deduction-emp", "deduction-emp", "deduction-emp", None, None, "highlight",
+        "deduction-emp", "deduction-emp", "deduction-emp", None, None, "highlight", "highlight", "highlight",
     ]
     data_rows = [
         [
@@ -3546,10 +3545,10 @@ def _salary_company_sheet_rows(rows, totals):
             float(r["calc"]["earned_basic_da"]), float(r["calc"]["earned_hra"]), float(r["calc"]["earned_total"]),
             float(r["calc"]["pf"]), float(r["calc"]["esi"]), float(r["calc"]["pf_esi_employee"]),
             float(r["calc"]["pf_employer"]), float(r["calc"]["esi_employer"]), float(r["calc"]["pf_esi_employer"]),
-            float(r["calc"]["expected_ctc"]), float(r["calc"]["ctc"]),
             float(r["deductions"]), float(r["calc"]["profession_tax"]),
             float(r["calc"]["total_deduction"]), float(r["additions"]),
             "Yes" if r["hold"] else "No", float(r["calc"]["net"]),
+            float(r["calc"]["expected_ctc"]), float(r["calc"]["ctc"]),
         ]
         for r in rows
     ]
@@ -3567,10 +3566,9 @@ def _salary_company_sheet_rows(rows, totals):
         float(c.get("earned_basic_da", 0)), float(c.get("earned_hra", 0)), float(c.get("earned_total", 0)),
         float(c.get("pf", 0)), float(c.get("esi", 0)), float(c.get("pf_esi_employee", 0)),
         float(c.get("pf_employer", 0)), float(c.get("esi_employer", 0)), float(c.get("pf_esi_employer", 0)),
-        float(c.get("expected_ctc", 0)), float(c.get("ctc", 0)),
         float(totals["deductions"]), float(c.get("profession_tax", 0)),
         float(c.get("total_deduction", 0)), float(totals["additions"]),
-        "", float(c.get("net", 0)),
+        "", float(c.get("net", 0)), float(c.get("expected_ctc", 0)), float(c.get("ctc", 0)),
     ]
     return headers, col_groups, data_rows, total_row
 
@@ -3620,8 +3618,16 @@ def _salary_prorated_sheet_rows(rows, totals, with_tds: bool, basic_salary_label
     # totals["calc"] is {} when the tab has zero rows this month — see the
     # matching comment in _salary_company_sheet_rows.
     c = totals["calc"]
+    basic_salary_total = totals.get("basic_salary")
+    if basic_salary_total is None:
+        # A locked snapshot can arrive through a legacy tab-kind alias;
+        # derive the footer from the rows being exported if its aggregate
+        # dictionary predates or lacks this field.
+        basic_salary_total = sum(
+            (r["employee"].basic_salary for r in rows), Decimal(0)
+        )
     total_row = [
-        "", "Total", float(totals["basic_salary"]),
+        "", "Total", float(basic_salary_total),
         float(totals["paid_days"]), float(totals["paid_holiday"]),
     ]
     if with_tds:
@@ -3698,7 +3704,7 @@ def _salary_fixed_payment_sheet_rows(rows, totals):
     # totals["calc"] is {} when the tab has zero rows this month — see the
     # matching comment in _salary_company_sheet_rows.
     total_row = [
-        "", "Total", float(totals["basic_salary"]), float(totals["manual_amount"]),
+        "", "Total", float(totals["calc"].get("fixed_amount", 0)), float(totals["manual_amount"]),
         float(totals["deductions"]), float(totals["additions"]), "", "", float(totals["calc"].get("net", 0)),
     ]
     return headers, col_groups, data_rows, total_row

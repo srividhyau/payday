@@ -270,6 +270,13 @@
             font-weight: 700; color: var(--navy-deep); background: #fafbfc;
             border-top: 2px solid #94a3b8;
         }
+        /* The totals row starts with one cell spanning Code and Employee.
+           Pin that merged label across both frozen identity columns so
+           the numeric footer totals scroll in line with their columns. */
+        body.salary-page .page .salary-fieldset table.simple tfoot td:first-child {
+            position: sticky; left: 0; z-index: 7; box-sizing: border-box;
+            background: #fafbfc; background-clip: padding-box;
+        }
         table.simple tfoot tr:hover td { background: #fafbfc; }
         /* PF/ESI numbers (Company Workers' Employee column) — a tooltip
            on hover instead of always showing both lines under the name,
@@ -383,6 +390,15 @@
            glance from "days that are". */
         table.simple th.personal-leave-cell, table.simple td.personal-leave-cell { background: #FFCDD2; color: #B71C1C; }
         table.simple tbody tr:hover td.personal-leave-cell { background: #f5b3ba; }
+        /* Give subtotal columns a consistent fill across every salary tab,
+           while keeping their existing group colors on the headers. */
+        body.salary-page .page table.simple tbody td.sum-cell {
+            background-color: #e8f1fb;
+            box-shadow: inset 2px 0 #8aa4c2;
+        }
+        body.salary-page .page table.simple tfoot td:not(:first-child) {
+            background-color: #e8f1fb;
+        }
 
         /* Sticky headers must paint an opaque layer above moving rows.
            Keep the pseudo-element inside each cell so it cannot cover
@@ -799,10 +815,10 @@
                                     <th rowspan="2" class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th colspan="1" data-expanded-colspan="3" class="num group-toggle" data-group="earned">Earned Breakdown <span class="group-arrow">&#9656;</span></th>
                                     <th colspan="1" data-expanded-colspan="6" class="num group-toggle" data-group="pfesi" title="PF — Employee 12% of earned Basic+DA; Employer 13% of earned total wages · ESI — Employee 0.75%, Employer 3.25% of earned total wages">PF + ESI <span class="rate-note">(PF employer 13%)</span> <span class="group-arrow">&#9656;</span></th>
-                                    <th colspan="1" data-expanded-colspan="2" class="num grp-highlight group-toggle" data-group="ctc" title="Expected CTC = Gross + Employer PF + Employer ESI. Actual CTC = Earned Total Wages + Employer PF + Employer ESI.">CTC <span class="group-arrow">&#9656;</span></th>
                                     <th rowspan="2" class="num grp-deduction-emp" title="Other/manual deductions entered for this employee">Other Deductions</th><th rowspan="2" class="num grp-deduction-emp">Profession Tax</th><th rowspan="2" class="num grp-deduction-emp sum-cell" title="Employee PF + Employee ESI + Other Deductions + Profession Tax">Total Deductions<br><span class="rate-note">PF + ESI + Other Deductions + PT</span></th><th rowspan="2" class="num">Additions</th>
                                     <th rowspan="2">Hold</th>
                                     <th rowspan="2" class="net grp-highlight">NET</th>
+                                    <th colspan="1" data-expanded-colspan="2" class="num grp-highlight group-toggle" data-group="ctc" title="Expected CTC = Gross + Employer PF + Employer ESI. Actual CTC = Earned Total Wages + Employer PF + Employer ESI.">CTC <span class="group-arrow">&#9656;</span></th>
                                     <th rowspan="2">Bank A/C Name</th>
                                 </tr>
                                 <tr>
@@ -858,14 +874,14 @@
                                     <td class="num grp-deduction-employer value-cell detail-pfesi" data-field="pf_employer">{{ row.calc.pf_employer }}</td>
                                     <td class="num grp-deduction-employer value-cell detail-pfesi" data-field="esi_employer">{{ row.calc.esi_employer }}</td>
                                     <td class="num grp-deduction-employer sum-cell detail-pfesi" data-field="pf_esi_employer">{{ row.calc.pf_esi_employer }}</td>
-                                    <td class="num grp-highlight detail-ctc" data-field="expected_ctc">{{ row.calc.expected_ctc }}</td>
-                                    <td class="num grp-highlight" data-field="ctc">{{ row.calc.ctc }}</td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="profession_tax_{{ row.employee.id }}" value="{{ row.profession_tax }}" {% if not row.employee.pt_enabled %}disabled title="PT isn't enabled for this employee — enable it on their Employee record first"{% endif %}></td>
                                     <td class="num grp-deduction-emp sum-cell" data-field="total_deduction">{{ row.calc.total_deduction }}</td>
                                     <td class="num"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="additions_{{ row.employee.id }}" value="{{ row.additions }}"></td>
                                     <td><input type="checkbox" class="form-check-input" name="hold_{{ row.employee.id }}" {% if row.hold %}checked{% endif %}></td>
                                     <td class="net grp-highlight" data-field="net">{{ row.calc.net }}</td>
+                                    <td class="num grp-highlight detail-ctc" data-field="expected_ctc">{{ row.calc.expected_ctc }}</td>
+                                    <td class="num grp-highlight" data-field="ctc">{{ row.calc.ctc }}</td>
                                     <td>{{ row.employee.account_name|default:"—" }}</td>
                                 </tr>
                                 {% endfor %}
@@ -893,14 +909,14 @@
                                     <td class="num detail-pfesi" data-total="pf_employer">{{ company_totals.calc.pf_employer }}</td>
                                     <td class="num detail-pfesi" data-total="esi_employer">{{ company_totals.calc.esi_employer }}</td>
                                     <td class="num detail-pfesi" data-total="pf_esi_employer">{{ company_totals.calc.pf_esi_employer }}</td>
-                                    <td class="num detail-ctc" data-total="expected_ctc">{{ company_totals.calc.expected_ctc }}</td>
-                                    <td class="num" data-total="ctc">{{ company_totals.calc.ctc }}</td>
                                     <td class="num" data-total="deductions">{{ company_totals.deductions }}</td>
                                     <td class="num" data-total="profession_tax">{{ company_totals.calc.profession_tax }}</td>
                                     <td class="num" data-total="total_deduction">{{ company_totals.calc.total_deduction }}</td>
                                     <td class="num" data-total="additions">{{ company_totals.additions }}</td>
                                     <td></td>
                                     <td class="net" data-total="net">{{ company_totals.calc.net }}</td>
+                                    <td class="num detail-ctc" data-total="expected_ctc">{{ company_totals.calc.expected_ctc }}</td>
+                                    <td class="num" data-total="ctc">{{ company_totals.calc.ctc }}</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -1586,6 +1602,7 @@
             btn.classList.add('active');
             panel.style.display = '';
             requestAnimationFrame(function () { syncGroupedHeaderOffsets(panel); });
+            window.dispatchEvent(new CustomEvent('salary-tab-activated', { detail: { panel: panel } }));
             var saveButton = document.querySelector('[data-salary-save]');
             if (saveButton) {
                 var form = panel.querySelector('form[id][data-save-label]');
@@ -2058,11 +2075,19 @@
             function syncSalaryStickyColumns(table) {
                 var codeCell = table.querySelector('tbody tr:not(.dept-row) td:first-of-type');
                 if (!codeCell) codeCell = table.querySelector('thead tr:first-child th:first-child');
-                if (codeCell) table.style.setProperty('--salary-code-width', codeCell.getBoundingClientRect().width + 'px');
+                var width = codeCell ? codeCell.getBoundingClientRect().width : 0;
+                if (width > 0) table.style.setProperty('--salary-code-width', width + 'px');
             }
             var tables = document.querySelectorAll('.salary-fieldset table.simple');
             tables.forEach(syncSalaryStickyColumns);
             window.addEventListener('resize', function () { tables.forEach(syncSalaryStickyColumns); });
+            window.addEventListener('salary-tab-activated', function (event) {
+                var panel = event.detail && event.detail.panel;
+                if (!panel) return;
+                requestAnimationFrame(function () {
+                    panel.querySelectorAll('.salary-fieldset table.simple').forEach(syncSalaryStickyColumns);
+                });
+            });
             if (window.ResizeObserver) {
                 var observer = new ResizeObserver(function (entries) {
                     entries.forEach(function (entry) { syncSalaryStickyColumns(entry.target); });
