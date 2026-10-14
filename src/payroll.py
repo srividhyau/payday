@@ -23,13 +23,11 @@ ESI_WAGE_CEILING = Decimal("21000")
 # just 1% taken off whatever's left after every other deduction/addition
 # (i.e. computed last, on the final take-home figure, not on gross).
 TDS_RATE = Decimal("0.01")
+# PF: Employee 12% on earned Basic+DA; Employer 13% on earned total wages.
+# ESI: Employee 0.75%, Employer 3.25% on earned total wages. Keep
+# salary.html's client-side recalc in sync.
 PF_RATE = Decimal("0.12")
-# PF Employer Contribution, empirically reverse-engineered (this workbook
-# doesn't use the standard 12%-of-Basic+DA split into EPF/EPS) — verified
-# exactly against two real rows: 2213.833333/12299.074074 == 0.18 and
-# 2169.556667/12053.092593 == 0.18, both against Earned Total Wages, not
-# Earned Basic+DA.
-PF_EMPLOYER_RATE = Decimal("0.18")
+PF_EMPLOYER_RATE = Decimal("0.13")
 ESI_EMPLOYEE_RATE = Decimal("0.0075")
 ESI_EMPLOYER_RATE = Decimal("0.0325")
 
@@ -84,6 +82,8 @@ def compute_company_worker_pay(
     esi_eligible = esi_enabled and gross <= ESI_WAGE_CEILING
     esi = ESI_EMPLOYEE_RATE * earned_total if esi_eligible else Decimal(0)
     esi_employer = ESI_EMPLOYER_RATE * earned_total if esi_eligible else Decimal(0)
+    expected_pf_employer = round(PF_EMPLOYER_RATE * gross, 2) if pf_enabled else Decimal(0)
+    expected_esi_employer = round(ESI_EMPLOYER_RATE * gross, 2) if esi_eligible else Decimal(0)
     # Round PF/ESI first, then sum the rounded figures for every total
     # that includes them (PF+ESI, Total Deduction, NET) — so each matches
     # what you'd get by hand-adding the displayed cells, rather than a
@@ -105,6 +105,8 @@ def compute_company_worker_pay(
         "esi_employer": esi_employer_r,
         "pf_esi_employee": pf_r + esi_r,
         "pf_esi_employer": pf_employer_r + esi_employer_r,
+        "expected_ctc": round(gross + expected_pf_employer + expected_esi_employer, 2),
+        "ctc": round(earned_total + pf_employer_r + esi_employer_r, 2),
         "profession_tax": profession_tax,
         "total_deduction": round(total_deduction, 2),
         "net": round(net, 2),

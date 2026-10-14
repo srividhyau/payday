@@ -3044,6 +3044,32 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         for snap in snapshots:
             row = _restore_decimals(snap.row_data)
             row["employee"] = _FrozenEmployee(snap.employee_data)
+            # Older Company Worker snapshots predate the CTC columns. Keep
+            # their frozen payroll inputs, but fill the two derived display
+            # values so those rows remain visible after adding the columns.
+            if kind == "company" and "ctc" not in row.get("calc", {}):
+                employee = row["employee"]
+                calc = payroll.compute_company_worker_pay(
+                    employee.basic_salary, employee.hra, employee.da,
+                    row["paid_days"] + row.get("paid_holiday", Decimal(0)),
+                    working_days, row["adjust_days"],
+                    row["deductions"], row["additions"],
+                    pf_enabled=employee.pf_enabled,
+                    esi_enabled=employee.esi_enabled,
+                    profession_tax=row.get("profession_tax", Decimal(0)),
+                )
+                row["calc"]["expected_ctc"] = calc["expected_ctc"]
+                row["calc"]["ctc"] = calc["ctc"]
+            if kind == "company":
+                # Additions are cash pay adjustments, not part of CTC.
+                # Re-derive this for all frozen rows too, including snapshots
+                # made after the CTC columns were first introduced.
+                row["calc"]["ctc"] = round(
+                    row["calc"]["earned_total"]
+                    + row["calc"]["pf_employer"]
+                    + row["calc"]["esi_employer"],
+                    2,
+                )
             # Snapshots frozen before total_paid_days existed — it's
             # Earned Days minus Adjust Days by definition (see build_rows).
             row.setdefault("total_paid_days", row["earned_days"] - row["adjust_days"])
@@ -3496,9 +3522,11 @@ def _salary_company_sheet_rows(rows, totals):
         "Code", "Employee", "Basic", "DA", "Basic+DA", "HRA", "Gross",
         "Paid Days", "Paid Holiday", "Adjust Days", "Earned Days", "Personal Leave",
         "Earned Basic+DA", "Earned HRA", "Earned Total Wages",
-        "PF (Employee)", "ESI (Employee)", "PF+ESI (Employee)",
-        "PF (Employer)", "ESI (Employer)", "PF+ESI (Employer)",
-        "Deductions", "Total Deductions", "Additions", "Hold", "NET",
+        "PF (Employee) 12%", "ESI (Employee) 0.75%", "PF+ESI (Employee)",
+        "PF (Employer) 13% of Earned Total", "ESI (Employer) 3.25%", "PF+ESI (Employer)",
+        "Expected CTC (Full Attendance)", "Actual CTC",
+        "Other Deductions", "Profession Tax", "Total Deductions (Employee PF + Employee ESI + Other Deductions + PT)",
+        "Additions", "Hold", "NET",
     ]
     col_groups = [
         None, None, "fixed", "fixed", "fixed", "fixed", "fixed",
@@ -3506,7 +3534,7 @@ def _salary_company_sheet_rows(rows, totals):
         None, None, None,
         "deduction-emp", "deduction-emp", "deduction-emp",
         "deduction-employer", "deduction-employer", "deduction-employer",
-        "deduction-emp", "deduction-emp", None, None, "highlight",
+        "highlight", "highlight", "deduction-emp", "deduction-emp", "deduction-emp", None, None, "highlight",
     ]
     data_rows = [
         [
@@ -3518,7 +3546,9 @@ def _salary_company_sheet_rows(rows, totals):
             float(r["calc"]["earned_basic_da"]), float(r["calc"]["earned_hra"]), float(r["calc"]["earned_total"]),
             float(r["calc"]["pf"]), float(r["calc"]["esi"]), float(r["calc"]["pf_esi_employee"]),
             float(r["calc"]["pf_employer"]), float(r["calc"]["esi_employer"]), float(r["calc"]["pf_esi_employer"]),
-            float(r["deductions"]), float(r["calc"]["total_deduction"]), float(r["additions"]),
+            float(r["calc"]["expected_ctc"]), float(r["calc"]["ctc"]),
+            float(r["deductions"]), float(r["calc"]["profession_tax"]),
+            float(r["calc"]["total_deduction"]), float(r["additions"]),
             "Yes" if r["hold"] else "No", float(r["calc"]["net"]),
         ]
         for r in rows
@@ -3537,7 +3567,9 @@ def _salary_company_sheet_rows(rows, totals):
         float(c.get("earned_basic_da", 0)), float(c.get("earned_hra", 0)), float(c.get("earned_total", 0)),
         float(c.get("pf", 0)), float(c.get("esi", 0)), float(c.get("pf_esi_employee", 0)),
         float(c.get("pf_employer", 0)), float(c.get("esi_employer", 0)), float(c.get("pf_esi_employer", 0)),
-        float(totals["deductions"]), float(c.get("total_deduction", 0)), float(totals["additions"]),
+        float(c.get("expected_ctc", 0)), float(c.get("ctc", 0)),
+        float(totals["deductions"]), float(c.get("profession_tax", 0)),
+        float(c.get("total_deduction", 0)), float(totals["additions"]),
         "", float(c.get("net", 0)),
     ]
     return headers, col_groups, data_rows, total_row
