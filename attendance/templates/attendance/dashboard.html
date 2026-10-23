@@ -176,11 +176,9 @@
 
         table.month th {
             background: #FFF9B0;
-            /* overflow-wrap (not word-break) so it only splits mid-word as a
-               last resort, preferring to break at the space between words
-               like "Paid Holiday". */
+            /* Wraps between words only — app.css forbids splitting a
+               word inside any header. */
             white-space: normal;
-            overflow-wrap: break-word;
             line-height: 1.15;
             vertical-align: bottom;
         }

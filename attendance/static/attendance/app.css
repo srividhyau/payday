@@ -382,7 +382,11 @@ body .page table.month th[class] { border-color: #6b7280; }
 body .page table th,
 body .page table.simple th,
 body .page table.month th,
-body .page table.month th[class] { white-space: normal; overflow-wrap: normal; word-break: normal; }
+body .page table.month th[class] { white-space: normal; }
+/* Every table header, app-wide: wrap only between words, never split a
+   word across lines. !important so no page-level header rule can bring
+   letter-breaking back. */
+table th { overflow-wrap: normal !important; word-break: normal !important; hyphens: none !important; }
 .page table.simple tbody tr:nth-child(even) { background-color: #f8fafc; }
 .page table.simple tbody tr:hover td:not([class]) { background-color: #eef4fb; }
 .page table.simple td.num, .page table.simple th.num { text-align: right; }
