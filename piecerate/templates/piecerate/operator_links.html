@@ -46,6 +46,11 @@
         white-space: normal; display: inline-block; text-decoration: none;
     }
     table.simple td .link-url:hover { text-decoration: underline; }
+    .col-sno { width: 35px; text-align: center; color: var(--text-muted); }
+    /* Operators with no link generated yet — flagged so they stand out
+       from the ones already set up. */
+    table.simple tr.no-link-row td { background: #fdecea; }
+    table.simple tr.no-link-row td.col-sno { box-shadow: inset 3px 0 0 #b3261e; }
     .no-link { color: var(--text-muted); font-size: 0.85rem; }
 
     /* Show Rate/Amount toggle — a real checkbox styled as a slider
@@ -108,6 +113,7 @@
             <table class="table simple">
                 <thead>
                     <tr>
+                        <th class="col-sno">S.No</th>
                         <th>Operator</th>
                         <th>Link</th>
                         {% if can_manage %}<th data-tooltip="Once a month's Operator Summary is approved, this operator sees their rate and amount on their own mobile page">Show Rate/Amount</th>{% endif %}
@@ -116,7 +122,8 @@
                 </thead>
                 <tbody>
                     {% for row in rows %}
-                    <tr>
+                    <tr{% if not row.link %} class="no-link-row"{% endif %}>
+                        <td class="col-sno">{{ forloop.counter }}</td>
                         <td>{{ row.employee.name }}</td>
                         <td>
                             {% if row.link and not can_manage %}
@@ -179,7 +186,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="{% if can_manage %}4{% else %}3{% endif %}" class="empty-state">No operators found.</td></tr>
+                    <tr><td colspan="{% if can_manage %}5{% else %}4{% endif %}" class="empty-state">No operators found.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

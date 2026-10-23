@@ -58,6 +58,8 @@
         }
         .tab-row.nav-tabs .tab-btn:hover:not(.active) { background: rgba(0,47,102,0.07); color: var(--navy); }
         .tab-row.nav-tabs .tab-btn.active { background: var(--navy); color: var(--yellow); }
+        .attendance-warning-row > td { background: #fee2e2 !important; color: #991b1b !important; }
+        .attendance-warning-label { display: block; white-space: normal; color: #991b1b; font-size: .68rem; font-weight: 700; }
         .salary-tab-warning {
             display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center;
             position: relative; margin-left: 0.25rem; color: #b42318; line-height: 1;
@@ -845,8 +847,8 @@
                                 {% for dept in company_dept_list %}
                                 <tr class="dept-row"><td class="dept-label" colspan="2">{{ dept.grouper|default:"—" }}</td><td colspan="28"></td></tr>
                                 {% for row in dept.list %}
-                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="company" data-basic-da="{{ row.calc.basic_da }}" data-hra="{{ row.employee.hra }}" data-gross="{{ row.calc.gross }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}" data-pf-enabled="{% if row.employee.pf_enabled %}1{% else %}0{% endif %}" data-esi-enabled="{% if row.employee.esi_enabled %}1{% else %}0{% endif %}">
-                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                <tr class="calc-row{% if row.attendance_warning %} attendance-warning-row{% endif %}{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="company" data-basic-da="{{ row.calc.basic_da }}" data-hra="{{ row.employee.hra }}" data-gross="{{ row.calc.gross }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}" data-pf-enabled="{% if row.employee.pf_enabled %}1{% else %}0{% endif %}" data-esi-enabled="{% if row.employee.esi_enabled %}1{% else %}0{% endif %}">
+                                    {% if not row.attendance_warning %}<input type="hidden" name="employee_id" value="{{ row.employee.id }}">{% endif %}
                                     <td>{{ row.employee.code }}</td>
                                     <td>
                                         {% if row.employee.pf_number or row.employee.esi_number %}
@@ -854,6 +856,7 @@
                                         {% else %}
                                         {{ row.employee.name }}
                                         {% endif %}
+                                        {% if row.attendance_warning %}<span class="attendance-warning-label">⚠ Device attendance: {{ row.device_attendance_days }} day(s); excluded from payroll totals</span>{% endif %}
                                     </td>
                                     <td class="num grp-fixed value-cell detail-fixed">{{ row.employee.basic_salary }}</td>
                                     <td class="num grp-fixed value-cell detail-fixed">{{ row.employee.da }}</td>
@@ -959,10 +962,10 @@
                                 {% for dept in helper_dept_list %}
                                 <tr class="dept-row"><td class="dept-label" colspan="2">{{ dept.grouper|default:"—" }}</td><td colspan="12"></td></tr>
                                 {% for row in dept.list %}
-                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="helper" data-basic-salary="{{ row.employee.basic_salary }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}">
-                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                <tr class="calc-row{% if row.attendance_warning %} attendance-warning-row{% endif %}{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="helper" data-basic-salary="{{ row.employee.basic_salary }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}">
+                                    {% if not row.attendance_warning %}<input type="hidden" name="employee_id" value="{{ row.employee.id }}">{% endif %}
                                     <td>{{ row.employee.code }}</td>
-                                    <td>{{ row.employee.name }}</td>
+                                    <td>{{ row.employee.name }}{% if row.attendance_warning %}<span class="attendance-warning-label">⚠ Device attendance: {{ row.device_attendance_days }} day(s); excluded from payroll totals</span>{% endif %}</td>
                                     <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
                                     <td class="num grp-attendance">{{ row.paid_days }}</td>
                                     <td class="num grp-attendance">{{ row.paid_holiday }}</td>
@@ -1043,10 +1046,10 @@
                                 {% for dept in staff_dept_list %}
                                 <tr class="dept-row"><td class="dept-label" colspan="2">{{ dept.grouper|default:"—" }}</td><td colspan="20"></td></tr>
                                 {% for row in dept.list %}
-                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="staff" data-basic-salary="{{ row.employee.basic_salary }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}" data-total-paid-days="{{ row.total_paid_days }}" data-tds-enabled="{% if row.employee.tds_enabled %}1{% else %}0{% endif %}">
-                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                <tr class="calc-row{% if row.attendance_warning %} attendance-warning-row{% endif %}{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="staff" data-basic-salary="{{ row.employee.basic_salary }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}" data-total-paid-days="{{ row.total_paid_days }}" data-tds-enabled="{% if row.employee.tds_enabled %}1{% else %}0{% endif %}">
+                                    {% if not row.attendance_warning %}<input type="hidden" name="employee_id" value="{{ row.employee.id }}">{% endif %}
                                     <td>{{ row.employee.code }}</td>
-                                    <td>{{ row.employee.name }}</td>
+                                    <td>{{ row.employee.name }}{% if row.attendance_warning %}<span class="attendance-warning-label">⚠ Device attendance: {{ row.device_attendance_days }} day(s); excluded from payroll totals</span>{% endif %}</td>
                                     <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
                                     <td class="num grp-attendance">{{ row.paid_days }}</td>
                                     <td class="num grp-attendance">{{ row.paid_holiday }}</td>
@@ -1134,10 +1137,10 @@
                                 {% for dept in contractor_dept_list %}
                                 <tr class="dept-row"><td class="dept-label" colspan="2">{{ dept.grouper|default:"—" }}</td><td colspan="12"></td></tr>
                                 {% for row in dept.list %}
-                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="contractors" data-day-rate="{{ row.employee.basic_salary }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}">
-                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                <tr class="calc-row{% if row.attendance_warning %} attendance-warning-row{% endif %}{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="contractors" data-day-rate="{{ row.employee.basic_salary }}" data-paid-days="{{ row.paid_days }}" data-paid-holiday="{{ row.paid_holiday }}">
+                                    {% if not row.attendance_warning %}<input type="hidden" name="employee_id" value="{{ row.employee.id }}">{% endif %}
                                     <td>{{ row.employee.code }}</td>
-                                    <td>{{ row.employee.name }}</td>
+                                    <td>{{ row.employee.name }}{% if row.attendance_warning %}<span class="attendance-warning-label">⚠ Device attendance: {{ row.device_attendance_days }} day(s); excluded from payroll totals</span>{% endif %}</td>
                                     <td class="num grp-fixed value-cell">{{ row.employee.basic_salary }}</td>
                                     <td class="num grp-attendance">{{ row.paid_days }}</td>
                                     <td class="num grp-attendance">{{ row.paid_holiday }}</td>
@@ -1204,10 +1207,10 @@
                             </thead>
                             <tbody>
                                 {% for row in operator_rows %}
-                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="operators" data-already-paid="{{ row.calc.already_paid|default:'0' }}">
-                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                <tr class="calc-row{% if row.attendance_warning %} attendance-warning-row{% endif %}{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="operators" data-already-paid="{{ row.calc.already_paid|default:'0' }}">
+                                    {% if not row.attendance_warning %}<input type="hidden" name="employee_id" value="{{ row.employee.id }}">{% endif %}
                                     <td>{{ row.employee.code }}</td>
-                                    <td>{{ row.employee.name }}</td>
+                                    <td>{{ row.employee.name }}{% if row.attendance_warning %}<span class="attendance-warning-label">⚠ Device attendance: {{ row.device_attendance_days }} day(s); excluded from payroll totals</span>{% endif %}</td>
                                     <td class="num grp-attendance">{{ row.attendance_working_days|floatformat:"-1" }}</td>
                                     <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} piece-rate-differs{% endif %}" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"{% if row.piece_rate_amount is not None and row.manual_amount is not None and row.piece_rate_amount != row.manual_amount %} title="Piece rate total this month: {{ row.piece_rate_amount }}"{% endif %}></td>
@@ -1267,10 +1270,10 @@
                             </thead>
                             <tbody>
                                 {% for row in ironing_bartrack_rows %}
-                                <tr class="calc-row" data-kind="ironing_bartrack" data-tds-enabled="{% if row.employee.tds_enabled %}1{% else %}0{% endif %}">
-                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                <tr class="calc-row{% if row.attendance_warning %} attendance-warning-row{% endif %}" data-kind="ironing_bartrack" data-tds-enabled="{% if row.employee.tds_enabled %}1{% else %}0{% endif %}">
+                                    {% if not row.attendance_warning %}<input type="hidden" name="employee_id" value="{{ row.employee.id }}">{% endif %}
                                     <td>{{ row.employee.code }}</td>
-                                    <td>{{ row.employee.name }}</td>
+                                    <td>{{ row.employee.name }}{% if row.attendance_warning %}<span class="attendance-warning-label">⚠ Device attendance: {{ row.device_attendance_days }} day(s); excluded from payroll totals</span>{% endif %}</td>
                                     <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
                                     <td class="num grp-fixed value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="manual_amount_{{ row.employee.id }}" value="{{ row.manual_amount|default_if_none:'' }}"></td>
                                     <td class="num grp-deduction-emp value-cell"><input class="adj-input form-control form-control-sm" type="number" step="0.01" name="deductions_{{ row.employee.id }}" value="{{ row.deductions }}"></td>
@@ -1334,10 +1337,10 @@
                                 {% for dept in fixed_payment_dept_list %}
                                 <tr class="dept-row"><td class="dept-label" colspan="2">{{ dept.grouper|default:"—" }}</td><td colspan="8"></td></tr>
                                 {% for row in dept.list %}
-                                <tr class="calc-row{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="fixed_payments" data-fixed-amount="{{ row.calc.fixed_amount }}" data-pt-remittance="{% if row.is_pt_remittance %}1{% else %}0{% endif %}">
-                                    <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                <tr class="calc-row{% if row.attendance_warning %} attendance-warning-row{% endif %}{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="fixed_payments" data-fixed-amount="{{ row.calc.fixed_amount }}" data-pt-remittance="{% if row.is_pt_remittance %}1{% else %}0{% endif %}">
+                                    {% if not row.attendance_warning %}<input type="hidden" name="employee_id" value="{{ row.employee.id }}">{% endif %}
                                     <td>{{ row.employee.code }}</td>
-                                    <td>{{ row.employee.name }}</td>
+                                    <td>{{ row.employee.name }}{% if row.attendance_warning %}<span class="attendance-warning-label">⚠ Device attendance: {{ row.device_attendance_days }} day(s); excluded from payroll totals</span>{% endif %}</td>
                                     <td class="num grp-fixed value-cell"{% if row.is_pt_remittance %} data-field="fixed_amount"{% endif %}>
                                         {% if row.is_pt_remittance %}
                                         {{ row.calc.fixed_amount }}
@@ -1418,6 +1421,7 @@
         // targeted generically instead of by column position.
         (function () {
             var WORKING_DAYS = {{ working_days|default:0 }};
+            document.querySelectorAll('tr.attendance-warning-row input').forEach(function (input) { input.disabled = true; });
             // Keep in sync with src/payroll.py.
             var PF_RATE = 0.12, PF_EMPLOYER_RATE = 0.13, ESI_RATE = 0.0075, ESI_EMPLOYER_RATE = 0.0325;
             var ESI_WAGE_CEILING = 21000, TDS_RATE = 0.01;
@@ -1536,7 +1540,7 @@
             function recalcTotals(table) {
                 var totalRow = table.querySelector('tfoot tr');
                 if (!totalRow) return;
-                var rows = table.querySelectorAll('tbody tr.calc-row');
+                var rows = table.querySelectorAll('tbody tr.calc-row:not(.attendance-warning-row)');
                 var sums = {};
                 ['adjust_days', 'deductions', 'additions', 'manual_amount', 'profession_tax', 'fixed_amount'].forEach(function (key) {
                     var total = 0;

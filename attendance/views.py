@@ -2465,6 +2465,8 @@ def _snapshot_salary_tab(year: int, month: int, lock_key: str) -> None:
     kind = _SALARY_LOCK_KEY_TO_ROWS_PREFIX[lock_key]
     context = _salary_context(date_cls(year, month, 1), use_snapshots=False)
     for row in context.get(f"{kind}_rows", []):
+        if row.get("attendance_warning"):
+            continue
         emp = row["employee"]
         employee_data = {
             "id": emp.id, "code": emp.code, "name": emp.name,
@@ -3078,6 +3080,48 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         context[f"{kind}_rows"] = frozen_rows
         context[f"{kind}_totals"] = sum_rows(frozen_rows, kind)
 
+    # Keep device-attendance employees visible for review even when their
+    # employment dates or a locked payroll snapshot exclude them from pay.
+    attendance_by_employee = {
+        item["employee_id"]: item["days"]
+        for item in AttendanceRecord.objects.filter(
+            date__year=year, date__month=month,
+        ).filter(
+            Q(status__in=("P", "PH", "CO", "HD"))
+            | Q(time_in__gt="") | Q(time_out__gt="")
+            | Q(work_hours__gt=0) | Q(ot_hours__gt=0)
+        ).values("employee_id").annotate(days=Count("date", distinct=True))
+    }
+    if attendance_by_employee:
+        tab_specs = (
+            ("company_rows", "company", Q(subcategory__iexact="Company")),
+            ("helper_rows", "helper", Q(subcategory__iexact="Helper") | Q(department__name__iexact="HOUSE KEEPING")),
+            ("staff_rows", "staff", Q(subcategory__iexact="Staff")),
+            ("contractor_rows", "contractors", Q(department__name__iexact="Contractor")),
+            ("operator_rows", "operators", Q(department__name__iexact="Operator")),
+            ("ironing_bartrack_rows", "ironing_bartrack", Q(department__name__iexact="Ironing & Bartrack") | Q(category__iexact="Bartrack")),
+            ("fixed_payment_rows", "fixed_payments", Q(department__name__iexact="Fixed Payments")),
+        )
+        employees = Employee.objects.filter(pk__in=attendance_by_employee).select_related("department")
+        for rows_key, kind, category_filter in tab_specs:
+            current_rows = context.get(rows_key, [])
+            included_ids = {row["employee"].id for row in current_rows}
+            missing = [emp for emp in employees.filter(category_filter).order_by("department__name", "name")
+                       if emp.id not in included_ids]
+            if not missing:
+                continue
+            warning_rows = build_rows(
+                missing, kind,
+                already_paid_map=company_net_by_employee if kind == "operators" else None,
+            )
+            for row in warning_rows:
+                row["attendance_warning"] = True
+                row["device_attendance_days"] = attendance_by_employee[row["employee"].id]
+            context[rows_key] = sorted(
+                current_rows + warning_rows,
+                key=lambda row: ((row["employee"].department.name if row["employee"].department else ""), row["employee"].name),
+            )
+
     # Operators' attendance is recorded directly on AttendanceRecord (the
     # time-punch summary used for salaried staff does not reliably include
     # piece-rate operators). Count work/paid days directly from those
@@ -3102,11 +3146,12 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         row["personal_leave"] = max(
             Decimal(working_days) - operator_working_days[employee_id], Decimal(0)
         )
+    payroll_operator_rows = [row for row in operator_rows if not row.get("attendance_warning")]
     context["operator_totals"]["attendance_working_days"] = sum(
-        operator_working_days.values(), Decimal(0)
+        (operator_working_days[row["employee"].id] for row in payroll_operator_rows), Decimal(0)
     )
     context["operator_totals"]["personal_leave"] = sum(
-        (row["personal_leave"] for row in operator_rows), Decimal(0)
+        (row["personal_leave"] for row in payroll_operator_rows), Decimal(0)
     )
 
     # Each operator's piece-rate earnings this month (pieces x Rate Card
@@ -3136,7 +3181,7 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
                     row["manual_amount"], row["deductions"], row["additions"],
                     row["calc"].get("already_paid", Decimal(0)),
                 )
-        context["operator_totals"] = sum_rows(context["operator_rows"], "operators")
+        context["operator_totals"] = sum_rows(payroll_operator_rows, "operators")
 
     # Summary tab — one row per salary group: headcount and NET total
     # (the one figure every group's rows carry in common — see
@@ -3149,7 +3194,7 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
         totals = context[totals_key]
         summary_rows.append({
             "label": label,
-            "count": len(context[rows_key]),
+            "count": sum(1 for row in context[rows_key] if not row.get("attendance_warning")),
             "net": totals["calc"].get("net", Decimal(0)),
         })
     context["summary_rows"] = summary_rows
@@ -3167,7 +3212,7 @@ def _salary_context(current: date_cls, use_snapshots: bool = True) -> dict:
             ("Fixed Payments", "fixed_payment_rows"),
         ]
         for r in context[rows_key]
-        if _row_missing_bank_details(r)
+        if not r.get("attendance_warning") and _row_missing_bank_details(r)
     ]
     missing_bank_tab_keys = {
         "Company Workers": "company",
@@ -3197,6 +3242,8 @@ def _salary_summary_figures(context: dict) -> dict:
     for label, rows_key, _totals_key, _pay_basis in _SALARY_SUMMARY_GROUPS:
         people = {}
         for r in context[rows_key]:
+            if r.get("attendance_warning"):
+                continue
             calc = r["calc"]
             people[r["employee"].id] = {
                 "name": r["employee"].name,
@@ -3773,24 +3820,25 @@ def salary_download_view(request):
     current = _parse_month_date(date_param, _latest_data_month_default())
     context = _salary_context(current)
     month_label = f"{context['month_name']} {context['year']}"
+    payroll_rows = lambda rows: [row for row in rows if not row.get("attendance_warning")]
 
     sheet_builders = {
         "summary": lambda: _salary_summary_sheet_rows(context["summary_rows"], context["summary_grand_total"]),
-        "company": lambda: _salary_company_sheet_rows(context["company_rows"], context["company_totals"]),
-        "helper": lambda: _salary_prorated_sheet_rows(context["helper_rows"], context["helper_totals"], with_tds=False),
-        "staff": lambda: _salary_prorated_sheet_rows(context["staff_rows"], context["staff_totals"], with_tds=True),
+        "company": lambda: _salary_company_sheet_rows(payroll_rows(context["company_rows"]), context["company_totals"]),
+        "helper": lambda: _salary_prorated_sheet_rows(payroll_rows(context["helper_rows"]), context["helper_totals"], with_tds=False),
+        "staff": lambda: _salary_prorated_sheet_rows(payroll_rows(context["staff_rows"]), context["staff_totals"], with_tds=True),
         "contractors": lambda: (
             _salary_prorated_sheet_rows(
-                context["contractor_rows"], context["contractor_totals"], with_tds=False,
+                payroll_rows(context["contractor_rows"]), context["contractor_totals"], with_tds=False,
                 basic_salary_label="Day Rate",
             )
         ),
-        "operators": lambda: _salary_operator_sheet_rows(context["operator_rows"], context["operator_totals"]),
+        "operators": lambda: _salary_operator_sheet_rows(payroll_rows(context["operator_rows"]), context["operator_totals"]),
         "ironing_bartrack": lambda: (
-            _salary_operator_sheet_rows(context["ironing_bartrack_rows"], context["ironing_bartrack_totals"])
+            _salary_operator_sheet_rows(payroll_rows(context["ironing_bartrack_rows"]), context["ironing_bartrack_totals"])
         ),
         "fixed_payments": lambda: (
-            _salary_fixed_payment_sheet_rows(context["fixed_payment_rows"], context["fixed_payment_totals"])
+            _salary_fixed_payment_sheet_rows(payroll_rows(context["fixed_payment_rows"]), context["fixed_payment_totals"])
         ),
     }
     # "summary" isn't one of _SALARY_TAB_KEYS (that list is shared with the
@@ -3973,7 +4021,7 @@ def salary_bank_download_view(request):
         _error(request, "Enter the Cheque No and Date of Cheque for this transfer before downloading.")
         return redirect(f"{reverse('salary')}?date={current.isoformat()}")
 
-    rows = [r for rows_key in selected for r in context[rows_key]]
+    rows = [r for rows_key in selected for r in context[rows_key] if not r.get("attendance_warning")]
 
     wb = openpyxl.Workbook()
     bank_ws = wb.active
