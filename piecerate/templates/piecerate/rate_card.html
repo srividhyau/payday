@@ -98,6 +98,38 @@
     .new-row td { background: #f8fafc; }
     tbody tr.dragging { opacity: 0.4; }
     tbody tr.drag-over { box-shadow: inset 0 2px 0 var(--navy); }
+
+    /* Operation picker — the real <select> stays in the form (hidden)
+       as the submitted value; this button stands in for it and opens
+       #opPickerModal, which a native dropdown can't do (no search box,
+       no section filter). */
+    .op-picker-btn {
+        width: 100%; min-width: 240px; text-align: left; background: #fff; cursor: pointer;
+        border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 1.4rem 0.1rem 0.3rem;
+        font-size: 0.78rem; font-family: inherit; color: inherit; position: relative;
+    }
+    .op-picker-btn::after { content: "▾"; position: absolute; right: 0.4rem; color: var(--text-muted); }
+    .op-picker-btn.is-empty { color: var(--text-muted); }
+    .op-picker-btn:focus { outline: none; border-color: var(--navy); }
+    tr.op-row-disabled .op-picker-btn { color: var(--text-muted); }
+    #opPickerModal .op-picker-filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    #opPickerModal .op-picker-filters select { flex: 0 1 12rem; }
+    #opPickerModal .op-picker-filters input { flex: 1 1 12rem; }
+    #opPickerModal .op-picker-list { max-height: 55vh; overflow-y: auto; margin-top: 0.75rem; }
+    #opPickerModal .op-picker-section {
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+        color: var(--navy); background: #fef9c3; padding: 0.25rem 0.6rem; position: sticky; top: 0;
+    }
+    #opPickerModal .op-picker-item {
+        display: block; width: 100%; text-align: left; border: none; background: none;
+        padding: 0.35rem 0.6rem; font-size: 0.85rem; border-bottom: 1px solid #eef0f3;
+    }
+    #opPickerModal .op-picker-item:hover:not(:disabled),
+    #opPickerModal .op-picker-item:focus-visible { background: #eef4fb; outline: none; }
+    #opPickerModal .op-picker-item.is-current { font-weight: 700; color: var(--navy); }
+    #opPickerModal .op-picker-item:disabled { color: var(--text-muted); cursor: not-allowed; }
+    #opPickerModal .op-picker-item .op-picker-note { font-size: 0.72rem; margin-left: 0.4rem; }
+    #opPickerModal .op-picker-empty { color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0.6rem; }
 </style>
 </head>
 <body>
@@ -284,6 +316,26 @@
         {% endif %}
     </div>
 
+    <div class="modal fade" id="opPickerModal" tabindex="-1" aria-labelledby="opPickerTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-6" id="opPickerTitle">Choose operation</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="op-picker-filters">
+                        <select id="opPickerSection" class="form-select form-select-sm" aria-label="Filter by section">
+                            <option value="">All sections</option>
+                        </select>
+                        <input type="search" id="opPickerSearch" class="form-control form-control-sm" placeholder="Search operations…" autocomplete="off" aria-label="Search operations">
+                    </div>
+                    <div class="op-picker-list" id="opPickerList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{ master_map|json_script:"masterMap" }}
     <script>
         var masterMap = JSON.parse(document.getElementById('masterMap').textContent);
@@ -352,6 +404,126 @@
             updateRateColor(select.closest('tr'));
         });
         refreshOptionAvailability();
+
+        // Operation picker popup — swaps each .op-select for a button that
+        // opens #opPickerModal. The list is rebuilt from the select's own
+        // optgroups/options each time it opens, so anything
+        // refreshOptionAvailability() greyed out (already on this card)
+        // stays unpickable here too. Picking sets select.value and fires
+        // its 'change', so fillFromMaster etc. run exactly as before.
+        (function () {
+            var modalEl = document.getElementById('opPickerModal');
+            // Looked up on use, not here — bootstrap.bundle.min.js loads at
+            // the end of <body> (_htmx_scripts.html), after this script.
+            function modal() { return bootstrap.Modal.getOrCreateInstance(modalEl); }
+            var sectionFilter = document.getElementById('opPickerSection');
+            var searchInput = document.getElementById('opPickerSearch');
+            var list = document.getElementById('opPickerList');
+            var activeSelect = null;
+
+            var firstSelect = document.querySelector('.op-select');
+            if (firstSelect) {
+                Array.from(firstSelect.querySelectorAll('optgroup')).forEach(function (group) {
+                    var opt = document.createElement('option');
+                    opt.value = opt.textContent = group.label;
+                    sectionFilter.appendChild(opt);
+                });
+            }
+
+            function syncButton(select) {
+                var btn = select._pickerBtn;
+                var opt = select.options[select.selectedIndex];
+                btn.textContent = select.value ? opt.textContent : '— choose operation —';
+                btn.classList.toggle('is-empty', !select.value);
+            }
+
+            function render() {
+                var term = searchInput.value.trim().toLowerCase();
+                var section = sectionFilter.value;
+                list.innerHTML = '';
+                var shown = 0;
+                Array.from(activeSelect.querySelectorAll('optgroup')).forEach(function (group) {
+                    if (section && group.label !== section) return;
+                    var sectionMatches = group.label.toLowerCase().indexOf(term) !== -1;
+                    var items = Array.from(group.querySelectorAll('option')).filter(function (option) {
+                        return !term || sectionMatches || option.textContent.toLowerCase().indexOf(term) !== -1;
+                    });
+                    if (!items.length) return;
+                    var heading = document.createElement('div');
+                    heading.className = 'op-picker-section';
+                    heading.textContent = group.label;
+                    list.appendChild(heading);
+                    items.forEach(function (option) {
+                        var item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'op-picker-item' + (option.value === activeSelect.value ? ' is-current' : '');
+                        item.textContent = option.textContent;
+                        item.disabled = option.disabled;
+                        if (option.disabled) {
+                            var note = document.createElement('span');
+                            note.className = 'op-picker-note';
+                            note.textContent = '(already on this card)';
+                            item.appendChild(note);
+                        }
+                        item.addEventListener('click', function () { choose(option.value); });
+                        list.appendChild(item);
+                        shown++;
+                    });
+                });
+                if (!shown) {
+                    var empty = document.createElement('div');
+                    empty.className = 'op-picker-empty';
+                    empty.textContent = 'No operations match.';
+                    list.appendChild(empty);
+                }
+            }
+
+            function choose(value) {
+                var select = activeSelect;
+                modal().hide();
+                if (select.value === value) return;
+                select.value = value;
+                select.dispatchEvent(new Event('change'));
+                syncButton(select);
+            }
+
+            document.querySelectorAll('.op-select').forEach(function (select) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'op-picker-btn';
+                btn.setAttribute('aria-haspopup', 'dialog');
+                select._pickerBtn = btn;
+                select.hidden = true;
+                select.insertAdjacentElement('afterend', btn);
+                syncButton(select);
+                btn.addEventListener('click', function () {
+                    activeSelect = select;
+                    searchInput.value = '';
+                    sectionFilter.value = '';
+                    render();
+                    modal().show();
+                });
+            });
+
+            sectionFilter.addEventListener('change', render);
+            searchInput.addEventListener('input', render);
+            // Enter picks the first match, so search-then-Enter works
+            // without reaching for the mouse.
+            searchInput.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                var first = list.querySelector('.op-picker-item:not(:disabled)');
+                if (first) first.click();
+            });
+            modalEl.addEventListener('shown.bs.modal', function () {
+                searchInput.focus();
+                var current = list.querySelector('.is-current');
+                if (current) current.scrollIntoView({ block: 'center' });
+            });
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                if (activeSelect) activeSelect._pickerBtn.focus();
+            });
+        })();
 
         document.querySelectorAll('.col-rate input').forEach(function (input) {
             input.addEventListener('input', function () {
