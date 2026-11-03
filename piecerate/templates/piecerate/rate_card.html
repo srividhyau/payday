@@ -98,6 +98,15 @@
     .new-row td { background: #f8fafc; }
     tbody tr.dragging { opacity: 0.4; }
     tbody tr.drag-over { box-shadow: inset 0 2px 0 var(--navy); }
+    /* Click-to-sort headers — view only, never saved (see the sorting
+       script). ⇅ marks a sortable column, ▲/▼ the active one. */
+    table.simple th.sortable { cursor: pointer; user-select: none; }
+    table.simple th.sortable::after { content: " ⇅"; color: var(--text-muted); font-size: 0.7rem; }
+    table.simple th.sortable[aria-sort="ascending"]::after { content: " ▲"; color: var(--navy); }
+    table.simple th.sortable[aria-sort="descending"]::after { content: " ▼"; color: var(--navy); }
+    /* Drag-reorder is off while sorted — dropping a row into a sorted
+       view would save that sorted order as the real Op Code order. */
+    table.is-sorted .col-drag { cursor: not-allowed; opacity: 0.3; }
 
     /* Operation picker — the real <select> stays in the form (hidden)
        as the submitted value; this button stands in for it and opens
@@ -163,6 +172,7 @@
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A8.5 8.5 0 1 1 8.55 19.35L3 21z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/></svg>
             </button>
             <span id="sendRateCardWhatsappStatus" class="report-status"></span>
+            {% if can_edit_this_style %}<button type="button" id="saveSortedOrderBtn" class="btn btn-primary btn-sm" hidden title="Renumber Op Codes 1, 2, 3… in the order shown and save it">Save this order</button>{% endif %}
             <span id="orderSavedNote" style="font-size:0.8rem; color:var(--text-muted); display:none; margin-left:auto;">Order saved</span>
         </div>
 
@@ -192,15 +202,15 @@
                     <thead>
                         <tr>
                             <th></th>
-                            <th>Op Code</th>
-                            <th>Section</th>
-                            <th>Operation</th>
-                            <th>Machine</th>
-                            <th class="num">Rate</th>
-                            {% if source_template %}<th class="num" data-tooltip="This operation's rate on {{ source_template.name }}">Template Rate</th>{% endif %}
+                            <th class="sortable" data-sort="num">Op Code</th>
+                            <th class="sortable">Section</th>
+                            <th class="sortable">Operation</th>
+                            <th class="sortable">Machine</th>
+                            <th class="num sortable" data-sort="num">Rate</th>
+                            {% if source_template %}<th class="num sortable" data-sort="num" data-tooltip="This operation's rate on {{ source_template.name }}">Template Rate</th>{% endif %}
                             <th class="col-pay-type">Pay Type</th>
-                            <th class="num">Order Qty</th>
-                            <th>Operators</th>
+                            <th class="num sortable" data-sort="num">Order Qty</th>
+                            <th class="sortable">Operators</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -617,6 +627,10 @@
 
         tbody.querySelectorAll('.col-drag').forEach(function (handle) {
             handle.addEventListener('dragstart', function (e) {
+                if (tbody.closest('table').classList.contains('is-sorted')) {
+                    e.preventDefault();
+                    return;
+                }
                 draggedRow = handle.closest('tr');
                 draggedRow.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
@@ -648,6 +662,84 @@
                 saveOrder();
             });
         });
+
+        // Column sorting — clicking a header cycles ascending →
+        // descending → back to the saved Op Code order. Only rearranges
+        // rows on screen; nothing is saved, and the "+ Add" row stays
+        // on top. Each row keeps its own Op Code number while sorted.
+        (function () {
+            var table = tbody.closest('table');
+            var headers = Array.from(table.querySelectorAll('thead th'));
+            var savedOrder = null;
+            var saveSortedBtn = document.getElementById('saveSortedOrderBtn');
+
+            function clearSort() {
+                headers.forEach(function (h) { if (h.classList.contains('sortable')) h.setAttribute('aria-sort', 'none'); });
+                savedOrder = null;
+                table.classList.remove('is-sorted');
+                if (saveSortedBtn) saveSortedBtn.hidden = true;
+            }
+
+            // "Save this order" — keeps the rows where the sort put them,
+            // renumbers Op Codes 1, 2, 3… to match, and saves it through
+            // the same reorder POST drag-and-drop uses. The view is then
+            // just the (new) saved order, so drag works again.
+            if (saveSortedBtn) {
+                saveSortedBtn.addEventListener('click', function () {
+                    if (!confirm('Renumber all Op Codes in the order shown now?')) return;
+                    renumberRows();
+                    saveOrder();
+                    clearSort();
+                });
+            }
+
+            function cellValue(cell, numeric) {
+                var select = cell.querySelector('.op-select');
+                var input = cell.querySelector('input');
+                var raw = select ? select.value : input ? input.value : cell.textContent.trim();
+                if (!numeric) return raw.toLowerCase();
+                var n = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
+                return isNaN(n) ? null : n;
+            }
+
+            function dataRows() {
+                return Array.from(tbody.querySelectorAll('tr[id^="op-"]'));
+            }
+
+            headers.forEach(function (th, colIndex) {
+                if (!th.classList.contains('sortable')) return;
+                th.setAttribute('aria-sort', 'none');
+                th.title = 'Click to sort';
+                th.addEventListener('click', function () {
+                    var next = { none: 'ascending', ascending: 'descending', descending: 'none' }[th.getAttribute('aria-sort')];
+                    if (!savedOrder) savedOrder = dataRows();
+                    var original = savedOrder;
+                    var rows;
+                    clearSort();
+                    if (next === 'none') {
+                        rows = original;
+                    } else {
+                        savedOrder = original;
+                        th.setAttribute('aria-sort', next);
+                        table.classList.add('is-sorted');
+                        if (saveSortedBtn) saveSortedBtn.hidden = false;
+                        var numeric = th.dataset.sort === 'num';
+                        var dir = next === 'ascending' ? 1 : -1;
+                        rows = savedOrder.slice().sort(function (a, b) {
+                            var va = cellValue(a.cells[colIndex], numeric);
+                            var vb = cellValue(b.cells[colIndex], numeric);
+                            // Blanks always last, whichever direction.
+                            if (va === null || va === '') return (vb === null || vb === '') ? 0 : 1;
+                            if (vb === null || vb === '') return -1;
+                            if (va < vb) return -dir;
+                            if (va > vb) return dir;
+                            return 0;
+                        });
+                    }
+                    rows.forEach(function (row) { tbody.appendChild(row); });
+                });
+            });
+        })();
 
         // "Send to WhatsApp" — screenshots the rate card as currently on
         // screen, same single-table capture as Device Records' own
