@@ -77,6 +77,7 @@
     .col-drag { width: 20px; text-align: center; cursor: grab; color: var(--text-muted); user-select: none; }
     .col-drag:active { cursor: grabbing; }
     .col-op-code { width: 35px; text-align: center; color: var(--text-muted); }
+    table.simple .col-op-code input { width: 45px; text-align: center; }
     .col-section input { width: 90px; }
     .col-name select { width: 100%; min-width: 240px; }
     .col-machine input { width: 70px; }
@@ -218,7 +219,7 @@
                         {% if can_edit_this_style %}
                         <tr class="new-row">
                             <td></td>
-                            <td class="col-op-code">—</td>
+                            <td class="col-op-code"><input type="number" min="1" step="1" name="op_code" placeholder="end" title="Op Code to insert at — blank adds it at the end"></td>
                             <td class="col-section"><input type="text" name="section" readonly></td>
                             <td class="col-name">
                                 <select name="name" class="op-select">
@@ -253,7 +254,7 @@
                         {% if can_edit_this_style %}
                         <tr id="op-{{ op.id }}" data-op-id="{{ op.id }}" data-op-name="{{ op.name|escapejs }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled {% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
                             <td class="col-drag" draggable="true" title="Drag to reorder">⠿</td>
-                            <td class="col-op-code">{{ forloop.counter }}</td>
+                            <td class="col-op-code"><input type="number" min="1" step="1" name="op_code_{{ op.id }}" value="{{ forloop.counter }}" title="Change and Save to move this operation here — the rows from there on shift down"></td>
                             <td class="col-section"><input type="text" name="section_{{ op.id }}" value="{{ op.section }}" readonly></td>
                             <td class="col-name">
                                 <select name="name_{{ op.id }}" class="op-select">
@@ -600,7 +601,10 @@
         function renumberRows() {
             var rows = tbody.querySelectorAll('tr[data-op-id]');
             rows.forEach(function (row, i) {
-                row.querySelector('.col-op-code').textContent = i + 1;
+                var cell = row.querySelector('.col-op-code');
+                var input = cell.querySelector('input');
+                if (input) input.value = input.defaultValue = i + 1;
+                else cell.textContent = i + 1;
             });
         }
 

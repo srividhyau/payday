@@ -460,6 +460,36 @@ def _rate_card_op_snapshot(op: RateCardOperation) -> dict:
     }
 
 
+def _renumber_rate_card(ops):
+    """Saves ops' Op Codes as 1, 2, 3… in the given list order.
+    Two-phase: op_code is unique per (style, op_code), so every row jumps
+    to a temp range first to avoid transient collisions with rows that
+    haven't been renumbered yet."""
+    now = timezone.now()
+    for op in ops:
+        op.op_code += 100000
+        op.updated_at = now
+    RateCardOperation.objects.bulk_update(ops, ["op_code", "updated_at"])
+    for position, op in enumerate(ops, start=1):
+        op.op_code = position
+    RateCardOperation.objects.bulk_update(ops, ["op_code", "updated_at"])
+
+
+def _move_to_op_code(op, new_code):
+    """Moves op to position new_code (1-based, clamped to the card's
+    length) on its style's rate card; the rows from there on shift down
+    one. Returns (old_position, new_position)."""
+    ops = list(RateCardOperation.objects.filter(style=op.style).order_by("op_code"))
+    old_index = next(i for i, o in enumerate(ops) if o.pk == op.pk)
+    moving = ops.pop(old_index)
+    new_index = min(max(new_code, 1), len(ops) + 1) - 1
+    ops.insert(new_index, moving)
+    if new_index != old_index:
+        _renumber_rate_card(ops)
+    op.op_code = moving.op_code
+    return old_index + 1, new_index + 1
+
+
 @login_required
 def rate_card_view(request, style_id):
     """One Style's rate card: every Operation with its Section/Machine/
@@ -509,20 +539,8 @@ def rate_card_view(request, style_id):
 
         if action == "reorder":
             order = [int(v) for v in request.POST.get("order_csv", "").split(",") if v.strip()]
-            ops = list(RateCardOperation.objects.filter(style=style, id__in=order))
-            ops_by_id = {op.id: op for op in ops}
-            # Two-phase renumber: op_code is unique per (style, op_code), so
-            # jump every row to a temp range first to avoid transient
-            # collisions with rows that haven't been renumbered yet.
-            now = timezone.now()
-            for op in ops:
-                op.op_code += 100000
-                op.updated_at = now
-            RateCardOperation.objects.bulk_update(ops, ["op_code", "updated_at"])
-            for position, op_id in enumerate(order, start=1):
-                if op_id in ops_by_id:
-                    ops_by_id[op_id].op_code = position
-            RateCardOperation.objects.bulk_update(ops, ["op_code", "updated_at"])
+            ops_by_id = RateCardOperation.objects.filter(style=style, id__in=order).in_bulk()
+            _renumber_rate_card([ops_by_id[op_id] for op_id in order if op_id in ops_by_id])
             messages.success(request, "Order saved.")
             return redirect("piece_rate_rate_card", style_id=style.id)
 
@@ -566,6 +584,14 @@ def rate_card_view(request, style_id):
                 op.order_quantity = _parse_int(request.POST.get(f"order_quantity{suffix}"))
                 op.save()
                 object_repr = f"{style.name} — {op.name}"
+                # Op Code typed in the row — move it there, shifting the
+                # rest down. Blank (or unchanged) keeps its place; a new
+                # operation without one stays at the end.
+                requested_code = request.POST.get(f"op_code{suffix}", "").strip()
+                if requested_code.isdigit():
+                    old_code, new_code = _move_to_op_code(op, int(requested_code))
+                    if not is_new and old_code != new_code:
+                        log_change(actor, "piecerate", "RateCardOperation", op.id, object_repr, "op_code", old_code, new_code)
                 if is_new:
                     log_change(actor, "piecerate", "RateCardOperation", op.id, object_repr, "__created__", "", "created")
                 else:
