@@ -13,7 +13,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
-from django.db.models import Sum
+from django.db.models import Max, Sum
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -564,7 +564,9 @@ def rate_card_view(request, style_id):
                 old_values = _rate_card_op_snapshot(op)
             else:
                 op = RateCardOperation(style=style)
-                last_code = RateCardOperation.objects.filter(style=style).count()
+                # Highest code + 1, not count + 1 — deleted rows leave gaps,
+                # so the count can land on a code that's still taken.
+                last_code = RateCardOperation.objects.filter(style=style).aggregate(m=Max("op_code"))["m"] or 0
                 op.op_code = last_code + 1
                 old_values = None
 
