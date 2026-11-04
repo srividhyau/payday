@@ -92,6 +92,8 @@
         border: 1px solid #e2e5ea; border-radius: 50%; color: #0f1b2d; font-size: 1rem; text-decoration: none;
         flex: none;
     }
+    .work-month-card { padding: 0.6rem 1.1rem; }
+    .work-month-card .viewed-nav { margin: 0; }
     .viewed-nav .nav-arrow.disabled { color: #c7cbd3; border-color: #eef0f4; pointer-events: none; }
 
     .msg { padding: 0.7rem 0.9rem; border-radius: 10px; margin-bottom: 0.9rem; font-size: 0.95rem; font-weight: 600; }
@@ -340,7 +342,23 @@
             </div>
         </div>
 
-        {% if style_rows %}
+        {# Month being logged — ← goes back to an earlier month that isn't closed (approved) yet. #}
+        <div class="card work-month-card">
+            <div class="viewed-nav">
+                {% if work_has_prev %}<a href="?work_month={{ work_prev_month }}" class="nav-arrow" aria-label="{% trans 'Previous month' %}">&larr;</a>
+                {% else %}<span class="nav-arrow disabled" aria-hidden="true">&larr;</span>{% endif %}
+                <h2>{% blocktrans %}Log for {{ work_month_label }}{% endblocktrans %}</h2>
+                {% if work_has_next %}<a href="?work_month={{ work_next_month }}" class="nav-arrow" aria-label="{% trans 'Next month' %}">&rarr;</a>
+                {% else %}<span class="nav-arrow disabled" aria-hidden="true">&rarr;</span>{% endif %}
+            </div>
+        </div>
+
+        {% if work_month_closed %}
+        <div class="card">
+            <h2>{% trans "Log production" %}</h2>
+            <p class="empty">{% blocktrans %}{{ work_month_label }} is closed — ask your supervisor if something needs to change.{% endblocktrans %}</p>
+        </div>
+        {% elif style_rows %}
         <div class="card" id="styleSelectCard">
             <h2>{% trans "Select style" %}</h2>
             <div class="style-grid">
@@ -375,6 +393,7 @@
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="date" class="entry-date-input" value="">
+                <input type="hidden" name="work_month" value="{{ work_month }}">
                 <label for="op-search-{{ row.style.id }}">{% trans "Operation" %}</label>
                 <div class="op-picker">
                     <input type="text" id="op-search-{{ row.style.id }}" class="op-search" placeholder="{% trans "Search operation…" %}" autocomplete="off">
@@ -419,7 +438,7 @@
 
         {% if logged_styles %}
         <div class="card">
-            <h2>{% trans 'Logged this month' %}</h2>
+            <h2>{% if work_is_past %}{% blocktrans %}Logged in {{ work_month_label }}{% endblocktrans %}{% else %}{% trans 'Logged this month' %}{% endif %}</h2>
             <div class="log-table-wrap">
                 <table class="log-table">
                     <thead>

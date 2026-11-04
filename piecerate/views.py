@@ -2109,13 +2109,36 @@ def operator_entry_view(request, token):
     attendance_prev_month = (attendance_month - timedelta(days=1)).replace(day=1)
     attendance_next_month = (attendance_month.replace(day=28) + timedelta(days=4)).replace(day=1)
 
+    # Which month's styles to log against — this month by default, or an
+    # earlier one picked with the ← arrow (?work_month=YYYY-MM-DD, also
+    # posted back with each submission). An earlier month stays open
+    # until its Operator Summary is approved, which closes it here.
+    this_month = today.replace(day=1)
+    work_month = _parse_month_date(request.POST.get("work_month") or request.GET.get("work_month")).replace(day=1)
+    if work_month > this_month:
+        work_month = this_month
+    work_month_closed = work_month < this_month and OperatorSummaryApproval.objects.filter(
+        year=work_month.year, month=work_month.month,
+    ).exists()
     styles = Style.objects.filter(
-        year=today.year, month=today.month, is_template=False,
+        year=work_month.year, month=work_month.month, is_template=False,
     ).prefetch_related("operations")
+    if work_month_closed:
+        styles = styles.none()
     style_list = list(styles)
+    work_prev_month = (work_month - timedelta(days=1)).replace(day=1)
+    work_has_prev = Style.objects.filter(
+        year=work_prev_month.year, month=work_prev_month.month, is_template=False,
+    ).exists() and not OperatorSummaryApproval.objects.filter(
+        year=work_prev_month.year, month=work_prev_month.month,
+    ).exists()
+    work_next_month = (work_month.replace(day=28) + timedelta(days=4)).replace(day=1)
 
     def own_url():
-        return reverse("piece_rate_operator_entry", args=[token])
+        url = reverse("piece_rate_operator_entry", args=[token])
+        if work_month != this_month:
+            url += f"?work_month={work_month.isoformat()}"
+        return url
 
     if request.method == "POST":
         rc_op = get_object_or_404(RateCardOperation, id=request.POST.get("rate_card_operation_id"), style__in=styles)
@@ -2288,13 +2311,13 @@ def operator_entry_view(request, token):
             "default_qty": qty_map.get(default_date, "") if default_date else "",
         }
 
-    # Rate/amount only ever show for the current real-world month (this
-    # page has no past-month view), and only when both this operator has
+    # Rate/amount only ever show for the month being logged, and only
+    # when both this operator has
     # opted in (link.show_rate_to_operator) and that month's Operator
     # Summary has actually been approved — see OperatorSummaryApproval
     # and operator_summary_view's "approve" action.
     show_rate = link.show_rate_to_operator and OperatorSummaryApproval.objects.filter(
-        year=today.year, month=today.month,
+        year=work_month.year, month=work_month.month,
     ).exists()
 
     # Grouped by style (same Style -> Operation shape the desktop
@@ -2435,6 +2458,14 @@ def operator_entry_view(request, token):
         "style_rows": style_rows,
         "logged_styles": logged_styles,
         "no_styles_this_month": not style_list,
+        "work_month": work_month.isoformat(),
+        "work_month_label": f"{calendar.month_name[work_month.month]} {work_month.year}",
+        "work_month_closed": work_month_closed,
+        "work_is_past": work_month != this_month,
+        "work_has_prev": work_has_prev,
+        "work_has_next": work_month < this_month,
+        "work_prev_month": work_prev_month.isoformat(),
+        "work_next_month": work_next_month.isoformat(),
         "not_started_yet": bool(style_list) and not started_styles,
         "token": token,
         "languages": settings.LANGUAGES,
