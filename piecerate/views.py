@@ -28,7 +28,7 @@ from attendance.models import AttendanceRecord, AuditLogEntry, Employee, Special
 from src import metrics, payroll
 
 from .models import (
-    PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, OperatorLink, OperatorSummaryApproval, PieceRateEntry,
+    PAY_TYPE_CHOICES, PAY_TYPE_OPERATOR, Operation, OperatorEntryFreeze, OperatorLink, OperatorSummaryApproval, PieceRateEntry,
     RateCardOperation, Style,
 )
 from .permissions import can_edit_piece_rate, can_revoke_operator_links
@@ -133,6 +133,28 @@ def _parse_month_date(date_param):
 FROZEN_MONTH_MESSAGE = "This month is approved and frozen. Un-approve it on the Operator Summary page to change it."
 
 
+def _operator_entry_closed(year, month):
+    """Operators can't log or change this month: it's frozen for them, or approved."""
+    return (
+        OperatorEntryFreeze.objects.filter(year=year, month=month).exists()
+        or OperatorSummaryApproval.is_approved(year, month)
+    )
+
+
+def _set_operator_entry_frozen(request, year, month, freezing):
+    if freezing:
+        OperatorEntryFreeze.objects.get_or_create(year=year, month=month)
+    else:
+        OperatorEntryFreeze.objects.filter(year=year, month=month).delete()
+    log_change(
+        request.user.get_username() or "unknown", "piecerate", "OperatorEntryFreeze", f"{year}-{month:02d}",
+        f"Operator entry {calendar.month_name[month]} {year}", "frozen", not freezing, freezing,
+    )
+    messages.success(
+        request, f"Operator entry {'frozen' if freezing else 'opened'} for {calendar.month_name[month]} {year}.",
+    )
+
+
 def _month_or_first_unapproved(date_param):
     """A page's month: the one asked for, else the first unapproved one."""
     if date_param:
@@ -198,6 +220,12 @@ def piece_rate_view(request):
 
     if request.method == "POST":
         redirect_url = f"{request.path}?date={current.isoformat()}"
+        if request.POST.get("action") in ("freeze_operator_entry", "unfreeze_operator_entry"):
+            denied = _require_piece_rate_editor(request, redirect_to=redirect_url)
+            if denied:
+                return denied
+            _set_operator_entry_frozen(request, year, month, request.POST["action"] == "freeze_operator_entry")
+            return redirect(redirect_url)
         denied = _require_otp_verified(request, redirect_to=redirect_url)
         if denied:
             return denied
@@ -369,6 +397,8 @@ def piece_rate_view(request):
         "month": month,
         "month_name": calendar.month_name[month],
         "month_approved": OperatorSummaryApproval.is_approved(year, month),
+        "operator_entry_frozen": OperatorEntryFreeze.objects.filter(year=year, month=month).exists(),
+        "can_freeze_operator_entry": can_edit_piece_rate(request.user),
         "prev_date": prev_date.isoformat(),
         "next_date": next_date.isoformat(),
         # This month's totals across every style listed — Total Rate
@@ -1156,8 +1186,18 @@ def production_view(request, style_id):
     sharing this same data and the same cell-save endpoint."""
     style = get_object_or_404(Style, id=style_id, is_template=False)
     if request.method == "POST":
+        action = request.POST.get("action")
+        if action in ("freeze_operator_entry", "unfreeze_operator_entry"):
+            denied = _require_piece_rate_editor(request, redirect_to=request.path)
+            if denied:
+                return denied
+            _set_operator_entry_frozen(request, style.year, style.month, action == "freeze_operator_entry")
+            return redirect(request.path)
         return _save_production_cell(request, style)
-    return render(request, "piecerate/production.html", _build_production_context(style))
+    context = _build_production_context(style)
+    context["operator_entry_frozen"] = OperatorEntryFreeze.objects.filter(year=style.year, month=style.month).exists()
+    context["can_freeze_operator_entry"] = can_edit_piece_rate(request.user)
+    return render(request, "piecerate/production.html", context)
 
 
 def production_download_view(request, style_id):
@@ -2200,9 +2240,7 @@ def operator_entry_view(request, token):
     work_month = _parse_month_date(request.POST.get("work_month") or request.GET.get("work_month")).replace(day=1)
     if work_month > this_month:
         work_month = this_month
-    work_month_closed = work_month < this_month and OperatorSummaryApproval.objects.filter(
-        year=work_month.year, month=work_month.month,
-    ).exists()
+    work_month_closed = _operator_entry_closed(work_month.year, work_month.month)
     styles = Style.objects.filter(
         year=work_month.year, month=work_month.month, is_template=False,
     ).prefetch_related("operations")
@@ -2212,9 +2250,7 @@ def operator_entry_view(request, token):
     work_prev_month = (work_month - timedelta(days=1)).replace(day=1)
     work_has_prev = Style.objects.filter(
         year=work_prev_month.year, month=work_prev_month.month, is_template=False,
-    ).exists() and not OperatorSummaryApproval.objects.filter(
-        year=work_prev_month.year, month=work_prev_month.month,
-    ).exists()
+    ).exists() and not _operator_entry_closed(work_prev_month.year, work_prev_month.month)
     work_next_month = (work_month.replace(day=28) + timedelta(days=4)).replace(day=1)
 
     def own_url():
@@ -2224,6 +2260,11 @@ def operator_entry_view(request, token):
         return url
 
     if request.method == "POST":
+        if work_month_closed:
+            messages.error(request, _("%(month)s is closed — ask your supervisor if something needs to change.") % {
+                "month": f"{calendar.month_name[work_month.month]} {work_month.year}",
+            })
+            return redirect(own_url())
         rc_op = get_object_or_404(RateCardOperation, id=request.POST.get("rate_card_operation_id"), style__in=styles)
         quantity = _parse_int(request.POST.get("quantity"))
         try:

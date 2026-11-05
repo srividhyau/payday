@@ -1,0 +1,15 @@
+{% if month_closed %}
+<span class="approval-badge" data-tooltip="This month is approved and frozen, so operators can't log or change it.">&#10003; Operators closed</span>
+{% elif can_freeze_operator_entry %}
+<form method="post" class="operator-entry-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="{% if operator_entry_frozen %}unfreeze_operator_entry{% else %}freeze_operator_entry{% endif %}">
+    <label class="app-switch" data-tooltip="On: operators can log this month, for all styles. Off: they can't log or change it, and supervisors can still edit on Production.">
+        <input type="checkbox" aria-label="Operators can log this month" {% if not operator_entry_frozen %}checked{% endif %} onchange="this.form.submit();">
+        <span class="slider"></span>
+    </label>
+    {% if operator_entry_frozen %}<span class="app-switch-label is-frozen">Operators frozen</span>{% else %}<span class="app-switch-label">Operators open</span>{% endif %}
+</form>
+{% elif operator_entry_frozen %}
+<span class="app-switch-label is-frozen">Operators frozen</span>
+{% endif %}

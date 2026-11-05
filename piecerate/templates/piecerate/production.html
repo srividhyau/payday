@@ -261,6 +261,7 @@
                 {% endfor %}
             </select>
             {% endif %}
+            {% include "piecerate/_operator_entry_switch.html" with month_closed=style.is_frozen %}
             <div class="tab-row">
                 <a href="{% url 'piece_rate_rate_card' style.id %}" class="tab-btn">Rate Card</a>
                 <a href="{% url 'piece_rate_production_mobile' style.id %}" class="tab-btn">Mobile view</a>

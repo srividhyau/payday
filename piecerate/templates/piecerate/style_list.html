@@ -101,6 +101,7 @@
             <a href="?date={{ prev_date }}" class="nav-arrow" aria-label="Previous month" title="Previous month">&larr;</a>
             <span class="styles-period-label">{{ month_name }} {{ year }}</span>
             <a href="?date={{ next_date }}" class="nav-arrow" aria-label="Next month" title="Next month">&rarr;</a>
+            {% include "piecerate/_operator_entry_switch.html" with month_closed=month_approved %}
         </div>
     </div>
 

@@ -31,11 +31,6 @@
     .delete-btn { color: #b3261e; }
     .delete-btn:hover { color: #7a1a15; }
     .delete-btn:disabled { color: var(--text-muted); cursor: not-allowed; text-decoration: none; }
-    /* Enable/Disable switch — a real Bootstrap form-switch now (see the
-       markup) instead of a text Disable/Enable button, which read as
-       ambiguous (disable *what*, from what state?) compared to a
-       standard on/off toggle. */
-    .op-enable-toggle:checked { background-color: #1e7e34; border-color: #1e7e34; }
     /* Disabled — stays on the rate card (toggle it back on any time) but
        is excluded from the Production page entirely; dimmed here so it
        reads as "off" without needing a separate column. */
@@ -307,10 +302,11 @@
                             <td>
                                 <button type="submit" name="action" value="edit_{{ op.id }}" class="save-btn">Save</button>
                                 &nbsp;
-                                <div class="form-check form-switch d-inline-block align-middle" title="{% if op.is_enabled %}Enabled — shows on the Production page{% else %}Disabled — hidden from the Production page{% endif %}">
-                                    <input type="checkbox" class="form-check-input op-enable-toggle" role="switch" id="opEnable{{ op.id }}" data-op-id="{{ op.id }}" {% if op.is_enabled %}checked{% endif %}>
-                                    <label class="form-check-label" for="opEnable{{ op.id }}">{% if op.is_enabled %}Enabled{% else %}Disabled{% endif %}</label>
-                                </div>
+                                <label class="app-switch" data-tooltip="{% if op.is_enabled %}Enabled: shows on the Production page{% else %}Disabled: hidden from the Production page{% endif %}">
+                                    <input type="checkbox" class="op-enable-toggle" role="switch" aria-label="Enable {{ op.name }}" data-op-id="{{ op.id }}" {% if op.is_enabled %}checked{% endif %}>
+                                    <span class="slider"></span>
+                                </label>
+                                <span class="app-switch-label">{% if op.is_enabled %}Enabled{% else %}Disabled{% endif %}</span>
                                 &nbsp;
                                 <button type="submit" name="action" value="delete_{{ op.id }}" class="delete-btn" data-confirm-name="{{ op.name|escapejs }}">Delete</button>
                             </td>

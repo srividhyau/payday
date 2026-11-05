@@ -192,6 +192,22 @@ class OperatorLink(TimestampedModel):
         return f"{self.employee} link"
 
 
+class OperatorEntryFreeze(TimestampedModel):
+    """Presence of a row for (year, month) stops operators logging or
+    changing that month's work from their mobile link, while supervisors
+    can still correct it on the Production page. Set from the Production
+    page, for the selected style's month, at any time."""
+
+    year = models.IntegerField()
+    month = models.IntegerField()
+
+    class Meta:
+        unique_together = [("year", "month")]
+
+    def __str__(self):
+        return f"Operator entry frozen {self.year}-{self.month:02d}"
+
+
 class OperatorSummaryApproval(TimestampedModel):
     """Marks one calendar month's Operator Summary as approved — presence
     of a row for (year, month) means that month's rate/amount figures may

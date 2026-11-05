@@ -53,24 +53,6 @@
     table.simple tr.no-link-row td.col-sno { box-shadow: inset 3px 0 0 #b3261e; }
     .no-link { color: var(--text-muted); font-size: 0.85rem; }
 
-    /* Show Rate/Amount toggle — a real checkbox styled as a slider
-       (submits the form on change via onchange, see the input below),
-       rather than a button whose label text had to be read to tell the
-       state apart. */
-    .rate-toggle { position: relative; display: inline-block; width: 2.6rem; height: 1.5rem; vertical-align: middle; }
-    .rate-toggle input { opacity: 0; width: 0; height: 0; }
-    .rate-toggle .slider {
-        position: absolute; inset: 0; background: #ccc; border-radius: 999px; cursor: pointer;
-        transition: background-color .15s ease;
-    }
-    .rate-toggle .slider::before {
-        content: ""; position: absolute; width: 1.1rem; height: 1.1rem; left: 0.2rem; bottom: 0.2rem;
-        background: #fff; border-radius: 50%; transition: transform .15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-    }
-    .rate-toggle input:checked + .slider { background: var(--navy); }
-    .rate-toggle input:checked + .slider::before { transform: translateX(1.1rem); }
-    .rate-toggle input:focus-visible + .slider { outline: 2px solid var(--navy); outline-offset: 2px; }
-    .rate-toggle-label { font-size: 0.72rem; color: var(--text-muted); margin-left: 0.5rem; vertical-align: middle; }
 
     .btn {
         border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; background: #fff;
@@ -144,11 +126,11 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
                                 <input type="hidden" name="action" value="toggle_rate_visibility">
-                                <label class="rate-toggle">
+                                <label class="app-switch">
                                     <input type="checkbox" onchange="this.form.submit()" {% if row.link.show_rate_to_operator %}checked{% endif %} aria-label="Show rate/amount to {{ row.employee.name }}">
                                     <span class="slider"></span>
                                 </label>
-                                <span class="rate-toggle-label">{% if row.link.show_rate_to_operator %}Showing{% else %}Hidden{% endif %}</span>
+                                <span class="app-switch-label">{% if row.link.show_rate_to_operator %}Showing{% else %}Hidden{% endif %}</span>
                             </form>
                             {% else %}
                             <span class="no-link">—</span>
