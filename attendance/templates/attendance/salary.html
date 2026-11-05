@@ -85,15 +85,15 @@
         }
         .salary-toolbar .tab-row.nav-tabs .nav-item { flex: 0 1 auto; max-width: 9rem; }
         .salary-toolbar .tab-row.nav-tabs .tab-btn {
-            padding: 0.4rem 0.55rem; font-size: 0.78rem;
+            padding: 0.4rem 0.55rem; font-size: 0.68rem;
             display: flex; align-items: center; justify-content: center;
-            width: 100%; white-space: normal; text-align: center; overflow-wrap: anywhere;
+            width: 100%; white-space: normal; text-align: center;
         }
         .salary-toolbar .tab-row-icons { flex: 0 0 auto; margin-left: auto; gap: 0.15rem; }
         .salary-toolbar .tab-row-icons .icon-btn { width: 2rem; height: 2rem; }
         .salary-save-button {
             flex: 0 1 auto; max-width: 8rem; white-space: normal;
-            text-align: center; overflow-wrap: anywhere;
+            text-align: center;
             padding: 0.3rem 0.55rem; font-size: 0.78rem; line-height: 1.2;
         }
         .salary-save-button[hidden] { display: none !important; }
@@ -453,6 +453,19 @@
         body.salary-page .page .salary-fieldset table.simple thead tr:first-child th:nth-child(2) {
             left: var(--salary-code-width, 4.5rem);
         }
+        /* Bootstrap's .card turns on break-word for everything inside it,
+           which splits long words letter by letter when space runs out.
+           Wrap between words only on this page. */
+        body.salary-page .card { overflow-wrap: normal; }
+        /* Operators has no Code column — Employee is the only frozen column,
+           so the second column (Working Days) scrolls normally. */
+        body.salary-page .page .salary-fieldset table.simple.no-code-col tbody tr:not(.dept-row) td:nth-of-type(2) {
+            position: static; left: auto;
+        }
+        body.salary-page .page .salary-fieldset table.simple.no-code-col thead tr:first-child th:nth-child(2) {
+            left: auto; z-index: 102 !important;
+        }
+        body.salary-page .page .salary-fieldset table.simple.no-code-col thead th { font-size: 0.65rem; }
 
         /* Base look (border/radius/focus ring/height) all comes from
            Bootstrap's own .form-control.form-control-sm now (see the
@@ -797,7 +810,7 @@
 
             <div class="tab-panel" data-panel="company"{% if initial_tab != "company" %} style="display:none;"{% endif %}>
                 {% if company_rows %}
-                <form method="post" id="salary-company-form" data-save-label="Save Company Workers">
+                <form method="post" id="salary-company-form" data-save-label="Save">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="company">
@@ -934,7 +947,7 @@
 
             <div class="tab-panel" data-panel="helpers"{% if initial_tab != "helpers" %} style="display:none;"{% endif %}>
                 {% if helper_rows %}
-                <form method="post" id="salary-helpers-form" data-save-label="Save Helpers">
+                <form method="post" id="salary-helpers-form" data-save-label="Save">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="helpers">
@@ -1009,7 +1022,7 @@
 
             <div class="tab-panel" data-panel="staff"{% if initial_tab != "staff" %} style="display:none;"{% endif %}>
                 {% if staff_rows %}
-                <form method="post" id="salary-staff-form" data-save-label="Save Staff">
+                <form method="post" id="salary-staff-form" data-save-label="Save">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="staff">
@@ -1109,7 +1122,7 @@
 
             <div class="tab-panel" data-panel="contractors"{% if initial_tab != "contractors" %} style="display:none;"{% endif %}>
                 {% if contractor_rows %}
-                <form method="post" id="salary-contractors-form" data-save-label="Save Contractors">
+                <form method="post" id="salary-contractors-form" data-save-label="Save">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="contractors">
@@ -1184,17 +1197,17 @@
 
             <div class="tab-panel" data-panel="operators"{% if initial_tab != "operators" %} style="display:none;"{% endif %}>
                 {% if operator_rows %}
-                <form method="post" id="salary-operators-form" data-save-label="Save Operators">
+                <form method="post" id="salary-operators-form" data-save-label="Save">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="operators">
                     {% if lock_status.operators %}<p class="alert lock-banner" role="alert">🔒 Operators is locked for {{ month_name }} {{ year }} — unlock it with the PIN to make changes.</p>{% endif %}
                     <fieldset class="salary-fieldset" {% if lock_status.operators or is_salary_viewer %}disabled{% endif %}>
                     <div class="table-wrap fit-content table-responsive salary-table-scroll">
-                        <table class="table simple fit-content">
+                        <table class="table simple fit-content no-code-col">
                             <thead>
                                 <tr>
-                                    <th>Code</th><th>Employee</th>
+                                    <th>Employee</th>
                                     <th class="num grp-attendance" title="Attendance records: Present, Paid Holiday and Comp Off count as 1 day; Half Day counts as 0.5 day.">Working Days</th>
                                     <th class="num grp-attendance personal-leave-cell">Personal Leave</th>
                                     <th class="num grp-fixed" title="Pieces x Rate Card rate this month, auto-filled here — see Piece Rate > Operator Summary. Edit to override.">Manual Amount</th>
@@ -1208,7 +1221,6 @@
                                 {% for row in operator_rows %}
                                 <tr class="calc-row{% if row.attendance_warning %} attendance-warning-row{% endif %}{% if row.employee.department.name|lower == "operator" and row.employee.subcategory|lower == "company" %} work-operator-row{% endif %}" data-kind="operators" data-already-paid="{{ row.calc.already_paid|default:'0' }}">
                                     {% if not row.attendance_warning %}<input type="hidden" name="employee_id" value="{{ row.employee.id }}">{% endif %}
-                                    <td>{{ row.employee.code }}</td>
                                     <td>{{ row.employee.name }}{% if row.attendance_warning %}<span class="attendance-warning-label">⚠ Device attendance: {{ row.device_attendance_days }} day(s); excluded from payroll totals</span>{% endif %}</td>
                                     <td class="num grp-attendance">{{ row.attendance_working_days|floatformat:"-1" }}</td>
                                     <td class="num grp-attendance personal-leave-cell">{{ row.personal_leave }}</td>
@@ -1225,7 +1237,7 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="2">Total</td>
+                                    <td>Total</td>
                                     <td class="num">{{ operator_totals.attendance_working_days|floatformat:"-1" }}</td>
                                     <td class="num personal-leave-cell">{{ operator_totals.personal_leave }}</td>
                                     <td class="num" data-total="manual_amount">{{ operator_totals.manual_amount }}</td>
@@ -1249,7 +1261,7 @@
 
             <div class="tab-panel" data-panel="ironing_bartrack"{% if initial_tab != "ironing_bartrack" %} style="display:none;"{% endif %}>
                 {% if ironing_bartrack_rows %}
-                <form method="post" id="salary-ironing-bartrack-form" data-save-label="Save Ironing &amp; Bartrack">
+                <form method="post" id="salary-ironing-bartrack-form" data-save-label="Save">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="ironing_bartrack">
@@ -1313,7 +1325,7 @@
 
             <div class="tab-panel" data-panel="fixed_payments"{% if initial_tab != "fixed_payments" %} style="display:none;"{% endif %}>
                 {% if fixed_payment_rows %}
-                <form method="post" id="salary-fixed-payments-form" data-save-label="Save Fixed Payments">
+                <form method="post" id="salary-fixed-payments-form" data-save-label="Save">
                     {% csrf_token %}
                     <input type="hidden" name="date" value="{{ current|date:'Y-m-d' }}">
                     <input type="hidden" name="tab" value="fixed_payments">
