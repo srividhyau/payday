@@ -48,6 +48,16 @@
        expected, not something needing attention. */
     tr.no-operators td { background: #fdecea; }
     tr.no-operators td.col-op-code { box-shadow: inset 3px 0 0 #b3261e; }
+    /* Pieces logged vs. Order Qty — light versions of the app's
+       diff-more/less/balanced colors. Fields go see-through so the tint
+       shows across the whole row, not just around the inputs. */
+    tr.diff-more td { background: #f8e9f8; }
+    tr.diff-less td { background: #fdf0ee; }
+    tr.diff-balanced td { background: #e6f4ea; }
+    table.simple tr:is(.diff-more, .diff-less, .diff-balanced, .no-operators) :is(input[type="text"], input[type="number"], select, .op-picker-btn) { background: transparent; }
+    table.simple tr:is(.diff-more, .diff-less, .diff-balanced, .no-operators) input:focus { background: #fff; }
+    .qty-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; margin-bottom: 0.5rem; font-size: 0.75rem; color: var(--text-muted); }
+    .qty-legend .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: 0.3rem; border: 1px solid rgba(0,0,0,0.15); border-radius: 3px; vertical-align: middle; }
     table.simple td.col-operators { max-width: 220px; white-space: normal; font-size: 0.75rem; color: var(--text-muted); }
     .no-operators-label { color: #b3261e; font-weight: 600; }
     .disabled-badge {
@@ -196,6 +206,14 @@
         </div>
         {% endif %}
 
+        {% if not style.is_template %}
+        <div class="qty-legend">
+            <span><span class="swatch" style="background:#f8e9f8"></span>Excess</span>
+            <span><span class="swatch" style="background:#fdf0ee"></span>Short</span>
+            <span><span class="swatch" style="background:#e6f4ea"></span>Balanced</span>
+        </div>
+        {% endif %}
+
         <form method="post" id="rateCardForm">
             {% csrf_token %}
             <div class="table-wrap fit-content">
@@ -252,7 +270,7 @@
                         {% endif %}
                         {% for op in operations %}
                         {% if can_edit_this_style %}
-                        <tr id="op-{{ op.id }}" data-op-id="{{ op.id }}" data-op-name="{{ op.name|escapejs }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled {% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
+                        <tr id="op-{{ op.id }}" data-op-id="{{ op.id }}" data-op-name="{{ op.name|escapejs }}"{% if op.row_class %} class="{{ op.row_class }}"{% endif %}{% if op.qty_title %} title="{{ op.qty_title }}"{% endif %}>
                             <td class="col-drag" draggable="true" title="Drag to reorder">⠿</td>
                             <td class="col-op-code"><input type="number" min="1" step="1" name="op_code_{{ op.id }}" value="{{ forloop.counter }}" title="Change and Save to move this operation here — the rows from there on shift down"></td>
                             <td class="col-section"><input type="text" name="section_{{ op.id }}" value="{{ op.section }}" readonly></td>
@@ -297,7 +315,7 @@
                             </td>
                         </tr>
                         {% else %}
-                        <tr id="op-{{ op.id }}"{% if not op.is_enabled or not op.operator_names %} class="{% if not op.is_enabled %}op-row-disabled{% elif not op.operator_names %}no-operators{% endif %}"{% endif %}>
+                        <tr id="op-{{ op.id }}"{% if op.row_class %} class="{{ op.row_class }}"{% endif %}{% if op.qty_title %} title="{{ op.qty_title }}"{% endif %}>
                             <td></td>
                             <td class="col-op-code">{{ forloop.counter }}</td>
                             <td>{{ op.section|default:"—" }}</td>

@@ -629,8 +629,26 @@ def rate_card_view(request, style_id):
         .distinct()
     ):
         operator_names_by_op.setdefault(op_id, set()).add(emp_name)
+    produced_by_op = dict(
+        PieceRateEntry.objects.filter(rate_card_operation__in=operations)
+        .values_list("rate_card_operation_id")
+        .annotate(total=Sum("quantity"))
+    )
     for op in operations:
         op.operator_names = sorted(operator_names_by_op.get(op.id, set()))
+        # Row background — disabled and zero-operator rows keep their own
+        # flags; everything else is colored by pieces logged vs. Order Qty.
+        op.qty_title = ""
+        if not op.is_enabled:
+            op.row_class = "op-row-disabled"
+        elif not op.operator_names:
+            op.row_class = "no-operators"
+        else:
+            produced = produced_by_op.get(op.id) or 0
+            op.row_class = _qty_diff_class(produced, op.order_quantity)
+            if op.order_quantity:
+                diff = produced - op.order_quantity
+                op.qty_title = f"Logged {produced} of {op.order_quantity} ({f'{diff:+d}' if diff else 'balanced'})"
 
     # Template Rate column + top-of-table summary — comparing this
     # style's own rate card against whichever template it was likely
