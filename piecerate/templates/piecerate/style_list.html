@@ -105,6 +105,7 @@
     </div>
 
     <div class="page">
+        {% include "piecerate/_frozen_note.html" with frozen=month_approved %}
         {% for message in messages %}
             <div class="msg {{ message.tags }}">{{ message }}</div>
         {% endfor %}
@@ -142,7 +143,7 @@
                     {% endif %}
                 </div>
             </div>
-            {% if not can_edit_styles %}
+            {% if not can_edit_styles and not month_approved %}
             <p class="styles-toolbar-note small text-body-secondary">Verify your OTP to upload or change style images.</p>
             {% endif %}
         </section>

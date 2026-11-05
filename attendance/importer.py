@@ -10,7 +10,7 @@ from django.db import transaction
 from src import metrics as attendance_metrics
 from src import parser as attendance_parser
 
-from .models import AttendanceRecord, Department, Employee, MonthLock, UploadBatch
+from .models import AttendanceRecord, Employee, MonthLock, PendingDeviceAttendance, UploadBatch
 
 
 @transaction.atomic
@@ -34,9 +34,9 @@ def import_dataframe(daily_df, file_name: str = "") -> UploadBatch:
     by a re-upload, even if the device export's own values differ or say
     something generic like "DefaultCategory". Only name/designation/
     company (identity details the device export is authoritative for) get
-    refreshed on an existing employee. A genuinely new employee still gets
-    everything, including department/category/subcategory, straight from
-    the file."""
+    refreshed on an existing employee. A code that isn't in Employees never
+    creates one: its rows wait in PendingDeviceAttendance until the employee
+    is added from the Employees page."""
     if daily_df.empty:
         raise ValueError("No attendance rows found in that file.")
 
@@ -59,37 +59,34 @@ def import_dataframe(daily_df, file_name: str = "") -> UploadBatch:
         .values_list("year", "month")
     )
 
-    dept_cache: dict[str, Department] = {}
-    emp_cache: dict[str, Employee] = {}
+    emp_cache: dict[str, Employee | None] = {}
 
     for row in daily_df.itertuples(index=False):
-        dept_name = (row.department or "Unassigned").strip() or "Unassigned"
-        dept = dept_cache.get(dept_name)
-        if dept is None:
-            dept, _ = Department.objects.get_or_create(name=dept_name)
-            dept_cache[dept_name] = dept
-
-        emp = emp_cache.get(row.emp_code)
-        if emp is None:
-            company = getattr(row, "company", "")
-            category = getattr(row, "category", "")
-            subcategory = getattr(row, "subcategory", "")
-            emp, created = Employee.objects.get_or_create(
-                code=row.emp_code,
-                defaults={
-                    "name": row.emp_name, "department": dept, "designation": row.designation,
-                    "company": company, "category": category, "subcategory": subcategory,
-                },
-            )
-            if not created:
+        if row.emp_code not in emp_cache:
+            emp = Employee.objects.filter(code=row.emp_code).first()
+            if emp:
                 emp.name = row.emp_name
                 emp.designation = row.designation
-                emp.company = company
+                emp.company = getattr(row, "company", "")
                 emp.save(update_fields=["name", "designation", "company"])
             emp_cache[row.emp_code] = emp
+        emp = emp_cache[row.emp_code]
 
         row_date = row.date.date()
         if (row_date.year, row_date.month) in locked_year_months:
+            continue
+
+        if emp is None:
+            PendingDeviceAttendance.objects.update_or_create(
+                emp_code=row.emp_code, date=row_date,
+                defaults={
+                    "emp_name": row.emp_name, "designation": row.designation,
+                    "company": getattr(row, "company", ""), "shift": row.shift,
+                    "time_in": row.time_in, "time_out": row.time_out,
+                    "work_hours": row.work_hours, "ot_hours": row.ot_hours,
+                    "status": row.status, "batch": batch,
+                },
+            )
             continue
 
         try:
@@ -130,3 +127,29 @@ def import_file(file_obj, file_name: str | None = None) -> UploadBatch:
     raw = attendance_parser.load_file(file_obj)
     daily = attendance_parser.normalize(raw)
     return import_dataframe(daily, file_name=file_name or getattr(file_obj, "name", "upload"))
+
+
+def attach_pending_attendance(employee: Employee) -> int:
+    """Moves an employee's waiting device rows into AttendanceRecord. A row
+    already recorded for that date, or in a month locked since the upload,
+    is left as it is. Returns how many rows were moved."""
+    locked_year_months = set(
+        MonthLock.objects.filter(view__in=[MonthLock.VIEW_ALL, MonthLock.VIEW_ISSUES])
+        .values_list("year", "month")
+    )
+    moved = 0
+    with transaction.atomic():
+        for row in PendingDeviceAttendance.objects.filter(emp_code=employee.code):
+            if (row.date.year, row.date.month) in locked_year_months:
+                continue
+            _, created = AttendanceRecord.objects.get_or_create(
+                employee=employee, date=row.date,
+                defaults={
+                    "shift": row.shift, "time_in": row.time_in, "time_out": row.time_out,
+                    "work_hours": row.work_hours, "ot_hours": row.ot_hours,
+                    "status": row.status, "batch": row.batch,
+                },
+            )
+            moved += int(created)
+            row.delete()
+    return moved

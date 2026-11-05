@@ -31,11 +31,6 @@
         transition: background .15s ease, color .15s ease;
     }
     .month-nav .nav-arrow:hover { background: var(--navy); color: var(--yellow); }
-    .approval-badge {
-        font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px;
-        border: 1px solid transparent;
-    }
-    .approval-badge.approved { background: #d1f7d6; color: #1e7e34; border-color: #1e7e34; }
     /* Same toggle-switch look as the Operator Links page's Show Rate/
        Amount control — a real checkbox styled as a slider, submitting
        the form on change. */
@@ -49,8 +44,8 @@
         content: ""; position: absolute; width: 1.1rem; height: 1.1rem; left: 0.2rem; bottom: 0.2rem;
         background: #fff; border-radius: 50%; transition: transform .15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.3);
     }
-    .rate-toggle input:checked + .slider { background: var(--navy); }
-    .rate-toggle input:checked + .slider::before { transform: translateX(1.1rem); }
+    .rate-toggle input:checked + .slider { background: #166534; }
+    .rate-toggle input:checked + .slider::before { transform: translateX(1.1rem); background: var(--yellow); }
     .rate-toggle input:focus-visible + .slider { outline: 2px solid var(--navy); outline-offset: 2px; }
     .rate-toggle-label { font-size: 0.72rem; color: var(--text-muted); margin: 0 0.3rem; vertical-align: middle; }
 
@@ -180,7 +175,7 @@
                         ">
                         <span class="slider"></span>
                     </label>
-                    <span class="rate-toggle-label">{% if is_approved %}Approved{% else %}Not approved{% endif %}</span>
+                    {% if is_approved %}<span class="approval-badge approved">&#10003; Approved</span>{% else %}<span class="rate-toggle-label">Not approved</span>{% endif %}
                 </form>
                 {% elif is_approved %}
                 <span class="approval-badge approved" data-tooltip="Opted-in operators can see rate/amount on their mobile page for this month">&#10003; Approved</span>
@@ -205,6 +200,7 @@
         {% endfor %}
 
         {% if operator_rows %}
+        {% include "piecerate/_summary_filters.html" %}
         <div class="table-wrap fit-content summary-table-wrap">
             <table class="table simple" id="operatorSummaryGrid">
                 <thead>
@@ -242,7 +238,7 @@
                         <td class="num{% if row.total < 10000 %} amt-low{% elif row.total >= 18000 %} amt-high{% endif %}">{{ row.total }}</td>
                     </tr>
                     {% for style in row.styles %}
-                    <tr class="style-row" data-employee-id="{{ row.employee.id }}" data-style-key="{{ row.employee.id }}_{{ forloop.counter }}">
+                    <tr class="style-row" data-employee-id="{{ row.employee.id }}" data-style-key="{{ row.employee.id }}_{{ forloop.counter }}" data-style-name="{{ style.style_name }}">
                         <td class="label">{% if style.ops %}<span class="toggle-arrow op-toggle-arrow">▾</span>{% endif %}{% include "piecerate/_style_icon.html" with style=style.style %}{{ style.style_name }}</td>
                         <td></td>
                         <td></td>
@@ -281,6 +277,8 @@
     </div>
 
     <script>
+{% include "piecerate/_summary_filters_script.html" %}
+
         // Two independent collapse levels, same pattern as Management
         // Summary: an employee shows/hides its own styles; a style
         // (separately) shows/hides its own op-detail rows. Expanding an
@@ -379,6 +377,22 @@
         document.querySelectorAll('tr.employee-row').forEach(function (row) { setRowCollapsed(row, true); });
         refreshExpandAllLabel();
         refreshCollapseAllLabel();
+
+        initSummaryFilters({
+            topRows: topRows,
+            middlesOf: function (top) {
+                return Array.from(document.querySelectorAll('tr.style-row[data-employee-id="' + top.dataset.employeeId + '"]'));
+            },
+            detailsOf: function (middle) {
+                return Array.from(document.querySelectorAll('tr.op-detail-row[data-style-key="' + middle.dataset.styleKey + '"]'));
+            },
+            setTopCollapsed: setRowCollapsed,
+            setMiddleCollapsed: setStyleCollapsed,
+            operationLevel: 'detail',
+            totals: [{ cell: 3, source: 7 }],
+            rowNoun: 'operation row',
+            topNoun: 'operator',
+        });
 
         // Avg/Day's "previous month" tooltip — deferred to DOMContentLoaded
         // since bootstrap.bundle.min.js (the `bootstrap` global) loads via

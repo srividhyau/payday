@@ -129,6 +129,7 @@
         {% endfor %}
 
         {% if style_rows %}
+        {% include "piecerate/_summary_filters.html" %}
         <div class="table-wrap fit-content summary-table-wrap">
             <table class="table simple" id="managementSummaryGrid">
                 <thead>
@@ -151,7 +152,7 @@
                 </thead>
                 <tbody>
                     {% for row in style_rows %}
-                    <tr class="style-top-row" data-style-id="{{ forloop.counter }}">
+                    <tr class="style-top-row" data-style-id="{{ forloop.counter }}" data-style-name="{{ row.style.name }}">
                         <td><span class="toggle-arrow">▾</span>{% include "piecerate/_style_icon.html" with style=row.style %}{{ row.style.name }}</td>
                         <td></td>
                         <td class="num">{{ row.order_quantity }}</td>
@@ -198,6 +199,8 @@
     </div>
 
     <script>
+{% include "piecerate/_summary_filters_script.html" %}
+
         // Two independent collapse levels: a style shows/hides its
         // operation rows; an operation (separately) shows/hides its own
         // operator rows. Expanding a style only reveals its operations —
@@ -297,6 +300,22 @@
         document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, true); });
         refreshExpandAllLabel();
         refreshCollapseAllLabel();
+
+        initSummaryFilters({
+            topRows: topRows,
+            middlesOf: function (top) {
+                return Array.from(document.querySelectorAll('tr.operation-row[data-style-id="' + top.dataset.styleId + '"]'));
+            },
+            detailsOf: function (middle) {
+                return Array.from(document.querySelectorAll('tr.operator-detail-row[data-op-id="' + middle.dataset.opId + '"]'));
+            },
+            setTopCollapsed: setRowCollapsed,
+            setMiddleCollapsed: setOpCollapsed,
+            operationLevel: 'middle',
+            totals: [{ cell: 1, source: 4 }, { cell: 3, source: 6 }],
+            rowNoun: 'operation',
+            topNoun: 'style',
+        });
 
         // "Send to WhatsApp" — screenshots the table as currently
         // expanded/collapsed on screen, same single-table capture as

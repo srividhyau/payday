@@ -65,13 +65,6 @@
             position: relative; margin-left: 0.25rem; color: #b42318; line-height: 1;
         }
         .salary-tab-warning svg { display: block; width: 0.9rem; height: 0.9rem; }
-        .salary-tab-warning:hover::after, .salary-tab-warning:focus::after {
-            content: attr(title); position: absolute; left: 50%; bottom: calc(100% + 0.45rem);
-            transform: translateX(-50%); z-index: 200; width: max-content; max-width: 18rem;
-            padding: 0.45rem 0.6rem; border-radius: 6px; background: #7f1d1d; color: #fff;
-            box-shadow: 0 3px 10px rgba(0,0,0,.2); font-size: 0.72rem; font-weight: 500;
-            line-height: 1.4; text-align: left; white-space: normal; pointer-events: none;
-        }
         /* Keep tabs readable: let them wrap onto another row when the
            available width is tight instead of clipping the tab labels. */
         .salary-toolbar {
@@ -97,6 +90,8 @@
             padding: 0.3rem 0.55rem; font-size: 0.78rem; line-height: 1.2;
         }
         .salary-save-button[hidden] { display: none !important; }
+        .pending-device-employees { font-size: 0.8rem; padding: 0.6rem 0.85rem; margin-bottom: 0.75rem; }
+        .pending-device-employees .table { --bs-table-bg: transparent; font-size: 0.78rem; width: auto; }
         .salary-page .topbar nav .accordion-item + .accordion-item { margin-top: 0.08rem; }
         .salary-page .topbar nav .accordion-button { padding: 0.35rem 0.45rem; }
         .salary-page .topbar nav .accordion-body a { padding-top: 0.25rem; padding-bottom: 0.25rem; }
@@ -544,7 +539,11 @@
                 <span class="current-month">{{ month_name }} {{ year }}</span>
                 <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
             </div>
-                {% if not is_salary_viewer %}
+                {% if month_complete %}
+                <span class="icon-btn is-done" role="img" aria-label="Month completed" data-tooltip="Month completed. To change a sheet, unlock it with its own lock icon.">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+                </span>
+                {% elif not is_salary_viewer %}
                 <div class="dropdown tab-picker">
                     <button type="button" class="icon-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" data-tooltip="Complete this month" aria-label="Complete this month">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
@@ -581,36 +580,57 @@
         </div>
 
     <div class="page">
+        {% if pending_device_employees %}
+        <div class="alert alert-warning pending-device-employees" role="alert">
+            <strong>{{ pending_device_employees|length }} in device attendance but not in Employees</strong>
+            — not on payroll until added from Employees.
+            <table class="table table-sm mb-0 mt-2">
+                <thead><tr><th>Code</th><th>Name</th><th class="text-end">Present</th><th class="text-end">Days</th><th>Dates</th><th></th></tr></thead>
+                <tbody>
+                    {% for p in pending_device_employees %}
+                    <tr>
+                        <td>{{ p.emp_code }}</td>
+                        <td>{{ p.name }}</td>
+                        <td class="text-end">{{ p.present }}</td>
+                        <td class="text-end">{{ p.days }}</td>
+                        <td>{{ p.first_date|date:"j M" }} – {{ p.last_date|date:"j M" }}</td>
+                        <td>{% if not is_salary_viewer %}<a href="{% url 'employee_create' %}?code={{ p.emp_code|urlencode }}">Add to Employees</a>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
         <div class="card">
             <div class="salary-toolbar">
             <ul class="nav nav-tabs tab-row">
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "summary" %} active{% endif %}" data-tab="summary">Summary</button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "company" %} active{% endif %}" data-tab="company">Company Workers
-                    {% if missing_bank_tooltips.company %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.company }}" aria-label="{{ missing_bank_tooltips.company }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
+                    {% if missing_bank_tooltips.company %}<span class="salary-tab-warning" tabindex="0" data-tooltip="{{ missing_bank_tooltips.company }}" aria-label="{{ missing_bank_tooltips.company }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_company" data-label="Company Workers" data-action="{% if lock_status.company %}unlock{% else %}lock{% endif %}">{% if lock_status.company %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "helpers" %} active{% endif %}" data-tab="helpers">Helpers
-                    {% if missing_bank_tooltips.helpers %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.helpers }}" aria-label="{{ missing_bank_tooltips.helpers }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
+                    {% if missing_bank_tooltips.helpers %}<span class="salary-tab-warning" tabindex="0" data-tooltip="{{ missing_bank_tooltips.helpers }}" aria-label="{{ missing_bank_tooltips.helpers }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_helper" data-label="Helpers" data-action="{% if lock_status.helpers %}unlock{% else %}lock{% endif %}">{% if lock_status.helpers %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "staff" %} active{% endif %}" data-tab="staff">Staff
-                    {% if missing_bank_tooltips.staff %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.staff }}" aria-label="{{ missing_bank_tooltips.staff }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
+                    {% if missing_bank_tooltips.staff %}<span class="salary-tab-warning" tabindex="0" data-tooltip="{{ missing_bank_tooltips.staff }}" aria-label="{{ missing_bank_tooltips.staff }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_staff" data-label="Staff" data-action="{% if lock_status.staff %}unlock{% else %}lock{% endif %}">{% if lock_status.staff %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "contractors" %} active{% endif %}" data-tab="contractors">Contractors
-                    {% if missing_bank_tooltips.contractors %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.contractors }}" aria-label="{{ missing_bank_tooltips.contractors }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
+                    {% if missing_bank_tooltips.contractors %}<span class="salary-tab-warning" tabindex="0" data-tooltip="{{ missing_bank_tooltips.contractors }}" aria-label="{{ missing_bank_tooltips.contractors }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_contractors" data-label="Contractors" data-action="{% if lock_status.contractors %}unlock{% else %}lock{% endif %}">{% if lock_status.contractors %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "operators" %} active{% endif %}" data-tab="operators">Operators
-                    {% if missing_bank_tooltips.operators %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.operators }}" aria-label="{{ missing_bank_tooltips.operators }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
+                    {% if missing_bank_tooltips.operators %}<span class="salary-tab-warning" tabindex="0" data-tooltip="{{ missing_bank_tooltips.operators }}" aria-label="{{ missing_bank_tooltips.operators }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_operators" data-label="Operators" data-action="{% if lock_status.operators %}unlock{% else %}lock{% endif %}">{% if lock_status.operators %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "ironing_bartrack" %} active{% endif %}" data-tab="ironing_bartrack">Ironing &amp; Bartrack
-                    {% if missing_bank_tooltips.ironing_bartrack %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.ironing_bartrack }}" aria-label="{{ missing_bank_tooltips.ironing_bartrack }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
+                    {% if missing_bank_tooltips.ironing_bartrack %}<span class="salary-tab-warning" tabindex="0" data-tooltip="{{ missing_bank_tooltips.ironing_bartrack }}" aria-label="{{ missing_bank_tooltips.ironing_bartrack }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_ironing_bartrack" data-label="Ironing & Bartrack" data-action="{% if lock_status.ironing_bartrack %}unlock{% else %}lock{% endif %}">{% if lock_status.ironing_bartrack %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
                 <li class="nav-item"><button type="button" class="nav-link tab-btn{% if initial_tab == "fixed_payments" %} active{% endif %}" data-tab="fixed_payments">Fixed Payments
-                    {% if missing_bank_tooltips.fixed_payments %}<span class="salary-tab-warning" tabindex="0" title="{{ missing_bank_tooltips.fixed_payments }}" aria-label="{{ missing_bank_tooltips.fixed_payments }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
+                    {% if missing_bank_tooltips.fixed_payments %}<span class="salary-tab-warning" tabindex="0" data-tooltip="{{ missing_bank_tooltips.fixed_payments }}" aria-label="{{ missing_bank_tooltips.fixed_payments }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg></span>{% endif %}
                     {% if not is_salary_viewer %}<span class="tab-lock-icon" data-view="salary_fixed_payments" data-label="Fixed Payments" data-action="{% if lock_status.fixed_payments %}unlock{% else %}lock{% endif %}">{% if lock_status.fixed_payments %}<svg class="icon-locked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{% else %}<svg class="icon-unlocked" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>{% endif %}</span>{% endif %}
                 </button></li>
             </ul>

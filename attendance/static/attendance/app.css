@@ -451,3 +451,51 @@ body:has(.topbar.collapsed) .month-nav { left: 0; }
     display: none; align-items: center; justify-content: center; z-index: 1000;
 }
 .edit-overlay.open { display: flex; }
+
+/* Layering, lowest to highest: page content and headers (up to ~110), then
+   popups, then tooltips. Anything that opens above the page belongs here,
+   so a sticky header or the sidebar can never cover it. */
+.edit-overlay { z-index: 100000; }
+.modal-backdrop { z-index: 100000 !important; }
+.modal { z-index: 100010 !important; }
+.dropdown-menu { z-index: 100020 !important; }
+.tooltip { z-index: 100030 !important; }
+/* A popup can't rise above a positioned parent, so lift the parents while
+   one is open. */
+:has(.dropdown-menu.show), :has(.edit-overlay.open), :has(.modal.show) { z-index: 100000 !important; }
+
+/* Shared tooltip — see floating.js, which replaces the per-element ::after
+   tooltips. */
+[data-tooltip]:not(.sortable):hover::after { content: none !important; }
+#app-tooltip {
+    position: fixed; top: 0; left: 0; z-index: 100030; display: none;
+    max-width: min(24rem, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: hidden;
+    padding: 0.35rem 0.65rem; border-radius: 6px; pointer-events: none;
+    background: var(--navy-deep); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    font-size: 0.75rem; font-weight: 600; line-height: 1.35; text-align: left; white-space: pre-line;
+}
+#app-tooltip.is-visible { display: block; }
+#app-tooltip.is-cell {
+    background: #FFEB3B; color: #1a1a1a; font-size: 0.95rem; font-weight: 700;
+    text-align: center; white-space: pre-wrap;
+}
+#app-tooltip.is-warning { background: #7f1d1d; font-size: 0.72rem; font-weight: 500; }
+
+/* Approve / Complete Month once done: green with yellow. */
+.approval-badge {
+    padding: 0.15rem 0.6rem; border-radius: 999px; font-weight: 700;
+    background: #166534; color: var(--yellow);
+}
+.icon-btn.is-done, .icon-btn.is-done:hover { background: #166534; color: var(--yellow); border-color: #166534; cursor: default; }
+.approval-badge { font-size: 0.72rem; white-space: nowrap; }
+.frozen-note { background: #166534; color: var(--yellow); border-radius: 8px; padding: 0.45rem 0.85rem; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem; }
+
+/* Summary pages' operation search and style filter. */
+tr.search-hidden { display: none; }
+.operation-search { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
+.operation-search .search-input { min-width: min(300px, 100%); }
+#operationSearchCount { font-size: 0.8rem; color: var(--text-muted); }
+.style-filter-menu { padding: 0.5rem 0.75rem; min-width: 16rem; font-size: 0.85rem; }
+.style-filter-menu label { display: flex; align-items: center; gap: 0.45rem; padding: 0.2rem 0; white-space: nowrap; cursor: pointer; }
+.style-filter-menu .btn-link { padding: 0 0 0.3rem; font-size: 0.78rem; }
+.summary-grouping { margin-bottom: 0.75rem; align-self: flex-start; width: fit-content; }

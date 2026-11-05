@@ -1,0 +1,111 @@
+        // Operation search and style filter for all three summary views, used
+        // alone or together: shows only what matches, fully expanded. Search
+        // ignores punctuation and spaces, so "dn" finds "D/N". The Total row
+        // adds up just the matches; other rows keep their full amounts.
+        // Clearing both goes back to collapsed.
+        //
+        // Each view is top row > middle row > detail row. settings.operationLevel
+        // says whether the operation name is on the "detail" or "middle" row,
+        // and a row carrying data-style-name gives the style.
+        function initSummaryFilters(settings) {
+            var input = document.getElementById('operationSearch');
+            if (!input) return;
+            var count = document.getElementById('operationSearchCount');
+            var styleButton = document.getElementById('styleFilterBtn');
+            var styleList = document.getElementById('styleFilterList');
+            var totalRow = document.querySelector('tr.grand-total-row');
+            var originalLabel = totalRow.cells[0].textContent;
+            var originalTotals = settings.totals.map(function (t) { return totalRow.cells[t.cell].textContent; });
+
+            var styleNames = Array.from(document.querySelectorAll('tr[data-style-name]')).map(function (row) {
+                return row.dataset.styleName;
+            });
+            Array.from(new Set(styleNames)).sort().forEach(function (name) {
+                var label = document.createElement('label');
+                var box = document.createElement('input');
+                box.type = 'checkbox';
+                box.className = 'form-check-input mt-0';
+                box.value = name;
+                label.appendChild(box);
+                label.appendChild(document.createTextNode(name));
+                styleList.appendChild(label);
+            });
+
+            function normalize(text) {
+                return text.toLowerCase().replace(/[^a-z0-9]/g, '');
+            }
+            function plural(number, noun) {
+                return number + ' ' + noun + (number === 1 ? '' : 's');
+            }
+
+            function apply() {
+                var query = normalize(input.value);
+                var selected = Array.from(styleList.querySelectorAll('input:checked')).map(function (box) { return box.value; });
+                var filtering = !!query || selected.length > 0;
+                var matches = 0;
+                var topMatches = 0;
+                var sums = settings.totals.map(function () { return 0; });
+
+                function nameMatches(row) {
+                    return !query || normalize(row.cells[0].textContent).indexOf(query) !== -1;
+                }
+                function countRow(row) {
+                    matches += 1;
+                    settings.totals.forEach(function (t, i) {
+                        sums[i] += parseFloat(row.cells[t.source].textContent) || 0;
+                    });
+                }
+
+                settings.topRows.forEach(function (top) {
+                    var topMatched = false;
+                    var middles = settings.middlesOf(top);
+                    middles.forEach(function (middle) {
+                        var styleRow = top.dataset.styleName ? top : middle;
+                        var styleSelected = !selected.length || selected.indexOf(styleRow.dataset.styleName) !== -1;
+                        var middleMatched = false;
+                        if (settings.operationLevel === 'middle') {
+                            middleMatched = styleSelected && nameMatches(middle);
+                            if (filtering && middleMatched) countRow(middle);
+                        }
+                        settings.detailsOf(middle).forEach(function (detail) {
+                            var detailMatched = settings.operationLevel === 'middle'
+                                ? middleMatched
+                                : styleSelected && nameMatches(detail);
+                            detail.classList.toggle('search-hidden', !detailMatched);
+                            if (settings.operationLevel === 'detail' && filtering && detailMatched) {
+                                middleMatched = true;
+                                countRow(detail);
+                            }
+                        });
+                        middle.classList.toggle('search-hidden', filtering && !middleMatched);
+                        topMatched = topMatched || (filtering && middleMatched);
+                    });
+                    top.classList.toggle('search-hidden', filtering && !topMatched);
+                    settings.setTopCollapsed(top, !topMatched);
+                    if (topMatched) {
+                        topMatches += 1;
+                        middles.forEach(function (middle) { settings.setMiddleCollapsed(middle, false); });
+                    }
+                });
+
+                styleButton.textContent = !selected.length ? 'All styles'
+                    : selected.length === 1 ? selected[0] : selected.length + ' styles';
+                totalRow.classList.toggle('search-hidden', filtering && !matches);
+                totalRow.cells[0].textContent = filtering ? 'Total of matching operations' : originalLabel;
+                settings.totals.forEach(function (t, i) {
+                    totalRow.cells[t.cell].textContent = filtering ? sums[i].toFixed(2) : originalTotals[i];
+                });
+                count.textContent = !filtering ? ''
+                    : matches ? plural(matches, settings.rowNoun) + ' across ' + plural(topMatches, settings.topNoun)
+                    : 'No matching operations';
+                refreshExpandAllLabel();
+                refreshCollapseAllLabel();
+            }
+
+            input.addEventListener('input', apply);
+            styleList.addEventListener('change', apply);
+            document.getElementById('styleFilterClear').addEventListener('click', function () {
+                styleList.querySelectorAll('input:checked').forEach(function (box) { box.checked = false; });
+                apply();
+            });
+        }

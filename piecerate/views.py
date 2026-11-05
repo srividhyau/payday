@@ -130,6 +130,16 @@ def _parse_month_date(date_param):
     return date_cls.today().replace(day=1)
 
 
+FROZEN_MONTH_MESSAGE = "This month is approved and frozen. Un-approve it on the Operator Summary page to change it."
+
+
+def _month_or_first_unapproved(date_param):
+    """A page's month: the one asked for, else the first unapproved one."""
+    if date_param:
+        return _parse_month_date(date_param)
+    return OperatorSummaryApproval.first_unapproved_month() or _parse_month_date(None)
+
+
 def _unique_name(base_name):
     """base_name if free, else the first unused "<base_name> (2)" / "(3)" / ..."""
     if not Style.objects.filter(name__iexact=base_name).exists():
@@ -163,15 +173,15 @@ def _guess_source_template(style):
 @login_required
 def production_shortcut_view(request):
     """The "Production" menu link — Production is really a per-style
-    page, so this jumps to the current month's first style (by name);
-    the Production page itself has a dropdown to switch to any other
+    page, so this jumps to the first unapproved month's first style (by
+    name); the Production page itself has a dropdown to switch to any other
     style running the same month. Falls back to the Styles list only
-    when there's nothing set up yet this month to jump to."""
-    today = date_cls.today()
-    style = Style.objects.filter(year=today.year, month=today.month, is_template=False).order_by("name").first()
+    when there's nothing set up yet for that month to jump to."""
+    month = _month_or_first_unapproved(None)
+    style = Style.objects.filter(year=month.year, month=month.month, is_template=False).order_by("name").first()
     if style:
         return redirect("piece_rate_production", style_id=style.id)
-    messages.info(request, "No styles set up yet this month — add one below, then open its Production page.")
+    messages.info(request, "No styles set up yet for this month — add one below, then open its Production page.")
     return redirect("piece_rate")
 
 
@@ -183,7 +193,7 @@ def piece_rate_view(request):
     Template's rate card ("duplicate_template"), both tagged to the
     month being viewed. Duplicating copies every RateCardOperation row,
     so the new style is fully independent from the template afterward."""
-    current = _parse_month_date(request.GET.get("date"))
+    current = _month_or_first_unapproved(request.GET.get("date"))
     year, month = current.year, current.month
 
     if request.method == "POST":
@@ -192,6 +202,17 @@ def piece_rate_view(request):
         if denied:
             return denied
         action = request.POST.get("action", "")
+
+        # Everything here changes the month's styles except saving a copy as
+        # a template. An existing style can also be from another month.
+        if not action.startswith("save_as_template_"):
+            target_id = request.POST.get("style_id") or (
+                action[len("shift_next_month_"):] if action.startswith("shift_next_month_") else None
+            )
+            target = Style.objects.filter(id=target_id).first() if target_id else None
+            if target.is_frozen if target else OperatorSummaryApproval.is_approved(year, month):
+                messages.error(request, FROZEN_MONTH_MESSAGE)
+                return redirect(redirect_url)
 
         if action == "create_style":
             name = request.POST.get("name", "").strip()
@@ -347,6 +368,7 @@ def piece_rate_view(request):
         "year": year,
         "month": month,
         "month_name": calendar.month_name[month],
+        "month_approved": OperatorSummaryApproval.is_approved(year, month),
         "prev_date": prev_date.isoformat(),
         "next_date": next_date.isoformat(),
         # This month's totals across every style listed — Total Rate
@@ -360,7 +382,7 @@ def piece_rate_view(request):
         # same as the write path itself (_require_otp_verified), so
         # these controls don't render as usable when submitting them
         # would just redirect to /verify-otp/.
-        "can_edit_styles": request.user.is_verified(),
+        "can_edit_styles": request.user.is_verified() and not OperatorSummaryApproval.is_approved(year, month),
     })
 
 
@@ -505,6 +527,9 @@ def rate_card_view(request, style_id):
             denied = _require_piece_rate_editor(request)
             if denied:
                 return denied
+        if style.is_frozen:
+            messages.error(request, FROZEN_MONTH_MESSAGE)
+            return redirect("piece_rate_rate_card", style_id=style.id)
         action = request.POST.get("action", "")
 
         actor = request.user.get_username() or "unknown"
@@ -708,13 +733,14 @@ def rate_card_view(request, style_id):
         # (disabled, pending OTP — see "otp_verified" below — rather
         # than hidden outright, unlike the editable fields themselves,
         # since Delete needs no typed input to misuse by accident).
-        "can_see_delete": not style.is_template or can_edit_piece_rate(request.user),
+        "can_see_delete": not style.is_frozen and (not style.is_template or can_edit_piece_rate(request.user)),
         "otp_verified": request.user.is_verified(),
         # Permission AND OTP-verified, same as the write path itself
         # (_require_otp_verified), so fields don't render as editable
         # inputs when submitting them would just redirect to verify-otp.
         "can_edit_this_style": (
-            (not style.is_template or can_edit_piece_rate(request.user)) and request.user.is_verified()
+            not style.is_frozen
+            and (not style.is_template or can_edit_piece_rate(request.user)) and request.user.is_verified()
         ),
         "source_template": source_template,
         "template_summary": template_summary,
@@ -894,6 +920,8 @@ def _save_production_cell(request, style):
     regardless of which UI is driving it. Every change (including a
     remove-operator wipe) is audit-logged — see AuditLogEntry — keyed by
     _cell_object_id, not the PieceRateEntry row's own pk."""
+    if style.is_frozen:
+        return JsonResponse({"ok": False, "error": FROZEN_MONTH_MESSAGE}, status=403)
     rc_op = get_object_or_404(RateCardOperation, id=request.POST.get("rate_card_operation_id"), style=style)
     employee = get_object_or_404(Employee, id=request.POST.get("employee_id"))
     actor = request.user.get_username() or "unknown"
@@ -1366,7 +1394,7 @@ def _operator_summary_context(request) -> dict:
     used in this app. Shared by operator_summary_view and
     operator_summary_download_view so the .xlsx can never drift from
     what the page shows."""
-    current = _parse_month_date(request.GET.get("date"))
+    current = _month_or_first_unapproved(request.GET.get("date"))
     year, month = current.year, current.month
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
@@ -1554,14 +1582,31 @@ def operator_summary_download_view(request):
     return response
 
 
+def _operations_with_operators(employee_list):
+    """Turns one style's operators -> operations around into operations ->
+    operators, in rate card order, for Style Summary's other grouping."""
+    by_op = {}
+    for emp in employee_list:
+        for op in emp["ops"]:
+            bucket = by_op.setdefault(op["op_id"], {**op, "quantity": 0, "amount": Decimal("0"), "operators": []})
+            bucket["quantity"] += op["quantity"]
+            bucket["amount"] += op["amount"]
+            bucket["operators"].append({**emp, "quantity": op["quantity"], "amount": op["amount"]})
+    operations = sorted(by_op.values(), key=lambda o: o["op_code"])
+    for op in operations:
+        op["diff_class"] = _qty_diff_class(op["quantity"], op["order_quantity"])
+    return operations
+
+
 def _style_summary_context(request) -> dict:
     """Same data as Operator Summary, grouped Style -> Operator ->
     Operation instead of Operator -> Style -> Operation — which style is
     costing the most and who worked it, rather than what one operator
-    did across every style. Shared by style_summary_view and
+    did across every style. ?group=operation switches the lower levels to
+    Style -> Operation -> Operator (each row's "operations"). Shared by style_summary_view and
     style_summary_download_view so the .xlsx can never drift from what
     the page shows."""
-    current = _parse_month_date(request.GET.get("date"))
+    current = _month_or_first_unapproved(request.GET.get("date"))
     year, month = current.year, current.month
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
@@ -1577,6 +1622,7 @@ def _style_summary_context(request) -> dict:
         style_bucket = by_style.setdefault(style.id, {"style": style, "style_name": style.name, "employees": {}})
         emp_bucket = style_bucket["employees"].setdefault(e.employee_id, {"employee": e.employee, "ops": {}})
         op_bucket = emp_bucket["ops"].setdefault(rc_op.id, {
+            "op_id": rc_op.id, "op_code": rc_op.op_code,
             "op_name": rc_op.name, "section": rc_op.section, "rate": rc_op.rate,
             "order_quantity": rc_op.order_quantity, "quantity": 0,
         })
@@ -1626,7 +1672,8 @@ def _style_summary_context(request) -> dict:
             style_total += employee_total
         employee_list.sort(key=lambda e: e["employee"].name)
         style_rows.append({
-            "style": style_data["style"], "style_name": style_data["style_name"], "employees": employee_list, "total": style_total,
+            "style": style_data["style"], "style_name": style_data["style_name"], "employees": employee_list,
+            "operations": _operations_with_operators(employee_list), "total": style_total,
             "order_quantity": style_order_qty, "rate_sum": style_rate, "quantity_sum": style_quantity,
         })
         grand_total += style_total
@@ -1635,6 +1682,7 @@ def _style_summary_context(request) -> dict:
 
     return {
         "style_rows": style_rows,
+        "group_by_operation": request.GET.get("group") == "operation",
         "grand_total": grand_total,
         "year": year,
         "month": month,
@@ -1654,8 +1702,8 @@ def style_summary_view(request):
 @login_required
 def style_summary_download_view(request):
     """Downloads the currently-viewed Style Summary grid as a single-
-    sheet .xlsx — same 3-level hierarchy as the page (Style -> Operator
-    -> Operation), via the same _style_summary_context used by the page
+    sheet .xlsx — same 3-level hierarchy as the page (whichever grouping
+    it's showing), via the same _style_summary_context used by the page
     so the sheet can never drift from what's on screen."""
     import openpyxl
     from openpyxl.styles import Font, PatternFill
@@ -1678,7 +1726,8 @@ def style_summary_download_view(request):
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([])
 
-    headers = ["Style / Operator / Operation", "Section", "Order Qty", "Operator Qty", "Rate", "Working Days", "Avg/Day", "Amount"]
+    group_by_operation = context["group_by_operation"]
+    headers = ["Style / Operation / Operator" if group_by_operation else "Style / Operator / Operation", "Section", "Order Qty", "Operator Qty", "Rate", "Working Days", "Avg/Day", "Amount"]
     ws.append(headers)
     header_row_num = ws.max_row
     for cell in ws[header_row_num]:
@@ -1693,6 +1742,22 @@ def style_summary_download_view(request):
         for cell in ws[ws.max_row]:
             cell.font = Font(bold=True)
             cell.fill = style_fill
+        if group_by_operation:
+            for op in row["operations"]:
+                ws.append([
+                    "    " + op["op_name"], op["section"], op["order_quantity"], op["quantity"],
+                    float(op["rate"]), "", "", float(op["amount"]),
+                ])
+                color = diff_colors.get(op["diff_class"])
+                for cell in ws[ws.max_row]:
+                    cell.font = Font(bold=True, color=color)
+                    cell.fill = operator_fill
+                for emp in op["operators"]:
+                    ws.append([
+                        "        " + emp["employee"].name, "", "", emp["quantity"], "",
+                        emp["working_days"], float(emp["avg_per_day"]), float(emp["amount"]),
+                    ])
+            continue
         for emp in row["employees"]:
             ws.append([
                 "    " + emp["employee"].name, "", "", "", "",
@@ -1741,7 +1806,7 @@ def _management_summary_context(request) -> dict:
     the whole point of a management/budget view. Shared by
     management_summary_view and management_summary_download_view so the
     .xlsx can never drift from what the page shows."""
-    current = _parse_month_date(request.GET.get("date"))
+    current = _month_or_first_unapproved(request.GET.get("date"))
     year, month = current.year, current.month
     prev_date = (current.replace(day=1) - timedelta(days=1)).replace(day=1)
     next_date = (current.replace(day=28) + timedelta(days=4)).replace(day=1)

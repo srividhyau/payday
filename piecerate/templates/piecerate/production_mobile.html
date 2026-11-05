@@ -148,6 +148,11 @@
     .edit-actions button.danger { color: #b3261e; border-color: #b3261e; }
     .edit-actions button.danger:hover { background: #fdecea; }
 </style>
+{% if style.is_frozen %}<style>
+    .day-cell input, .day-chip, .add-operator-btn, .remove-operator-btn { pointer-events: none; }
+    .add-operator-btn, .remove-operator-btn { display: none !important; }
+    .day-cell input { background: #f1f3f5; }
+</style>{% endif %}
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_production" page_title="Production — "|add:style.name %}
@@ -155,6 +160,7 @@
     {% include "attendance/_header_pill.html" with floating=True current="piece_rate_production" page_title="Production" %}
 
     <div class="page">
+        {% include "piecerate/_frozen_note.html" with frozen=style.is_frozen %}
         <div class="header-row">
             <div class="header-title">
                 {% include "piecerate/_style_icon.html" with style=style %}

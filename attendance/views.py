@@ -22,7 +22,7 @@ from django_otp import match_token
 from django.contrib.auth.models import Group, User
 from django.core.cache import cache
 from django.core.mail import EmailMessage
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Min, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -35,11 +35,11 @@ from src import parser as attendance_parser
 
 from .audit import log_change, log_changes
 from .forms import EmployeeForm, UploadForm
-from .importer import import_dataframe, import_file
+from .importer import attach_pending_attendance, import_dataframe, import_file
 from .middleware import EMPLOYEE_EDIT_GROUP
 from .models import (
     AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, EarlyClosureDay, Employee, EmployeeSnapshot,
-    EmploymentPeriod, LeaveLedgerEntry, MonthLock, OtAdjustment, PayrollSnapshot, SalaryAdjustment, SpecialDay,
+    EmploymentPeriod, LeaveLedgerEntry, MonthLock, OtAdjustment, PayrollSnapshot, PendingDeviceAttendance, SalaryAdjustment, SpecialDay,
     UploadBatch,
 )
 
@@ -114,6 +114,14 @@ def _latest_data_month_default() -> date_cls:
         return date_cls.today().replace(day=1)
     month_keys = sorted({(ts.year, ts.month) for ts in daily_all["date"]})
     return date_cls(*month_keys[-1], 1)
+
+
+def _salary_default_month() -> date_cls:
+    """Salary opens on the first unapproved month, or the latest month with
+    data when nothing's been approved yet."""
+    from piecerate.models import OperatorSummaryApproval
+
+    return OperatorSummaryApproval.first_unapproved_month() or _latest_data_month_default()
 
 
 @login_required
@@ -242,6 +250,9 @@ def upload_view(request):
                 .sort_values("emp_name")
                 .to_dict("records")
             )
+            known_codes = set(Employee.objects.values_list("code", flat=True))
+            for emp in employees:
+                emp["is_new"] = emp["emp_code"] not in known_codes
             recent_batches = UploadBatch.objects.all()[:10]
             return render(request, "attendance/upload.html", {
                 "form": UploadForm(),
@@ -1483,6 +1494,10 @@ def toggle_month_lock_view(request):
             # with _FrozenEmployee stand-ins) instead of the current real
             # rows, and re-"snapshotting" that blows up trying to save a
             # stand-in as if it were a real Employee.
+            # Already locked: keep its saved figures. Only a sheet that was
+            # unlocked gets re-saved.
+            if MonthLock.objects.filter(year=year, month=month, view=view).exists():
+                continue
             lock_key = _SALARY_VIEW_TO_LOCK_KEY.get(view)
             if lock_key:
                 _snapshot_salary_tab(year, month, lock_key)
@@ -1495,7 +1510,9 @@ def toggle_month_lock_view(request):
             "Month lock %s: view=%s %s-%s by user=%s", action, view, year, month, request.user,
         )
 
-    if action in ("lock", "unlock"):
+    if not labels:
+        messages.info(request, f"Already locked for {py_calendar.month_name[month]} {year}. Nothing was changed.")
+    elif action in ("lock", "unlock"):
         verb = "locked" if action == "lock" else "unlocked"
         are_is = "is" if len(labels) == 1 else "are"
         messages.success(
@@ -3386,6 +3403,29 @@ def _salary_summary_changes(prev: dict, cur: dict, pay_basis: str) -> list[dict]
     ]
 
 
+def _month_is_complete(year: int, month: int) -> bool:
+    """Every view Salary's Complete Month locks is locked for this month."""
+    required = {MonthLock.VIEW_ALL, MonthLock.VIEW_ISSUES, MonthLock.VIEW_OT, *_SALARY_LOCK_VIEWS.values()}
+    locked = MonthLock.objects.filter(year=year, month=month).values_list("view", flat=True)
+    return required <= set(locked)
+
+
+def _pending_device_employees(year: int, month: int) -> list[dict]:
+    """Device codes with attendance this month that aren't in Employees yet,
+    for the list at the top of the Salary page. They aren't on payroll until
+    someone adds them from the Employees page."""
+    return list(
+        PendingDeviceAttendance.objects.filter(date__year=year, date__month=month)
+        .exclude(emp_code__in=Employee.objects.values("code"))
+        .values("emp_code")
+        .annotate(
+            name=Max("emp_name"), days=Count("id"), present=Count("id", filter=Q(status="P")),
+            first_date=Min("date"), last_date=Max("date"),
+        )
+        .order_by("name")
+    )
+
+
 def _salary_summary_cache_key(year: int, month: int) -> str:
     return f"salary_summary_figures:{year}-{month:02d}"
 
@@ -3445,7 +3485,7 @@ def salary_view(request):
     is one upsert-by-(employee, year, month) per row, same bulk shape as
     mark_attendance_view's day-view save — one tab's table = one POST."""
     date_param = request.GET.get("date") or request.POST.get("date")
-    current = _parse_month_date(date_param, _latest_data_month_default())
+    current = _parse_month_date(date_param, _salary_default_month())
     year, month = current.year, current.month
 
     if request.method == "POST":
@@ -3537,6 +3577,8 @@ def salary_view(request):
     # used only by the Excel tab-picker).
     requested_tab = request.GET.get("tab", "")
     context["initial_tab"] = requested_tab if requested_tab in _SALARY_CLIENT_TAB_KEYS else "summary"
+    context["pending_device_employees"] = _pending_device_employees(current.year, current.month)
+    context["month_complete"] = _month_is_complete(current.year, current.month)
     return render(request, "attendance/salary.html", context)
 
 
@@ -3817,7 +3859,7 @@ def salary_download_view(request):
     import openpyxl
 
     date_param = request.GET.get("date")
-    current = _parse_month_date(date_param, _latest_data_month_default())
+    current = _parse_month_date(date_param, _salary_default_month())
     context = _salary_context(current)
     month_label = f"{context['month_name']} {context['year']}"
     payroll_rows = lambda rows: [row for row in rows if not row.get("attendance_warning")]
@@ -4000,7 +4042,7 @@ def salary_bank_download_view(request):
     import openpyxl
 
     date_param = request.GET.get("date")
-    current = _parse_month_date(date_param, _latest_data_month_default())
+    current = _parse_month_date(date_param, _salary_default_month())
     context = _salary_context(current)
 
     selected_keys = set(request.GET.getlist("tabs")) or {key for key, _, _ in _SALARY_TAB_KEYS}
@@ -5225,6 +5267,21 @@ def employee_form_view(request, pk=None):
                     log_changes(actor, "attendance", "Employee", form.instance.pk, object_repr, changes)
             else:
                 log_change(actor, "attendance", "Employee", form.instance.pk, object_repr, "__created__", "", "created")
+                # Without a period, an employee shows in every month. Normally
+                # the 1st of the month they're added; waiting device rows can
+                # be older, so go back far enough that those days aren't hidden.
+                earliest = (
+                    PendingDeviceAttendance.objects.filter(emp_code=form.instance.code)
+                    .order_by("date").values_list("date", flat=True).first()
+                )
+                today = timezone.localdate()
+                EmploymentPeriod.objects.create(
+                    employee=form.instance, start_date=min(today, earliest or today).replace(day=1),
+                )
+            moved = attach_pending_attendance(form.instance)
+            if moved:
+                log_change(actor, "attendance", "Employee", form.instance.pk, object_repr, "pending_attendance_attached", "", moved)
+                messages.success(request, f"Added {moved} waiting attendance day(s) for {form.instance.name}.")
             messages.success(request, f"Saved {form.instance.code} - {form.instance.name}.")
             return redirect("employee_list")
         if instance:
@@ -5235,7 +5292,13 @@ def employee_form_view(request, pk=None):
     else:
         if instance:
             return redirect("employee_list")
-        form = EmployeeForm(instance=instance)
+        # Arriving from the Salary page's list of waiting device employees.
+        pending = PendingDeviceAttendance.objects.filter(emp_code=request.GET.get("code", "")).first()
+        initial = (
+            {"code": pending.emp_code, "name": pending.emp_name, "designation": pending.designation}
+            if pending else None
+        )
+        form = EmployeeForm(instance=instance, initial=initial)
     context = {"current": "employee_list", "form": form, "instance": instance}
     return render(request, "attendance/employee_form.html", context)
 

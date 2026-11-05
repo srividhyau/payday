@@ -79,6 +79,9 @@
     tr.operator-row:has(.op-toggle-arrow) { cursor: pointer; }
     tr.operator-row.collapsed .op-toggle-arrow { transform: rotate(-90deg); }
     tr.operator-row.collapsed td { background: #fff; }
+    tr.operator-row.diff-more td { color: #a400a4; }
+    tr.operator-row.diff-less td { color: #b3261e; }
+    tr.operator-row.diff-balanced td { color: #1e7e34; }
 
     tr.op-detail-row td { background: #fff; font-weight: 400; }
     tr.op-detail-row td.op-label { padding-left: 2.5rem; text-align: left; }
@@ -128,14 +131,14 @@
     <div class="month-nav">
         {% include "attendance/_header_pill.html" with current="piece_rate_operator_summary" page_title="Style Summary" %}
             <div class="date-nav-group">
-                <a href="?date={{ prev_date }}" class="nav-arrow">&larr;</a>
+                <a href="?date={{ prev_date }}{% if group_by_operation %}&group=operation{% endif %}" class="nav-arrow">&larr;</a>
                 <span class="current-month">{{ month_name }} {{ year }}</span>
-                <a href="?date={{ next_date }}" class="nav-arrow">&rarr;</a>
+                <a href="?date={{ next_date }}{% if group_by_operation %}&group=operation{% endif %}" class="nav-arrow">&rarr;</a>
             </div>
             <div class="tab-row">
                 <a href="{% url 'piece_rate_operator_summary' %}?date={{ current_date }}" class="tab-btn">Operator View</a>
                 <a href="{% url 'piece_rate_management_summary' %}?date={{ current_date }}" class="tab-btn">Management View</a>
-                <a class="icon-btn" href="{% url 'piece_rate_style_summary_download' %}?date={{ current_date }}" data-tooltip="Download Excel file" aria-label="Download Excel file">
+                <a class="icon-btn" href="{% url 'piece_rate_style_summary_download' %}?date={{ current_date }}{% if group_by_operation %}&group=operation{% endif %}" data-tooltip="Download Excel file" aria-label="Download Excel file">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
                 </a>
                 <button type="button" class="icon-btn" id="sendStyleSummaryWhatsappBtn" data-tooltip="Send screenshot to WhatsApp" aria-label="Send screenshot to WhatsApp">
@@ -151,11 +154,16 @@
         {% endfor %}
 
         {% if style_rows %}
+        <div class="btn-group btn-group-sm summary-grouping" role="group" aria-label="Group styles by">
+            <a href="?date={{ current_date }}" class="btn btn-outline-primary{% if not group_by_operation %} active{% endif %}"{% if not group_by_operation %} aria-current="true"{% endif %}>Operator &rarr; Operation</a>
+            <a href="?date={{ current_date }}&group=operation" class="btn btn-outline-primary{% if group_by_operation %} active{% endif %}"{% if group_by_operation %} aria-current="true"{% endif %}>Operation &rarr; Operator</a>
+        </div>
+        {% include "piecerate/_summary_filters.html" %}
         <div class="table-wrap fit-content summary-table-wrap">
             <table class="table simple" id="styleSummaryGrid">
                 <thead>
                     <tr>
-                        <th>Style / Operator / Operation
+                        <th>Style / {% if group_by_operation %}Operation / Operator{% else %}Operator / Operation{% endif %}
                             <button type="button" id="expandAllBtn" class="icon-btn" data-tooltip="Expand first level" aria-label="Expand first level">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                             </button>
@@ -174,7 +182,7 @@
                 </thead>
                 <tbody>
                     {% for row in style_rows %}
-                    <tr class="style-top-row" data-style-id="{{ forloop.counter }}">
+                    <tr class="style-top-row" data-style-id="{{ forloop.counter }}" data-style-name="{{ row.style_name }}">
                         <td><span class="toggle-arrow">▾</span>{% include "piecerate/_style_icon.html" with style=row.style %}{{ row.style_name }}</td>
                         <td></td>
                         <td class="num">{{ row.order_quantity }}</td>
@@ -184,6 +192,35 @@
                         <td></td>
                         <td class="num">{{ row.total }}</td>
                     </tr>
+                    {% if group_by_operation %}
+                    {% for op in row.operations %}
+                    <tr class="operator-row {{ op.diff_class }}" data-style-id="{{ forloop.parentloop.counter }}" data-op-key="{{ forloop.parentloop.counter }}_{{ forloop.counter }}">
+                        <td class="label"><span class="toggle-arrow op-toggle-arrow">▾</span>{{ op.op_name }}</td>
+                        <td>{{ op.section|default:"—" }}</td>
+                        <td class="num">{{ op.order_quantity }}</td>
+                        <td class="num">{{ op.quantity }}</td>
+                        <td class="num">{{ op.rate }}</td>
+                        <td></td>
+                        <td></td>
+                        <td class="num">{{ op.amount }}</td>
+                    </tr>
+                    {% for emp in op.operators %}
+                    <tr class="op-detail-row" data-style-id="{{ forloop.parentloop.parentloop.counter }}" data-op-key="{{ forloop.parentloop.parentloop.counter }}_{{ forloop.parentloop.counter }}">
+                        <td class="op-label">{{ emp.employee.name }}</td>
+                        <td></td>
+                        <td></td>
+                        <td class="num">{{ emp.quantity }}</td>
+                        <td></td>
+                        <td class="num col-attendance{% if emp.attendance_flag == 'low' %} flag-low{% elif emp.attendance_flag == 'high' %} flag-high{% endif %}">{{ emp.working_days|floatformat:1 }}</td>
+                        <td class="num col-attendance avg-day-cell{% if emp.avg_per_day > 900 %} avg-high{% elif emp.avg_per_day < 400 %} avg-low{% endif %}" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top"
+                            title="{% if emp.prev %}{{ prev_month_name }}<br>Salary: ₹{{ emp.prev.total }}<br>Working Days: {{ emp.prev.working_days|floatformat:1 }}<br>Avg/Day: ₹{{ emp.prev.avg_per_day }}{% else %}No data for {{ prev_month_name }}{% endif %}">
+                            {{ emp.avg_per_day }}
+                        </td>
+                        <td class="num">{{ emp.amount }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                    {% else %}
                     {% for emp in row.employees %}
                     <tr class="operator-row" data-style-id="{{ forloop.parentloop.counter }}" data-op-key="{{ forloop.parentloop.counter }}_{{ forloop.counter }}">
                         <td class="label">{% if emp.ops %}<span class="toggle-arrow op-toggle-arrow">▾</span>{% endif %}{{ emp.employee.name }}</td>
@@ -211,6 +248,7 @@
                     </tr>
                     {% endfor %}
                     {% endfor %}
+                    {% endif %}
                     {% endfor %}
                     <tr class="grand-total-row">
                         <td colspan="5">Grand Total</td>
@@ -227,6 +265,8 @@
     </div>
 
     <script>
+{% include "piecerate/_summary_filters_script.html" %}
+
         // Two independent collapse levels, same pattern as Management
         // Summary: a style shows/hides its own operators; an operator
         // (separately) shows/hides its own op-detail rows. Expanding a
@@ -324,6 +364,22 @@
         document.querySelectorAll('tr.style-top-row').forEach(function (row) { setRowCollapsed(row, true); });
         refreshExpandAllLabel();
         refreshCollapseAllLabel();
+
+        initSummaryFilters({
+            topRows: topRows,
+            middlesOf: function (top) {
+                return Array.from(document.querySelectorAll('tr.operator-row[data-style-id="' + top.dataset.styleId + '"]'));
+            },
+            detailsOf: function (middle) {
+                return Array.from(document.querySelectorAll('tr.op-detail-row[data-op-key="' + middle.dataset.opKey + '"]'));
+            },
+            setTopCollapsed: setRowCollapsed,
+            setMiddleCollapsed: setOperatorCollapsed,
+            operationLevel: '{% if group_by_operation %}middle{% else %}detail{% endif %}',
+            totals: [{ cell: 3, source: 7 }],
+            rowNoun: '{% if group_by_operation %}operation{% else %}operation row{% endif %}',
+            topNoun: 'style',
+        });
 
         // Avg/Day's "previous month" tooltip — deferred to DOMContentLoaded
         // since bootstrap.bundle.min.js (the `bootstrap` global) loads via

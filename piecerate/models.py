@@ -1,4 +1,5 @@
 import secrets
+from datetime import date
 
 from django.db import models
 
@@ -47,6 +48,12 @@ class Style(TimestampedModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_frozen(self):
+        """A working style in an approved month can't be changed until the
+        month is un-approved on the Operator Summary page."""
+        return not self.is_template and OperatorSummaryApproval.is_approved(self.year, self.month)
 
 
 class Operation(TimestampedModel):
@@ -204,3 +211,18 @@ class OperatorSummaryApproval(TimestampedModel):
 
     def __str__(self):
         return f"Operator Summary {self.year}-{self.month:02d} approved"
+
+    @classmethod
+    def is_approved(cls, year, month):
+        return cls.objects.filter(year=year, month=month).exists()
+
+    @classmethod
+    def first_unapproved_month(cls):
+        """The month after the latest approved one (the 1st of it), never
+        later than the current month — what Payroll and Piece Rate pages
+        open on when no month is asked for. None if nothing's approved yet."""
+        latest = cls.objects.order_by("-year", "-month").first()
+        if latest is None:
+            return None
+        year, month = (latest.year + 1, 1) if latest.month == 12 else (latest.year, latest.month + 1)
+        return min(date(year, month, 1), date.today().replace(day=1))

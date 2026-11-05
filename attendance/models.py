@@ -260,6 +260,36 @@ class UploadBatch(TimestampedModel):
         return f"{self.file_name} ({self.uploaded_at:%Y-%m-%d %H:%M})"
 
 
+class PendingDeviceAttendance(TimestampedModel):
+    """A device attendance row whose code isn't in Employees yet. Uploads
+    never create employees: these rows wait here, are listed at the top of
+    the Salary page, and move to AttendanceRecord only once someone adds
+    the employee from the Employees page."""
+
+    emp_code = models.CharField(max_length=50)
+    emp_name = models.CharField(max_length=255, blank=True)
+    designation = models.CharField(max_length=150, blank=True)
+    company = models.CharField(max_length=150, blank=True)
+    date = models.DateField()
+    shift = models.CharField(max_length=20, blank=True)
+    time_in = models.CharField(max_length=20, blank=True)
+    time_out = models.CharField(max_length=20, blank=True)
+    work_hours = models.FloatField(default=0)
+    ot_hours = models.FloatField(default=0)
+    status = models.CharField(max_length=5, blank=True)
+    batch = models.ForeignKey(UploadBatch, null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        ordering = ["emp_name", "date"]
+        constraints = [
+            models.UniqueConstraint(fields=["emp_code", "date"], name="unique_pending_device_attendance"),
+        ]
+
+    def __str__(self):
+        return f"{self.emp_code} {self.date} (pending)"
+
+
+
 class AttendanceRecord(TimestampedModel):
     STATUS_CHOICES = [
         ("P", "Present"),

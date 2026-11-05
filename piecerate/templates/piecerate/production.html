@@ -241,6 +241,11 @@
     .history-entry .history-meta { font-size: 0.75rem; color: #8a94a6; margin-top: 0.15rem; }
     .history-empty { font-size: 0.85rem; color: #8a94a6; padding: 0.5rem 0; }
 </style>
+{% if style.is_frozen %}<style>
+    .day-cell input, .day-chip, .add-operator-btn, .remove-operator-btn { pointer-events: none; }
+    .add-operator-btn, .remove-operator-btn { display: none !important; }
+    .day-cell input { background: #f1f3f5; }
+</style>{% endif %}
 </head>
 <body>
     {% include "attendance/_topbar.html" with current="piece_rate_production" page_title="Production — "|add:style.name %}
@@ -273,6 +278,7 @@
         </div>
 
     <div class="page">
+        {% include "piecerate/_frozen_note.html" with frozen=style.is_frozen %}
         <div class="card" id="legendPanel" style="display:none;">
             <h2>Legend</h2>
             <div class="legend">

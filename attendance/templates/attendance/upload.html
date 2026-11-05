@@ -91,7 +91,7 @@
                     {% for emp in pending.employees %}
                     <label>
                         <input type="checkbox" name="emp_codes" value="{{ emp.emp_code }}" checked onchange="updateEmpPickerCount()">
-                        {{ emp.emp_name }} <span class="emp-code">({{ emp.emp_code }})</span>
+                        {{ emp.emp_name }} <span class="emp-code">({{ emp.emp_code }})</span>{% if emp.is_new %} <span class="emp-code">— not in Employees, will wait in Payroll</span>{% endif %}
                     </label>
                     {% endfor %}
                 </div>
