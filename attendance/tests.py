@@ -180,3 +180,26 @@ class CompleteMonthButtonTests(TestCase):
             }, secure=True, follow=True)
         snapshot.assert_not_called()
         self.assertContains(response, "Already locked for September 2026")
+
+
+class PendingDeviceAttendanceAdminTests(TestCase):
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_superuser("boss", password="x"))
+        for day in (1, 2):
+            PendingDeviceAttendance.objects.create(emp_code="1001", emp_name="SUGANYA", date=date(2026, 10, day), status="A")
+        PendingDeviceAttendance.objects.create(emp_code="2002", emp_name="OTHER", date=date(2026, 10, 1), status="P")
+
+    @mock.patch("django_otp.middleware.is_verified", lambda user: True)
+    def test_listed_and_searchable_in_admin(self):
+        url = reverse("admin:attendance_pendingdeviceattendance_changelist")
+        response = self.client.get(url, {"q": "1001"}, secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "SUGANYA")
+        self.assertNotContains(response, "OTHER")
+
+    @mock.patch("django_otp.middleware.is_verified", lambda user: True)
+    def test_bulk_delete_removes_only_selected_code(self):
+        url = reverse("admin:attendance_pendingdeviceattendance_changelist")
+        ids = list(PendingDeviceAttendance.objects.filter(emp_code="1001").values_list("id", flat=True))
+        self.client.post(url, {"action": "delete_selected", "_selected_action": ids, "post": "yes"}, secure=True)
+        self.assertEqual(list(PendingDeviceAttendance.objects.values_list("emp_code", flat=True)), ["2002"])

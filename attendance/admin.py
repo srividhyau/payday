@@ -4,7 +4,7 @@ from django.contrib import admin
 
 from .models import (
     AttendanceRecord, CashRegisterEntry, CashWithdrawal, Department, Employee, EmploymentPeriod, LeaveLedgerEntry,
-    MonthLock, SalaryAdjustment, SpecialDay, UploadBatch,
+    MonthLock, PendingDeviceAttendance, SalaryAdjustment, SpecialDay, UploadBatch,
 )
 
 
@@ -53,6 +53,19 @@ class EmploymentPeriodAdmin(admin.ModelAdmin):
 class UploadBatchAdmin(admin.ModelAdmin):
     list_display = ("file_name", "uploaded_at", "period_start", "period_end", "row_count")
     readonly_fields = ("uploaded_at",)
+
+
+@admin.register(PendingDeviceAttendance)
+class PendingDeviceAttendanceAdmin(admin.ModelAdmin):
+    """Device rows for codes not in Employees yet, listed at the top of the
+    Salary page. Deleting rows here only clears that list; no employee or
+    pay is affected. A later upload with the same code adds them back."""
+
+    list_display = ("emp_code", "emp_name", "date", "status", "time_in", "time_out", "batch")
+    list_filter = ("status", "emp_code", "batch")
+    search_fields = ("emp_code", "emp_name")
+    date_hierarchy = "date"
+    ordering = ("emp_code", "date")
 
 
 @admin.register(AttendanceRecord)
